@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 
@@ -15,6 +15,7 @@ import {
   type AdminConsolePayload,
   type AdminMetric,
 } from "@/lib/admin-api";
+import { shouldAutoLoadAdminConsole } from "@/lib/admin-auth-session";
 import {
   registerCurrentAdminBrowserSession,
   startAdminSessionHeartbeat,
@@ -87,9 +88,10 @@ export default function AdminHome() {
   const [actionNote, setActionNote] = useState("");
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const lastAutoLoadedAccessTokenRef = useRef<string | null>(null);
 
   const loadConsole = useCallback(
-    async (currentSession = session) => {
+    async (currentSession: Session | null) => {
       if (!currentSession?.access_token) return;
       setIsLoadingConsole(true);
       setMessage("");
@@ -107,7 +109,19 @@ export default function AdminHome() {
         setIsLoadingConsole(false);
       }
     },
-    [session, supabase],
+    [supabase],
+  );
+
+  const autoLoadConsole = useCallback(
+    (nextSession: Session | null) => {
+      if (!shouldAutoLoadAdminConsole(lastAutoLoadedAccessTokenRef.current, nextSession)) {
+        return;
+      }
+
+      lastAutoLoadedAccessTokenRef.current = nextSession?.access_token ?? null;
+      void loadConsole(nextSession);
+    },
+    [loadConsole],
   );
 
   useEffect(() => {
@@ -116,22 +130,26 @@ export default function AdminHome() {
       if (!mounted) return;
       setSession(data.session);
       setIsAuthLoading(false);
-      if (data.session) void loadConsole(data.session);
+      autoLoadConsole(data.session);
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
-      if (nextSession) void loadConsole(nextSession);
-      else setConsoleData(emptyConsole);
+      if (nextSession) {
+        autoLoadConsole(nextSession);
+      } else {
+        lastAutoLoadedAccessTokenRef.current = null;
+        setConsoleData(emptyConsole);
+      }
     });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [loadConsole, supabase]);
+  }, [autoLoadConsole, supabase]);
 
   useEffect(() => {
     if (!session) return;
@@ -140,6 +158,7 @@ export default function AdminHome() {
       supabase,
       onSessionInvalidated: async () => {
         await supabase.auth.signOut();
+        lastAutoLoadedAccessTokenRef.current = null;
         setSession(null);
         setConsoleData(emptyConsole);
         setMessage("세션이 만료되어 다시 로그인해 주세요.");
@@ -167,6 +186,7 @@ export default function AdminHome() {
 
   async function signOut() {
     await supabase.auth.signOut();
+    lastAutoLoadedAccessTokenRef.current = null;
     setSession(null);
   }
 
@@ -302,7 +322,7 @@ export default function AdminHome() {
             <p>실제 운영 데이터는 ChikaPick_API 관리자 엔드포인트에서 불러옵니다.</p>
           </div>
           <div className="admin-topbar-actions">
-            <button type="button" onClick={() => loadConsole()}>
+            <button type="button" onClick={() => loadConsole(session)}>
               {isLoadingConsole ? "새로고침 중" : "새로고침"}
             </button>
             <button type="button" onClick={signOut}>
