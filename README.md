@@ -9,7 +9,7 @@ stores or uses Supabase service-role credentials.
 
 ## Features
 
-- 관리자 Supabase OAuth 로그인
+- 관리자 Supabase 이메일/비밀번호 로그인
 - Admin browser session registration with `appSurface: "admin"`
 - 운영 현황 summary metrics
 - 수동 병원 가입 심사 approve/reject, including short-lived business-license file links

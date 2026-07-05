@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 
 import {
@@ -18,6 +19,7 @@ import {
   registerCurrentAdminBrowserSession,
   startAdminSessionHeartbeat,
 } from "@/lib/browser-session";
+import { signInWithAdminPassword } from "@/lib/password-auth";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 type AdminTab =
@@ -78,6 +80,9 @@ export default function AdminHome() {
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const [consoleData, setConsoleData] = useState<AdminConsolePayload>(emptyConsole);
   const [isLoadingConsole, setIsLoadingConsole] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
   const [message, setMessage] = useState("");
   const [actionNote, setActionNote] = useState("");
 
@@ -142,15 +147,22 @@ export default function AdminHome() {
     });
   }, [session, supabase]);
 
-  async function startOAuth(provider: "kakao" | "google") {
+  async function handlePasswordSignIn(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setMessage("");
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
-    if (error) setMessage(error.message);
+    setIsSigningIn(true);
+
+    try {
+      await signInWithAdminPassword(supabase, {
+        email: loginEmail,
+        password: loginPassword,
+      });
+      setLoginPassword("");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "로그인에 실패했습니다.");
+    } finally {
+      setIsSigningIn(false);
+    }
   }
 
   async function signOut() {
@@ -211,14 +223,32 @@ export default function AdminHome() {
               한곳에서 관리합니다.
             </p>
           </div>
-          <div className="admin-login-actions">
-            <button type="button" onClick={() => startOAuth("kakao")}>
-              카카오로 로그인
+          <form className="admin-login-form" onSubmit={handlePasswordSignIn}>
+            <label>
+              <span>아이디(이메일)</span>
+              <input
+                autoComplete="username"
+                inputMode="email"
+                name="email"
+                type="email"
+                value={loginEmail}
+                onChange={(event) => setLoginEmail(event.target.value)}
+              />
+            </label>
+            <label>
+              <span>비밀번호</span>
+              <input
+                autoComplete="current-password"
+                name="password"
+                type="password"
+                value={loginPassword}
+                onChange={(event) => setLoginPassword(event.target.value)}
+              />
+            </label>
+            <button type="submit" disabled={isSigningIn}>
+              {isSigningIn ? "로그인 중" : "로그인"}
             </button>
-            <button type="button" onClick={() => startOAuth("google")}>
-              Google로 로그인
-            </button>
-          </div>
+          </form>
           {message ? <p className="admin-message admin-message--error">{message}</p> : null}
         </section>
       </main>

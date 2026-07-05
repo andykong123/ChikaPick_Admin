@@ -167,12 +167,40 @@ textarea:focus-visible {
   word-break: keep-all;
 }
 
-.admin-login-actions {
+.admin-login-form {
   display: grid;
   gap: 12px;
 }
 
-.admin-login-actions button,
+.admin-login-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-login-form label span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.admin-login-form input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-primary);
+  padding: 0 12px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.admin-login-form input:focus {
+  border-color: var(--chika-secondary-5);
+}
+
+.admin-login-form button,
 .admin-topbar-actions button,
 .admin-action-group button,
 .admin-small-button {
@@ -193,9 +221,13 @@ textarea:focus-visible {
   white-space: nowrap;
 }
 
-.admin-login-actions button:first-child {
-  background: #fde402;
-  color: var(--text-primary);
+.admin-login-form button {
+  margin-top: 4px;
+}
+
+.admin-login-form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .admin-shell {
