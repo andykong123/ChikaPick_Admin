@@ -1,0 +1,26 @@
+"use client";
+
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
+let browserClient: SupabaseClient | null = null;
+
+export function createSupabaseBrowserClient() {
+  if (browserClient) return browserClient;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  browserClient = createClient(
+    supabaseUrl ?? "http://localhost:54321",
+    publishableKey ?? "missing-publishable-key",
+    {
+      auth: {
+        detectSessionInUrl: true,
+        persistSession: true,
+        autoRefreshToken: true,
+      },
+    },
+  );
+
+  return browserClient;
+}
