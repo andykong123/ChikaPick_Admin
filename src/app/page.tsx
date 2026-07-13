@@ -16,6 +16,7 @@ import {
   type AdminMetric,
 } from "@/lib/admin-api";
 import { shouldAutoLoadAdminConsole } from "@/lib/admin-auth-session";
+import { statusLabel } from "@/lib/admin-display";
 import {
   registerCurrentAdminBrowserSession,
   startAdminSessionHeartbeat,
@@ -607,6 +608,42 @@ function LicenseTab({
                 <dt>상태</dt>
                 <dd>{item.licenseVerified ? "승인완료" : "미승인"}</dd>
               </div>
+              {item.latestSubmission ? (
+                <>
+                  <div>
+                    <dt>제출 상태</dt>
+                    <dd>{statusLabel(item.latestSubmission.status)}</dd>
+                  </div>
+                  <div>
+                    <dt>제출일</dt>
+                    <dd>{formatDate(item.latestSubmission.submittedAt)}</dd>
+                  </div>
+                  <div>
+                    <dt>면허 파일</dt>
+                    <dd>
+                      {item.latestSubmission.signedUrl ? (
+                        <a
+                          className="admin-file-link"
+                          href={item.latestSubmission.signedUrl}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          {item.latestSubmission.fileName} 열기
+                        </a>
+                      ) : (
+                        <span className="admin-file-unavailable">
+                          {item.latestSubmission.fileName} 링크 없음
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <dt>면허 파일</dt>
+                  <dd>-</dd>
+                </div>
+              )}
             </dl>
             <ActionGroup>
               <button type="button" onClick={() => onDecision(item.userId, true)}>
@@ -767,7 +804,7 @@ function WorkflowsTab({ data }: { data: AdminConsolePayload }) {
         <CompactRows
           rows={data.reservations.map((item) => [
             item.clinicName ?? "병원 없음",
-            `${item.patientName ?? "환자"} · ${item.status}`,
+            `${item.patientName ?? "환자"} · ${statusLabel(item.status)}`,
             formatDate(item.scheduledAt ?? item.createdAt),
           ])}
           emptyLabel="예약 데이터가 없습니다."
@@ -777,7 +814,7 @@ function WorkflowsTab({ data }: { data: AdminConsolePayload }) {
         <CompactRows
           rows={data.consultations.map((item) => [
             item.clinicName ?? "병원 없음",
-            `${item.title} · ${item.status}`,
+            `${item.title} · ${statusLabel(item.status)}`,
             formatDate(item.createdAt),
           ])}
           emptyLabel="전문의 소견 데이터가 없습니다."
@@ -914,19 +951,6 @@ function roleLabel(role: string) {
     staff: "스태프",
   };
   return labels[role] ?? role;
-}
-
-function statusLabel(status: string) {
-  const labels: Record<string, string> = {
-    pending_review: "심사 대기",
-    approved: "승인",
-    rejected: "반려",
-    pending: "대기",
-    active: "활성",
-    revoked: "회수",
-    redeemed: "사용됨",
-  };
-  return labels[status] ?? status;
 }
 
 function formatDate(value: string | null) {

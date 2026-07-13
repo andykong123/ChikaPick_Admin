@@ -539,6 +539,13 @@ td span {
   text-decoration: underline;
 }
 
+.admin-file-unavailable {
+  color: var(--text-quaternary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
 .admin-action-group button,
 .admin-small-button {
   min-height: 32px;

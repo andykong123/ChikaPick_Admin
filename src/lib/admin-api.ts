@@ -45,6 +45,18 @@ export interface LicenseVerificationRequest {
   jobTitle: string | null;
   licenseVerified: boolean;
   updatedAt: string | null;
+  latestSubmission: LicenseVerificationSubmission | null;
+}
+
+export interface LicenseVerificationSubmission {
+  id: string;
+  status: AdminReviewStatus;
+  submittedAt: string;
+  reviewedAt: string | null;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  signedUrl: string | null;
 }
 
 export interface AdminClinic {
