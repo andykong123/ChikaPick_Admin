@@ -172,7 +172,20 @@ textarea:focus-visible {
   gap: 12px;
 }
 
+.admin-inline-form {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(180px, 1.5fr) 140px auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
 .admin-login-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-inline-form label {
   display: grid;
   gap: 6px;
 }
@@ -180,6 +193,13 @@ textarea:focus-visible {
 .admin-login-form label span {
   color: var(--text-secondary);
   font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.admin-inline-form label span {
+  color: var(--text-secondary);
+  font-size: 12px;
   font-weight: 700;
   line-height: 18px;
 }
@@ -196,11 +216,31 @@ textarea:focus-visible {
   line-height: 20px;
 }
 
+.admin-inline-form input,
+.admin-inline-form select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-primary);
+  padding: 0 10px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
 .admin-login-form input:focus {
   border-color: var(--chika-secondary-5);
 }
 
+.admin-inline-form input:focus,
+.admin-inline-form select:focus {
+  border-color: var(--chika-secondary-5);
+  outline: none;
+}
+
 .admin-login-form button,
+.admin-inline-form button,
 .admin-topbar-actions button,
 .admin-action-group button,
 .admin-small-button {
@@ -223,6 +263,10 @@ textarea:focus-visible {
 
 .admin-login-form button {
   margin-top: 4px;
+}
+
+.admin-inline-form button {
+  min-height: 38px;
 }
 
 .admin-login-form button:disabled {
@@ -766,6 +810,10 @@ td span {
 
   .admin-topbar-actions button {
     flex: 1;
+  }
+
+  .admin-inline-form {
+    grid-template-columns: 1fr;
   }
 
   .admin-content {

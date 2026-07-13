@@ -5,12 +5,10 @@ type PasswordCredentials = {
 
 type PasswordAuthClient = {
   auth: {
-    signInWithPassword: (
-      credentials: PasswordCredentials,
-    ) => Promise<{
-      data?: unknown;
-      error: { message?: string } | null;
-    }>;
+    setSession: (session: {
+      access_token: string;
+      refresh_token: string;
+    }) => Promise<{ error: { message?: string } | null }>;
   };
 };
 
@@ -25,14 +23,42 @@ export async function signInWithAdminPassword(
     throw new Error("이메일과 비밀번호를 입력해 주세요.");
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
+  const response = await fetch(`${apiBaseUrl()}/api/v1/admin/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
   });
+  const payload = (await response.json().catch(() => ({}))) as {
+    data?: {
+      session?: {
+        access_token?: string;
+        refresh_token?: string;
+      };
+    };
+    message?: string;
+  };
 
-  if (error) {
-    throw new Error(error.message ?? "로그인에 실패했습니다.");
+  if (!response.ok) {
+    throw new Error(payload.message ?? "로그인에 실패했습니다.");
   }
 
-  return data;
+  const session = payload.data?.session;
+  if (!session?.access_token || !session.refresh_token) {
+    throw new Error("로그인 세션을 확인하지 못했습니다.");
+  }
+
+  const { error } = await supabase.auth.setSession({
+    access_token: session.access_token,
+    refresh_token: session.refresh_token,
+  });
+  if (error) throw new Error(error.message ?? "로그인에 실패했습니다.");
+
+  return payload.data;
+}
+
+function apiBaseUrl() {
+  return (
+    process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL?.replace(/\/$/, "") ??
+    "http://localhost:3000"
+  );
 }

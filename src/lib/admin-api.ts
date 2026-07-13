@@ -1,4 +1,5 @@
 export type AdminReviewStatus = "pending_review" | "approved" | "rejected";
+export type AdminAccountRole = "admin" | "super_admin";
 export type MembershipRole = "owner" | "doctor" | "manager" | "staff";
 export type MembershipStatus = "active" | "pending" | "revoked";
 
@@ -210,6 +211,42 @@ export async function updateLicenseVerification(
 export async function revokeInvite(accessToken: string, inviteId: string) {
   return adminFetch<AdminActionResult>(
     `/api/v1/admin/invites/${inviteId}/revoke`,
+    accessToken,
+    { method: "POST" },
+  );
+}
+
+export async function inviteAdminAccount(
+  accessToken: string,
+  body: {
+    email: string;
+    fullName: string;
+    role: AdminAccountRole;
+    redirectTo?: string;
+  },
+) {
+  return adminFetch<AdminActionResult>(
+    "/api/v1/admin/accounts/invite",
+    accessToken,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export async function sendAdminPasswordReset(
+  accessToken: string,
+  userId: string,
+  redirectTo?: string,
+) {
+  return adminFetch<AdminActionResult>(
+    `/api/v1/admin/accounts/${userId}/password-reset`,
+    accessToken,
+    { method: "POST", body: JSON.stringify({ redirectTo }) },
+  );
+}
+
+export async function unlockAdminAccount(accessToken: string, userId: string) {
+  return adminFetch<AdminActionResult>(
+    `/api/v1/admin/accounts/${userId}/unlock`,
     accessToken,
     { method: "POST" },
   );

@@ -80,7 +80,7 @@ This repository owns only the admin web UI and browser-side integration glue. Al
 
 Never put Supabase service-role or secret keys in this app. Browser code must use only Supabase publishable credentials and send the current Supabase access token to ChikaPick API. Do not read privileged Supabase tables directly from Admin browser code.
 
-Admin login is Supabase email/password auth through `signInWithPassword`. After login, register the browser session with `ChikaPick_API` `POST /api/v1/auth/session/register` using `appSurface: "admin"` before calling admin endpoints. Keep the admin session heartbeat active while the console is open, and handle session invalidation by signing out locally.
+Admin login posts email/password to `ChikaPick_API` `POST /api/v1/admin/auth/login`, then stores the returned Supabase session locally with the browser Supabase client. This lets the API count failed admin password attempts on the Free Supabase plan. After login, register the browser session with `ChikaPick_API` `POST /api/v1/auth/session/register` using `appSurface: "admin"` before calling admin endpoints. Keep the admin session heartbeat active while the console is open, and handle session invalidation by signing out locally. The Admin UI also applies a 1-hour browser inactivity logout.
 
 The API origin must allow this Admin origin in `ChikaPick_API` `ALLOWED_ORIGINS`. A browser `TypeError: Failed to fetch` with no API route logs often means the request failed CORS preflight or the deployed API route is missing, so verify `OPTIONS` responses and deployed API routes before changing Admin fetch code.
 
@@ -131,10 +131,14 @@ Current Admin API calls:
 - `PATCH /api/v1/admin/clinic-memberships/:clinicId/:userId`
 - `PATCH /api/v1/admin/license-verifications/:userId`
 - `POST /api/v1/admin/invites/:inviteId/revoke`
+- `POST /api/v1/admin/auth/login`
+- `POST /api/v1/admin/accounts/invite`
+- `POST /api/v1/admin/accounts/:userId/password-reset`
+- `POST /api/v1/admin/accounts/:userId/unlock`
 - `POST /api/v1/auth/session/register`
 - `POST /api/v1/auth/session/heartbeat`
 
-The backend verifies admin authorization through `user_roles.role = 'admin'`. Logging in with a non-admin Supabase account can authenticate successfully in the browser but admin API calls should be rejected by the API.
+The backend verifies admin authorization through `user_roles.role = 'admin'` and rejects locked admin accounts through `admin_account_security.locked_at`. Logging in with a non-admin Supabase account can authenticate successfully in Supabase but admin session registration and admin API calls should be rejected by the API.
 
 Do not expose plaintext invite codes in Admin. The invite tab should inspect invite status and allow revocation of unused invites only.
 
@@ -145,6 +149,7 @@ Do not expose plaintext invite codes in Admin. The invite tab should inspect inv
 - 면허 인증: partner dentist license verification review and approval/rejection.
 - 병원 관리: inspect ChikaPick partner clinics, owner counts, active member counts, and registration dates.
 - 사용자/권한 관리: inspect users, roles, memberships, and account status.
+- 어드민 계정 관리: super admins invite admin/super-admin accounts by email, send password reset emails, unlock failed-login locks, and rely on API audit logs.
 - 초대코드 관리: inspect invite status and revoke unused invites without exposing plaintext invite codes.
 - 예약/전문의 소견 운영 조회: admin-wide operational oversight.
 - 약관/운영 도구: terms version overview and operational queue/job status.

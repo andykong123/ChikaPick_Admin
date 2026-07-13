@@ -8,15 +8,20 @@ import type { Session } from "@supabase/supabase-js";
 import {
   approveManualHospitalSubmission,
   fetchAdminConsole,
+  inviteAdminAccount,
   rejectManualHospitalSubmission,
   revokeInvite,
+  sendAdminPasswordReset,
+  unlockAdminAccount,
   updateClinicMembership,
   updateLicenseVerification,
   type AdminConsolePayload,
   type AdminMetric,
+  type AdminAccountRole,
 } from "@/lib/admin-api";
 import { shouldAutoLoadAdminConsole } from "@/lib/admin-auth-session";
 import { statusLabel } from "@/lib/admin-display";
+import { shouldExpireAdminIdleSession } from "@/lib/admin-idle";
 import {
   registerCurrentAdminBrowserSession,
   startAdminSessionHeartbeat,
@@ -87,9 +92,13 @@ export default function AdminHome() {
   const [loginPassword, setLoginPassword] = useState("");
   const [message, setMessage] = useState("");
   const [actionNote, setActionNote] = useState("");
+  const [inviteName, setInviteName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<AdminAccountRole>("admin");
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const lastAutoLoadedAccessTokenRef = useRef<string | null>(null);
+  const lastActivityAtRef = useRef(0);
 
   const loadConsole = useCallback(
     async (currentSession: Session | null) => {
@@ -167,6 +176,44 @@ export default function AdminHome() {
     });
   }, [session, supabase]);
 
+  useEffect(() => {
+    if (!session) return;
+
+    const markActivity = () => {
+      lastActivityAtRef.current = Date.now();
+    };
+    const checkIdle = () => {
+      if (
+        shouldExpireAdminIdleSession({
+          lastActivityAt: lastActivityAtRef.current,
+          now: Date.now(),
+        })
+      ) {
+        void supabase.auth.signOut().then(() => {
+          lastAutoLoadedAccessTokenRef.current = null;
+          setSession(null);
+          setConsoleData(emptyConsole);
+          setMessage("1시간 동안 활동이 없어 자동 로그아웃되었습니다.");
+        });
+      }
+    };
+
+    markActivity();
+    window.addEventListener("click", markActivity);
+    window.addEventListener("keydown", markActivity);
+    window.addEventListener("pointermove", markActivity);
+    window.addEventListener("scroll", markActivity, { passive: true });
+    const intervalId = window.setInterval(checkIdle, 60 * 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("click", markActivity);
+      window.removeEventListener("keydown", markActivity);
+      window.removeEventListener("pointermove", markActivity);
+      window.removeEventListener("scroll", markActivity);
+    };
+  }, [session, supabase]);
+
   async function handlePasswordSignIn(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
@@ -192,16 +239,22 @@ export default function AdminHome() {
   }
 
   async function runAction(action: (accessToken: string) => Promise<unknown>) {
-    if (!session?.access_token) return;
+    if (!session?.access_token) return false;
     setMessage("");
     try {
       await action(session.access_token);
       setMessage("처리되었습니다.");
       setActionNote("");
       await loadConsole(session);
+      return true;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "처리에 실패했습니다.");
+      return false;
     }
+  }
+
+  function adminResetRedirectUrl() {
+    return typeof window === "undefined" ? undefined : window.location.origin;
   }
 
   if (isAuthLoading) {
@@ -377,7 +430,39 @@ export default function AdminHome() {
           ) : activeTab === "clinics" ? (
             <ClinicsTab data={consoleData} />
           ) : activeTab === "users" ? (
-            <UsersTab data={consoleData} />
+            <UsersTab
+              data={consoleData}
+              inviteEmail={inviteEmail}
+              inviteName={inviteName}
+              inviteRole={inviteRole}
+              onInviteEmailChange={setInviteEmail}
+              onInviteNameChange={setInviteName}
+              onInviteRoleChange={setInviteRole}
+              onInvite={() =>
+                runAction((token) =>
+                  inviteAdminAccount(token, {
+                    email: inviteEmail,
+                    fullName: inviteName,
+                    role: inviteRole,
+                    redirectTo: adminResetRedirectUrl(),
+                  }),
+                ).then((ok) => {
+                  if (ok) {
+                    setInviteEmail("");
+                    setInviteName("");
+                    setInviteRole("admin");
+                  }
+                })
+              }
+              onPasswordReset={(userId) =>
+                runAction((token) =>
+                  sendAdminPasswordReset(token, userId, adminResetRedirectUrl()),
+                )
+              }
+              onUnlock={(userId) =>
+                runAction((token) => unlockAdminAccount(token, userId))
+              }
+            />
           ) : activeTab === "invites" ? (
             <InvitesTab
               data={consoleData}
@@ -702,9 +787,68 @@ function ClinicsTab({ data }: { data: AdminConsolePayload }) {
   );
 }
 
-function UsersTab({ data }: { data: AdminConsolePayload }) {
+function UsersTab({
+  data,
+  inviteEmail,
+  inviteName,
+  inviteRole,
+  onInvite,
+  onInviteEmailChange,
+  onInviteNameChange,
+  onInviteRoleChange,
+  onPasswordReset,
+  onUnlock,
+}: {
+  data: AdminConsolePayload;
+  inviteEmail: string;
+  inviteName: string;
+  inviteRole: AdminAccountRole;
+  onInvite: () => void;
+  onInviteEmailChange: (value: string) => void;
+  onInviteNameChange: (value: string) => void;
+  onInviteRoleChange: (value: AdminAccountRole) => void;
+  onPasswordReset: (userId: string) => void;
+  onUnlock: (userId: string) => void;
+}) {
   return (
     <Panel title="사용자 및 권한 관리">
+      <form
+        className="admin-inline-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onInvite();
+        }}
+      >
+        <label>
+          <span>이름</span>
+          <input
+            value={inviteName}
+            onChange={(event) => onInviteNameChange(event.target.value)}
+          />
+        </label>
+        <label>
+          <span>이메일</span>
+          <input
+            inputMode="email"
+            type="email"
+            value={inviteEmail}
+            onChange={(event) => onInviteEmailChange(event.target.value)}
+          />
+        </label>
+        <label>
+          <span>역할</span>
+          <select
+            value={inviteRole}
+            onChange={(event) =>
+              onInviteRoleChange(event.target.value as AdminAccountRole)
+            }
+          >
+            <option value="admin">admin</option>
+            <option value="super_admin">super admin</option>
+          </select>
+        </label>
+        <button type="submit">초대 메일 발송</button>
+      </form>
       <div className="admin-table-wrap">
         <table>
           <thead>
@@ -713,6 +857,7 @@ function UsersTab({ data }: { data: AdminConsolePayload }) {
               <th>역할</th>
               <th>계정 상태</th>
               <th>소속</th>
+              <th>관리자 처리</th>
             </tr>
           </thead>
           <tbody>
@@ -732,10 +877,24 @@ function UsersTab({ data }: { data: AdminConsolePayload }) {
                     </span>
                   ))}
                 </td>
+                <td>
+                  {user.roles.includes("admin") ? (
+                    <ActionGroup>
+                      <button type="button" onClick={() => onPasswordReset(user.id)}>
+                        비밀번호 메일
+                      </button>
+                      <button type="button" onClick={() => onUnlock(user.id)}>
+                        잠금 해제
+                      </button>
+                    </ActionGroup>
+                  ) : (
+                    "-"
+                  )}
+                </td>
               </tr>
             ))}
             {data.users.length === 0 ? (
-              <EmptyRow colSpan={4} label="사용자 데이터가 없습니다." />
+              <EmptyRow colSpan={5} label="사용자 데이터가 없습니다." />
             ) : null}
           </tbody>
         </table>
