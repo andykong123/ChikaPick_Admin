@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Supabase CLI local metadata. Database/schema ownership lives in ../ChikaPick_API.
+/supabase/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
