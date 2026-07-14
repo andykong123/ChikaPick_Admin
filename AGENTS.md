@@ -121,7 +121,7 @@ Path alias `@/*` maps to `./src/*`.
 
 ## Admin API Contracts
 
-The console fetches one aggregate payload from `GET /api/v1/admin/console`, then renders all tabs from that payload. Mutations call specific admin endpoints and reload the aggregate payload on success.
+The console fetches one aggregate payload from `GET /api/v1/admin/console`, then renders all tabs from that payload. Mutations call specific admin endpoints and reload the aggregate payload on success. Reservation rows include `bookingSource` and `instantSlotId` so Admin can distinguish 즉시 예약 from 일반 예약. User rows include `isSuperAdmin` and `adminSecurity` so Admin can display super-admin state, failed login count, and locked accounts before enabling unlock actions.
 
 Current Admin API calls:
 
@@ -148,10 +148,10 @@ Do not expose plaintext invite codes in Admin. The invite tab should inspect inv
 - 소속 신청 승인: pending doctor/staff clinic memberships, approve/reject.
 - 면허 인증: partner dentist license verification review and approval/rejection.
 - 병원 관리: inspect ChikaPick partner clinics, owner counts, active member counts, and registration dates.
-- 사용자/권한 관리: inspect users, roles, memberships, and account status.
+- 사용자/권한 관리: inspect users, roles, memberships, account status, super-admin state, and admin lock state.
 - 어드민 계정 관리: super admins invite admin/super-admin accounts by email, send password reset emails, unlock failed-login locks, and rely on API audit logs.
 - 초대코드 관리: inspect invite status and revoke unused invites without exposing plaintext invite codes.
-- 예약/전문의 소견 운영 조회: admin-wide operational oversight.
+- 예약/전문의 소견 운영 조회: admin-wide operational oversight, including 즉시 예약 vs 일반 예약 source labels.
 - 약관/운영 도구: terms version overview and operational queue/job status.
 
 ## Environment Variables

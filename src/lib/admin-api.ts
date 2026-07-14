@@ -77,6 +77,11 @@ export interface AdminUser {
   fullName: string | null;
   roles: string[];
   accountStatus: string | null;
+  isSuperAdmin?: boolean;
+  adminSecurity?: {
+    failedLoginCount: number;
+    lockedAt: string | null;
+  };
   memberships: Array<{
     clinicId: string;
     clinicName: string | null;
@@ -100,6 +105,8 @@ export interface AdminReservation {
   clinicName: string | null;
   patientName: string | null;
   status: string;
+  bookingSource?: string;
+  instantSlotId?: string | null;
   scheduledAt: string | null;
   createdAt: string;
 }

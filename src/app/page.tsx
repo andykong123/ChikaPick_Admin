@@ -20,7 +20,11 @@ import {
   type AdminAccountRole,
 } from "@/lib/admin-api";
 import { shouldAutoLoadAdminConsole } from "@/lib/admin-auth-session";
-import { statusLabel } from "@/lib/admin-display";
+import {
+  adminAccountStatusLabel,
+  reservationSourceLabel,
+  statusLabel,
+} from "@/lib/admin-display";
 import { shouldExpireAdminIdleSession } from "@/lib/admin-idle";
 import {
   registerCurrentAdminBrowserSession,
@@ -861,38 +865,67 @@ function UsersTab({
             </tr>
           </thead>
           <tbody>
-            {data.users.map((user) => (
-              <tr key={user.id}>
-                <td>
-                  <strong>{user.fullName ?? "이름 없음"}</strong>
-                  <span>{user.email ?? user.id}</span>
-                </td>
-                <td>{user.roles.join(", ") || "-"}</td>
-                <td>{user.accountStatus ?? "active"}</td>
-                <td>
-                  {user.memberships.map((membership) => (
-                    <span className="admin-inline-chip" key={membership.clinicId}>
-                      {membership.clinicName ?? membership.clinicId} ·{" "}
-                      {roleLabel(membership.role)}
+            {data.users.map((user) => {
+              const lockedAt = user.adminSecurity?.lockedAt ?? null;
+              const failedLoginCount = user.adminSecurity?.failedLoginCount ?? 0;
+              const accountStatus = lockedAt ? "locked" : (user.accountStatus ?? "active");
+              const isAdmin =
+                user.roles.includes("admin") ||
+                user.roles.includes("super_admin") ||
+                user.isSuperAdmin === true;
+
+              return (
+                <tr key={user.id}>
+                  <td>
+                    <strong>{user.fullName ?? "이름 없음"}</strong>
+                    <span>{user.email ?? user.id}</span>
+                  </td>
+                  <td>
+                    {user.roles.join(", ") || "-"}
+                    {user.isSuperAdmin ? (
+                      <span className="admin-inline-chip">super admin</span>
+                    ) : null}
+                  </td>
+                  <td>
+                    <StatusChip status={accountStatus} />
+                    <span>
+                      {adminAccountStatusLabel({
+                        accountStatus: user.accountStatus,
+                        lockedAt,
+                      })}
+                      {failedLoginCount > 0 ? ` · 실패 ${failedLoginCount}회` : ""}
+                      {lockedAt ? ` · ${formatDate(lockedAt)}` : ""}
                     </span>
-                  ))}
-                </td>
-                <td>
-                  {user.roles.includes("admin") ? (
-                    <ActionGroup>
-                      <button type="button" onClick={() => onPasswordReset(user.id)}>
-                        비밀번호 메일
-                      </button>
-                      <button type="button" onClick={() => onUnlock(user.id)}>
-                        잠금 해제
-                      </button>
-                    </ActionGroup>
-                  ) : (
-                    "-"
-                  )}
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td>
+                    {user.memberships.map((membership) => (
+                      <span className="admin-inline-chip" key={membership.clinicId}>
+                        {membership.clinicName ?? membership.clinicId} ·{" "}
+                        {roleLabel(membership.role)}
+                      </span>
+                    ))}
+                  </td>
+                  <td>
+                    {isAdmin ? (
+                      <ActionGroup>
+                        <button type="button" onClick={() => onPasswordReset(user.id)}>
+                          비밀번호 메일
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!lockedAt}
+                          onClick={() => onUnlock(user.id)}
+                        >
+                          잠금 해제
+                        </button>
+                      </ActionGroup>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
             {data.users.length === 0 ? (
               <EmptyRow colSpan={5} label="사용자 데이터가 없습니다." />
             ) : null}
@@ -963,7 +996,9 @@ function WorkflowsTab({ data }: { data: AdminConsolePayload }) {
         <CompactRows
           rows={data.reservations.map((item) => [
             item.clinicName ?? "병원 없음",
-            `${item.patientName ?? "환자"} · ${statusLabel(item.status)}`,
+            `${item.patientName ?? "환자"} · ${reservationSourceLabel(
+              item.bookingSource,
+            )} · ${statusLabel(item.status)}`,
             formatDate(item.scheduledAt ?? item.createdAt),
           ])}
           emptyLabel="예약 데이터가 없습니다."

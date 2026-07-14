@@ -4,6 +4,7 @@ const statusLabels: Record<string, string> = {
   rejected: "반려",
   pending: "대기",
   active: "활성",
+  locked: "잠김",
   revoked: "회수",
   redeemed: "사용됨",
   confirmed: "예약 확정",
@@ -20,4 +21,19 @@ const statusLabels: Record<string, string> = {
 
 export function statusLabel(status: string) {
   return statusLabels[status] ?? status;
+}
+
+export function reservationSourceLabel(source: string | null | undefined) {
+  return source === "instant" ? "즉시 예약" : "일반 예약";
+}
+
+export function adminAccountStatusLabel({
+  accountStatus,
+  lockedAt,
+}: {
+  accountStatus: string | null | undefined;
+  lockedAt: string | null | undefined;
+}) {
+  if (lockedAt) return statusLabel("locked");
+  return statusLabel(accountStatus ?? "active");
 }

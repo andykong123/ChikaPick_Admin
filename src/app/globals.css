@@ -603,6 +603,12 @@ td span {
   cursor: not-allowed;
 }
 
+.admin-action-group button:disabled {
+  background: var(--chika-base-2);
+  color: var(--text-quaternary);
+  cursor: not-allowed;
+}
+
 .admin-status,
 .admin-inline-chip {
   min-height: 26px;
@@ -636,6 +642,7 @@ td span {
 }
 
 .admin-status--rejected,
+.admin-status--locked,
 .admin-status--revoked {
   background: #fee2e2;
   color: #b91c1c;

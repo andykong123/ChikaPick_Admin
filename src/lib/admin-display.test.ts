@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { statusLabel } from "./admin-display.ts";
+import {
+  adminAccountStatusLabel,
+  reservationSourceLabel,
+  statusLabel,
+} from "./admin-display.ts";
 
 test("statusLabel localizes existing admin statuses", () => {
   assert.equal(statusLabel("pending_review"), "심사 대기");
@@ -34,4 +38,24 @@ test("statusLabel groups unavailable reservation aliases", () => {
 
 test("statusLabel falls back to the raw status", () => {
   assert.equal(statusLabel("custom_status"), "custom_status");
+});
+
+test("reservationSourceLabel distinguishes instant reservations", () => {
+  assert.equal(reservationSourceLabel("instant"), "즉시 예약");
+  assert.equal(reservationSourceLabel("standard"), "일반 예약");
+  assert.equal(reservationSourceLabel(null), "일반 예약");
+});
+
+test("adminAccountStatusLabel prefers locked admin security state", () => {
+  assert.equal(
+    adminAccountStatusLabel({
+      accountStatus: "active",
+      lockedAt: "2026-07-14T03:00:00.000Z",
+    }),
+    "잠김",
+  );
+  assert.equal(
+    adminAccountStatusLabel({ accountStatus: "active", lockedAt: null }),
+    "활성",
+  );
 });
