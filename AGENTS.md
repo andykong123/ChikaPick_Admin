@@ -135,6 +135,10 @@ Current Admin API calls:
 - `POST /api/v1/admin/accounts/invite`
 - `POST /api/v1/admin/accounts/:userId/password-reset`
 - `POST /api/v1/admin/accounts/:userId/unlock`
+- `GET /api/v1/admin/dental-sales`
+- `GET /api/v1/admin/dental-sales/:profileId`
+- `PATCH /api/v1/admin/dental-sales/:profileId`
+- `POST /api/v1/admin/dental-sales/:profileId/visits`
 - `POST /api/v1/auth/session/register`
 - `POST /api/v1/auth/session/heartbeat`
 
@@ -144,7 +148,7 @@ Do not expose plaintext invite codes in Admin. The invite tab should inspect inv
 
 ## Current Admin Surfaces
 
-- 치과 영업 관리: Figma-matched regional clinic sales table with client-side filters, invite-code copying, status display, and pagination state. It currently uses the design reference rows; live privileged clinic-sales data must wait for a typed `ChikaPick_API` Admin endpoint rather than querying Supabase from the browser.
+- 치과 영업 관리: live nationwide HIRA clinic sales directory from `ChikaPick_API`, with server-owned filters/pagination, regional owner-code copying, status/detail display, active-Admin salesperson assignment, and a responsive right drawer for immutable timestamped visit records. `NOT_VISITED`, `VISITING`, and `SIGNED` are backend lifecycle states; signed rows show `INFORMATION_MISSING` until all five Partners hospital-information sections are complete, then `ACTIVE`.
 - 수동 병원 가입 심사: pending owner manual hospital submissions, short-lived business-license file links, approve/reject.
 - 소속 신청 승인: pending doctor/staff clinic memberships, approve/reject.
 - 면허 인증: partner dentist license verification review and approval/rejection.

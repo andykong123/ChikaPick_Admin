@@ -1,58 +1,131 @@
-export type DentalSalesStatus = "미방문" | "방문" | "가입완료";
+export type DentalSalesHospitalStatus = "NOT_VISITED" | "VISITING" | "SIGNED";
+export type DentalSalesVisitDetailStatus =
+  | "INTEREST"
+  | "CODE_SHARED"
+  | "REJECTED"
+  | "ON_HOLD";
+export type DentalSalesDetailStatus =
+  | DentalSalesVisitDetailStatus
+  | "INFORMATION_MISSING"
+  | "ACTIVE";
+
+export interface DentalSalesperson {
+  id: string;
+  name: string;
+}
 
 export interface DentalSalesRow {
+  id: string;
   city: string;
   district: string;
-  neighborhood: string;
+  neighborhood: string | null;
   clinicName: string;
-  phone: string;
-  salesperson: string;
-  inviteCode: string;
-  status: DentalSalesStatus;
-  detailStatus: string;
+  phone: string | null;
+  salesperson: DentalSalesperson | null;
+  salesCode: string;
+  status: DentalSalesHospitalStatus;
+  detailStatus: DentalSalesDetailStatus | null;
+}
+
+export interface DentalSalesVisit {
+  id: string;
+  salesperson: { id: string | null; name: string };
+  detailStatus: DentalSalesVisitDetailStatus;
+  visitedAt: string;
+  note: string | null;
+  createdByAdminUserId: string | null;
+  createdAt: string;
+}
+
+export interface DentalSalesPagination {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
 }
 
 export interface DentalSalesFilters {
   city: string;
   district: string;
   clinicName: string;
-  salesperson: string;
-  status: string;
-  detailStatus: string;
+  salespersonId: string;
+  status: "" | DentalSalesHospitalStatus;
+  detailStatus: "" | DentalSalesDetailStatus;
+}
+
+export interface DentalSalesListPayload {
+  items: DentalSalesRow[];
+  pagination: DentalSalesPagination;
+  filterOptions: {
+    regions: Array<{ name: string; prefix: string }>;
+    districts: string[];
+    salespeople: DentalSalesperson[];
+  };
+}
+
+export interface DentalSalesDetailPayload {
+  profile: DentalSalesRow & {
+    address: string;
+    assignedSalesperson: DentalSalesperson | null;
+    claimedAt: string | null;
+    signedAt: string | null;
+  };
+  visits: DentalSalesVisit[];
+  visitPagination: DentalSalesPagination;
+  salespeople: DentalSalesperson[];
 }
 
 export const emptyDentalSalesFilters: DentalSalesFilters = {
-  city: "서울특별시",
-  district: "전체",
+  city: "",
+  district: "",
   clinicName: "",
-  salesperson: "전체",
-  status: "전체",
-  detailStatus: "전체",
+  salespersonId: "",
+  status: "",
+  detailStatus: "",
 };
 
-export function filterDentalSalesRows(
-  rows: DentalSalesRow[],
-  filters: DentalSalesFilters,
-) {
-  const clinicQuery = filters.clinicName.trim().toLocaleLowerCase("ko-KR");
+export const dentalSalesStatusOptions: Array<{
+  value: "" | DentalSalesHospitalStatus;
+  label: string;
+}> = [
+  { value: "", label: "전체" },
+  { value: "NOT_VISITED", label: "미방문" },
+  { value: "VISITING", label: "방문" },
+  { value: "SIGNED", label: "가입완료" },
+];
 
-  return rows.filter((row) => {
-    if (filters.city !== "전체" && cityLabel(filters.city) !== row.city) return false;
-    if (filters.district !== "전체" && filters.district !== row.district) return false;
-    if (filters.salesperson !== "전체" && filters.salesperson !== row.salesperson) {
-      return false;
-    }
-    if (filters.status !== "전체" && filters.status !== row.status) return false;
-    if (filters.detailStatus !== "전체" && filters.detailStatus !== row.detailStatus) {
-      return false;
-    }
-    if (clinicQuery && !row.clinicName.toLocaleLowerCase("ko-KR").includes(clinicQuery)) {
-      return false;
-    }
-    return true;
-  });
+export const dentalSalesDetailOptions: Array<{
+  value: "" | DentalSalesDetailStatus;
+  label: string;
+}> = [
+  { value: "", label: "전체" },
+  { value: "INTEREST", label: "관심/검토" },
+  { value: "CODE_SHARED", label: "코드전달" },
+  { value: "REJECTED", label: "거절" },
+  { value: "ON_HOLD", label: "보류" },
+  { value: "INFORMATION_MISSING", label: "정보 미입력" },
+  { value: "ACTIVE", label: "사용중" },
+];
+
+export const dentalSalesVisitDetailOptions = dentalSalesDetailOptions.filter(
+  (option): option is { value: DentalSalesVisitDetailStatus; label: string } =>
+    ["INTEREST", "CODE_SHARED", "REJECTED", "ON_HOLD"].includes(option.value),
+);
+
+export function dentalSalesStatusLabel(status: DentalSalesHospitalStatus) {
+  return dentalSalesStatusOptions.find((option) => option.value === status)?.label ?? status;
 }
 
-function cityLabel(value: string) {
-  return value === "서울특별시" ? "서울" : value;
+export function dentalSalesDetailLabel(status: DentalSalesDetailStatus | null) {
+  if (!status) return "—";
+  return dentalSalesDetailOptions.find((option) => option.value === status)?.label ?? status;
+}
+
+export function dentalSalesPageNumbers(currentPage: number, totalPages: number) {
+  const visibleCount = Math.min(5, Math.max(1, totalPages));
+  const start = Math.min(
+    Math.max(1, currentPage - Math.floor(visibleCount / 2)),
+    Math.max(1, totalPages - visibleCount + 1),
+  );
+  return Array.from({ length: visibleCount }, (_, index) => start + index);
 }

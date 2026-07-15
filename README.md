@@ -12,6 +12,7 @@ stores or uses Supabase service-role credentials.
 - 관리자 Supabase 이메일/비밀번호 로그인
 - Admin browser session registration with `appSurface: "admin"`
 - 운영 현황 summary metrics
+- 전국 HIRA 치과 영업 관리: 서버 필터/페이지네이션, 지역 초대코드, 담당자 배정, 방문 이력, 가입/활성 상태
 - 수동 병원 가입 심사 approve/reject, including short-lived business-license file links
 - 소속 신청 approve/reject
 - 치과의사 면허 인증 approve/reject

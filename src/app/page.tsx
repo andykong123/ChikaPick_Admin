@@ -7,7 +7,11 @@ import type { Session } from "@supabase/supabase-js";
 
 import {
   approveManualHospitalSubmission,
+  assignAdminDentalSalesperson,
+  createAdminDentalSalesVisit,
   fetchAdminConsole,
+  fetchAdminDentalSales,
+  fetchAdminDentalSalesDetail,
   inviteAdminAccount,
   rejectManualHospitalSubmission,
   revokeInvite,
@@ -31,10 +35,17 @@ import {
   startAdminSessionHeartbeat,
 } from "@/lib/browser-session";
 import {
+  dentalSalesDetailLabel,
+  dentalSalesDetailOptions,
+  dentalSalesPageNumbers,
+  dentalSalesStatusLabel,
+  dentalSalesStatusOptions,
+  dentalSalesVisitDetailOptions,
   emptyDentalSalesFilters,
-  filterDentalSalesRows,
+  type DentalSalesDetailPayload,
   type DentalSalesFilters,
-  type DentalSalesRow,
+  type DentalSalesListPayload,
+  type DentalSalesVisitDetailStatus,
 } from "@/lib/dental-sales";
 import { signInWithAdminPassword } from "@/lib/password-auth";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
@@ -84,119 +95,6 @@ const primaryTabs = [
   { id: "external-connectors", label: "외부 연결자 관리", icon: "/Type=Share.svg" },
   { id: "audit-log", label: "감사 로그", icon: "/Type=Log.svg" },
 ] as const;
-
-const dentalSalesRows: DentalSalesRow[] = [
-  {
-    city: "서울",
-    district: "중랑구",
-    neighborhood: "면목본동",
-    clinicName: "튼튼치과",
-    phone: "02-1234-5678",
-    salesperson: "김현우",
-    inviteCode: "SU9134",
-    status: "미방문",
-    detailStatus: "—",
-  },
-  {
-    city: "서울",
-    district: "강남구",
-    neighborhood: "역삼1동",
-    clinicName: "서울미소치과",
-    phone: "02-9876-1111",
-    salesperson: "김현우",
-    inviteCode: "SU6201",
-    status: "방문",
-    detailStatus: "관심/검토",
-  },
-  {
-    city: "서울",
-    district: "송파구",
-    neighborhood: "잠실본동",
-    clinicName: "잠실행복치과",
-    phone: "02-421-2233",
-    salesperson: "김지태",
-    inviteCode: "SU4284",
-    status: "방문",
-    detailStatus: "코드전달",
-  },
-  {
-    city: "서울",
-    district: "마포구",
-    neighborhood: "서교동",
-    clinicName: "홍대바른치과",
-    phone: "02-334-0909",
-    salesperson: "김지태",
-    inviteCode: "SU5238",
-    status: "가입완료",
-    detailStatus: "정보 미입력",
-  },
-  {
-    city: "서울",
-    district: "강서구",
-    neighborhood: "화곡1동",
-    clinicName: "강서스마일치과",
-    phone: "02-2601-4521",
-    salesperson: "김지태",
-    inviteCode: "SU8237",
-    status: "미방문",
-    detailStatus: "—",
-  },
-  {
-    city: "서울",
-    district: "노원구",
-    neighborhood: "상계1동",
-    clinicName: "노원연세치과",
-    phone: "02-931-7720",
-    salesperson: "김현우",
-    inviteCode: "SU3225",
-    status: "가입완료",
-    detailStatus: "사용중",
-  },
-  {
-    city: "서울",
-    district: "관악구",
-    neighborhood: "신림동",
-    clinicName: "신림서울치과",
-    phone: "02-877-1020",
-    salesperson: "김지태",
-    inviteCode: "SU8393",
-    status: "방문",
-    detailStatus: "거절",
-  },
-  {
-    city: "서울",
-    district: "영등포구",
-    neighborhood: "여의동",
-    clinicName: "여의도밝은치과",
-    phone: "02-782-5501",
-    salesperson: "김현우",
-    inviteCode: "SU3230",
-    status: "방문",
-    detailStatus: "관심/검토",
-  },
-  {
-    city: "서울",
-    district: "은평구",
-    neighborhood: "불광1동",
-    clinicName: "은평플러스치과",
-    phone: "02-353-8821",
-    salesperson: "김지태",
-    inviteCode: "SU3230",
-    status: "미방문",
-    detailStatus: "—",
-  },
-  {
-    city: "서울",
-    district: "광진구",
-    neighborhood: "화양동",
-    clinicName: "건대좋은치과",
-    phone: "02-461-7744",
-    salesperson: "김현우",
-    inviteCode: "SU3230",
-    status: "방문",
-    detailStatus: "보류",
-  },
-];
 
 const emptyConsole: AdminConsolePayload = {
   metrics: [
@@ -619,7 +517,7 @@ export default function AdminHome() {
           }`}
         >
           {activePrimaryTab === "dental-sales" ? (
-            <DentalSalesTab />
+            <DentalSalesTab accessToken={session?.access_token ?? ""} />
           ) : activeTab === "overview" ? (
             <OverviewTab data={consoleData} />
           ) : activeTab === "manual" ? (
@@ -713,18 +611,102 @@ export default function AdminHome() {
   );
 }
 
-function DentalSalesTab() {
+function DentalSalesTab({ accessToken }: { accessToken: string }) {
   const [draftFilters, setDraftFilters] = useState<DentalSalesFilters>({
     ...emptyDentalSalesFilters,
   });
   const [appliedFilters, setAppliedFilters] = useState<DentalSalesFilters>({
     ...emptyDentalSalesFilters,
   });
-  const [currentPage, setCurrentPage] = useState(2);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [listData, setListData] = useState<DentalSalesListPayload | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
-  const filteredRows = useMemo(
-    () => filterDentalSalesRows(dentalSalesRows, appliedFilters),
-    [appliedFilters],
+  const [copyFailed, setCopyFailed] = useState(false);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<DentalSalesDetailPayload | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
+  const [isSavingAssignment, setIsSavingAssignment] = useState(false);
+  const [isSavingVisit, setIsSavingVisit] = useState(false);
+  const [visitPage, setVisitPage] = useState(1);
+  const [visitForm, setVisitForm] = useState<{
+    visitedAt: string;
+    salespersonUserId: string;
+    detailStatus: DentalSalesVisitDetailStatus;
+    note: string;
+  }>(() => ({
+    visitedAt: localDateTimeValue(new Date()),
+    salespersonUserId: "",
+    detailStatus: "INTEREST",
+    note: "",
+  }));
+
+  const loadList = useCallback(async () => {
+    if (!accessToken) return;
+    setIsLoading(true);
+    setErrorMessage("");
+    try {
+      setListData(await fetchAdminDentalSales(accessToken, appliedFilters, currentPage));
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "치과 영업 목록을 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, appliedFilters, currentPage]);
+
+  const loadDetail = useCallback(async () => {
+    if (!accessToken || !selectedProfileId) return;
+    setIsDetailLoading(true);
+    setDetailError("");
+    try {
+      const payload = await fetchAdminDentalSalesDetail(
+        accessToken,
+        selectedProfileId,
+        visitPage,
+      );
+      setDetail(payload);
+      setVisitForm((form) => ({
+        ...form,
+        salespersonUserId:
+          form.salespersonUserId || payload.profile.assignedSalesperson?.id || "",
+      }));
+    } catch (error) {
+      setDetailError(
+        error instanceof Error ? error.message : "영업 상세 정보를 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsDetailLoading(false);
+    }
+  }, [accessToken, selectedProfileId, visitPage]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => void loadList(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadList]);
+
+  useEffect(() => {
+    if (!selectedProfileId) return;
+    const timeoutId = window.setTimeout(() => void loadDetail(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadDetail, selectedProfileId]);
+
+  useEffect(() => {
+    if (!selectedProfileId) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setSelectedProfileId(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedProfileId]);
+
+  const pageNumbers = dentalSalesPageNumbers(
+    listData?.pagination.page ?? 1,
+    listData?.pagination.totalPages ?? 1,
   );
 
   function updateFilter<Key extends keyof DentalSalesFilters>(
@@ -737,16 +719,66 @@ function DentalSalesTab() {
   function resetFilters() {
     setDraftFilters({ ...emptyDentalSalesFilters });
     setAppliedFilters({ ...emptyDentalSalesFilters });
-    setCurrentPage(2);
+    setCurrentPage(1);
   }
 
   async function copyInviteCode(code: string) {
     try {
       await navigator.clipboard.writeText(code);
       setCopiedCode(code);
+      setCopyFailed(false);
       window.setTimeout(() => setCopiedCode(null), 1600);
     } catch {
       setCopiedCode(null);
+      setCopyFailed(true);
+      window.setTimeout(() => setCopyFailed(false), 1600);
+    }
+  }
+
+  async function saveAssignment(salespersonUserId: string) {
+    if (!selectedProfileId) return;
+    setIsSavingAssignment(true);
+    setActionMessage("");
+    try {
+      const result = await assignAdminDentalSalesperson(
+        accessToken,
+        selectedProfileId,
+        salespersonUserId || null,
+      );
+      setActionMessage(result.message);
+      setVisitForm((form) => ({ ...form, salespersonUserId }));
+      await Promise.all([loadDetail(), loadList()]);
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "담당자를 변경하지 못했습니다.");
+    } finally {
+      setIsSavingAssignment(false);
+    }
+  }
+
+  async function saveVisit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedProfileId || !visitForm.salespersonUserId) return;
+    setIsSavingVisit(true);
+    setActionMessage("");
+    try {
+      const result = await createAdminDentalSalesVisit(accessToken, selectedProfileId, {
+        visitedAt: new Date(visitForm.visitedAt).toISOString(),
+        salespersonUserId: visitForm.salespersonUserId,
+        detailStatus: visitForm.detailStatus,
+        note: visitForm.note,
+      });
+      setActionMessage(result.message);
+      setVisitForm((form) => ({
+        ...form,
+        visitedAt: localDateTimeValue(new Date()),
+        note: "",
+      }));
+      setVisitPage(1);
+      await Promise.all([loadDetail(), loadList()]);
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "방문 기록을 저장하지 못했습니다.");
+    } finally {
+      setIsSavingVisit(false);
     }
   }
 
@@ -757,21 +789,33 @@ function DentalSalesTab() {
         onSubmit={(event) => {
           event.preventDefault();
           setAppliedFilters({ ...draftFilters });
-          setCurrentPage(2);
+          setCurrentPage(1);
         }}
       >
         <SalesFilterSelect
           label="시/도 선택"
           value={draftFilters.city}
-          options={["서울특별시"]}
-          onChange={(value) => updateFilter("city", value)}
+          options={[
+            { value: "", label: "전체" },
+            ...(listData?.filterOptions.regions.map((region) => ({
+              value: region.name,
+              label: region.name,
+            })) ?? []),
+          ]}
+          onChange={(value) => {
+            updateFilter("city", value);
+            updateFilter("district", "");
+          }}
         />
         <SalesFilterSelect
           label="구 선택"
           value={draftFilters.district}
           options={[
-            "전체",
-            ...Array.from(new Set(dentalSalesRows.map((row) => row.district))),
+            { value: "", label: "전체" },
+            ...(listData?.filterOptions.districts.map((district) => ({
+              value: district,
+              label: district,
+            })) ?? []),
           ]}
           onChange={(value) => updateFilter("district", value)}
         />
@@ -789,21 +833,31 @@ function DentalSalesTab() {
         </label>
         <SalesFilterSelect
           label="담당 영업자"
-          value={draftFilters.salesperson}
-          options={["전체", "김현우", "김지태"]}
-          onChange={(value) => updateFilter("salesperson", value)}
+          value={draftFilters.salespersonId}
+          options={[
+            { value: "", label: "전체" },
+            ...(listData?.filterOptions.salespeople.map((person) => ({
+              value: person.id,
+              label: person.name,
+            })) ?? []),
+          ]}
+          onChange={(value) => updateFilter("salespersonId", value)}
         />
         <SalesFilterSelect
           label="상태"
           value={draftFilters.status}
-          options={["전체", "미방문", "방문", "가입완료"]}
-          onChange={(value) => updateFilter("status", value)}
+          options={dentalSalesStatusOptions}
+          onChange={(value) =>
+            updateFilter("status", value as DentalSalesFilters["status"])
+          }
         />
         <SalesFilterSelect
           label="상세 상태"
           value={draftFilters.detailStatus}
-          options={["전체", "관심/검토", "코드전달", "정보 미입력", "사용중", "거절", "보류"]}
-          onChange={(value) => updateFilter("detailStatus", value)}
+          options={dentalSalesDetailOptions}
+          onChange={(value) =>
+            updateFilter("detailStatus", value as DentalSalesFilters["detailStatus"])
+          }
         />
         <button className="admin-sales-reset" type="button" onClick={resetFilters}>
           초기화
@@ -813,7 +867,14 @@ function DentalSalesTab() {
         </button>
       </form>
 
-      <div className="admin-sales-table-scroll">
+      {errorMessage ? (
+        <div className="admin-sales-feedback admin-sales-feedback--error" role="alert">
+          <span>{errorMessage}</span>
+          <button type="button" onClick={() => void loadList()}>다시 시도</button>
+        </div>
+      ) : null}
+
+      <div className="admin-sales-table-scroll" aria-busy={isLoading}>
         <table className="admin-sales-table">
           <colgroup>
             <col style={{ width: 80 }} />
@@ -842,21 +903,22 @@ function DentalSalesTab() {
             </tr>
           </thead>
           <tbody>
-            {filteredRows.map((row) => (
-              <tr key={`${row.clinicName}-${row.inviteCode}`}>
+            {!isLoading && !errorMessage
+              ? listData?.items.map((row) => (
+              <tr key={row.id}>
                 <td>{row.city}</td>
                 <td>{row.district}</td>
                 <td>{row.neighborhood}</td>
                 <td className="admin-sales-clinic-name">{row.clinicName}</td>
                 <td className="admin-sales-mono">{row.phone}</td>
-                <td>{row.salesperson}</td>
+                <td>{row.salesperson?.name ?? "미지정"}</td>
                 <td>
                   <span className="admin-sales-invite-code">
-                    <span>{row.inviteCode}</span>
+                    <span>{row.salesCode}</span>
                     <button
                       type="button"
-                      aria-label={`${row.inviteCode} 초대코드 복사`}
-                      onClick={() => void copyInviteCode(row.inviteCode)}
+                      aria-label={`${row.salesCode} 초대코드 복사`}
+                      onClick={() => void copyInviteCode(row.salesCode)}
                     >
                       <span className="admin-sales-copy-icon" aria-hidden="true" />
                     </button>
@@ -865,31 +927,46 @@ function DentalSalesTab() {
                 <td>
                   <span
                     className={`admin-sales-status admin-sales-status--${
-                      row.status === "미방문"
+                      row.status === "NOT_VISITED"
                         ? "unvisited"
-                        : row.status === "방문"
+                        : row.status === "VISITING"
                           ? "visited"
                           : "joined"
                     }`}
                   >
-                    {row.status}
+                    {dentalSalesStatusLabel(row.status)}
                   </span>
                 </td>
                 <td
                   className={`admin-sales-detail-status admin-sales-centered${
-                    row.detailStatus === "—" ? " admin-sales-detail-status--empty" : ""
+                    !row.detailStatus ? " admin-sales-detail-status--empty" : ""
                   }`}
                 >
-                  {row.detailStatus}
+                  {dentalSalesDetailLabel(row.detailStatus)}
                 </td>
                 <td className="admin-sales-centered">
-                  <button className="admin-sales-detail-button" type="button">
+                  <button
+                    className="admin-sales-detail-button"
+                    type="button"
+                    onClick={() => {
+                      setSelectedProfileId(row.id);
+                      setDetail(null);
+                      setVisitPage(1);
+                      setActionMessage("");
+                    }}
+                  >
                     상세보기
                   </button>
                 </td>
               </tr>
-            ))}
-            {filteredRows.length === 0 ? (
+              ))
+              : null}
+            {isLoading ? (
+              <tr>
+                <td className="admin-sales-empty" colSpan={10}>목록을 불러오는 중입니다.</td>
+              </tr>
+            ) : null}
+            {!isLoading && !errorMessage && (listData?.items.length ?? 0) === 0 ? (
               <tr>
                 <td className="admin-sales-empty" colSpan={10}>
                   조건에 맞는 치과가 없습니다.
@@ -904,11 +981,12 @@ function DentalSalesTab() {
         <button
           type="button"
           aria-label="이전 페이지"
+          disabled={currentPage <= 1 || isLoading}
           onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
         >
           ‹
         </button>
-        {[1, 2, 3, 4, 5].map((page) => (
+        {pageNumbers.map((page) => (
           <button
             type="button"
             key={page}
@@ -922,14 +1000,219 @@ function DentalSalesTab() {
         <button
           type="button"
           aria-label="다음 페이지"
-          onClick={() => setCurrentPage((page) => Math.min(5, page + 1))}
+          disabled={currentPage >= (listData?.pagination.totalPages ?? 1) || isLoading}
+          onClick={() =>
+            setCurrentPage((page) =>
+              Math.min(listData?.pagination.totalPages ?? 1, page + 1),
+            )
+          }
         >
           ›
         </button>
       </nav>
       <span className="admin-visually-hidden" aria-live="polite">
-        {copiedCode ? `${copiedCode} 초대코드를 복사했습니다.` : ""}
+        {copiedCode
+          ? `${copiedCode} 초대코드를 복사했습니다.`
+          : copyFailed
+            ? "초대코드를 복사하지 못했습니다."
+            : ""}
       </span>
+      {copiedCode || copyFailed ? (
+        <div className={`admin-sales-toast${copyFailed ? " admin-sales-toast--error" : ""}`}>
+          {copiedCode ? "초대코드가 복사되었습니다." : "초대코드를 복사하지 못했습니다."}
+        </div>
+      ) : null}
+
+      {selectedProfileId ? (
+        <div
+          className="admin-sales-drawer-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) setSelectedProfileId(null);
+          }}
+        >
+          <aside
+            className="admin-sales-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="치과 영업 상세"
+          >
+            <header className="admin-sales-drawer-header">
+              <div>
+                <p>영업 상세</p>
+                <h2>{detail?.profile.clinicName ?? "치과 정보"}</h2>
+              </div>
+              <button
+                type="button"
+                aria-label="상세 닫기"
+                onClick={() => setSelectedProfileId(null)}
+              >
+                ×
+              </button>
+            </header>
+
+            {isDetailLoading && !detail ? (
+              <p className="admin-sales-drawer-state">상세 정보를 불러오는 중입니다.</p>
+            ) : detailError && !detail ? (
+              <div className="admin-sales-drawer-state" role="alert">
+                <p>{detailError}</p>
+                <button type="button" onClick={() => void loadDetail()}>다시 시도</button>
+              </div>
+            ) : detail ? (
+              <div className="admin-sales-drawer-body">
+                <section className="admin-sales-summary">
+                  <div className="admin-sales-summary-heading">
+                    <span
+                      className={`admin-sales-status admin-sales-status--${
+                        detail.profile.status === "NOT_VISITED"
+                          ? "unvisited"
+                          : detail.profile.status === "VISITING"
+                            ? "visited"
+                            : "joined"
+                      }`}
+                    >
+                      {dentalSalesStatusLabel(detail.profile.status)}
+                    </span>
+                    <span>{dentalSalesDetailLabel(detail.profile.detailStatus)}</span>
+                  </div>
+                  <dl>
+                    <div><dt>주소</dt><dd>{detail.profile.address}</dd></div>
+                    <div><dt>대표 전화</dt><dd>{detail.profile.phone ?? "미등록"}</dd></div>
+                    <div><dt>초대코드</dt><dd>{detail.profile.salesCode}</dd></div>
+                    <div><dt>가입 시각</dt><dd>{formatAdminDateTime(detail.profile.signedAt)}</dd></div>
+                  </dl>
+                </section>
+
+                <section className="admin-sales-drawer-section">
+                  <h3>담당 영업자</h3>
+                  <span className="admin-sales-select-wrap">
+                    <select
+                      aria-label="담당 영업자 변경"
+                      value={detail.profile.assignedSalesperson?.id ?? ""}
+                      disabled={isSavingAssignment}
+                      onChange={(event) => void saveAssignment(event.target.value)}
+                    >
+                      <option value="">미지정</option>
+                      {detail.salespeople.map((person) => (
+                        <option key={person.id} value={person.id}>{person.name}</option>
+                      ))}
+                    </select>
+                  </span>
+                </section>
+
+                <section className="admin-sales-drawer-section">
+                  <h3>방문 기록 추가</h3>
+                  <form className="admin-sales-visit-form" onSubmit={saveVisit}>
+                    <label>
+                      <span>방문 일시</span>
+                      <input
+                        type="datetime-local"
+                        required
+                        value={visitForm.visitedAt}
+                        onChange={(event) =>
+                          setVisitForm((form) => ({ ...form, visitedAt: event.target.value }))
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>담당 영업자</span>
+                      <select
+                        required
+                        value={visitForm.salespersonUserId}
+                        onChange={(event) =>
+                          setVisitForm((form) => ({
+                            ...form,
+                            salespersonUserId: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">선택</option>
+                        {detail.salespeople.map((person) => (
+                          <option key={person.id} value={person.id}>{person.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>상세 상태</span>
+                      <select
+                        value={visitForm.detailStatus}
+                        onChange={(event) =>
+                          setVisitForm((form) => ({
+                            ...form,
+                            detailStatus: event.target.value as DentalSalesVisitDetailStatus,
+                          }))
+                        }
+                      >
+                        {dentalSalesVisitDetailOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="admin-sales-visit-note">
+                      <span>메모 (선택)</span>
+                      <textarea
+                        maxLength={2000}
+                        value={visitForm.note}
+                        onChange={(event) =>
+                          setVisitForm((form) => ({ ...form, note: event.target.value }))
+                        }
+                        placeholder="방문 내용이나 후속 조치를 기록해 주세요."
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={isSavingVisit || !visitForm.salespersonUserId}
+                    >
+                      {isSavingVisit ? "저장 중" : "방문 기록 저장"}
+                    </button>
+                  </form>
+                </section>
+
+                {actionMessage ? <p className="admin-sales-action-message">{actionMessage}</p> : null}
+
+                <section className="admin-sales-drawer-section">
+                  <h3>방문 이력</h3>
+                  {detail.visits.length ? (
+                    <ol className="admin-sales-visit-list">
+                      {detail.visits.map((visit) => (
+                        <li key={visit.id}>
+                          <div>
+                            <strong>{dentalSalesDetailLabel(visit.detailStatus)}</strong>
+                            <time>{formatAdminDateTime(visit.visitedAt)}</time>
+                          </div>
+                          <p>{visit.salesperson.name}</p>
+                          {visit.note ? <p>{visit.note}</p> : null}
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <p className="admin-sales-drawer-state">아직 방문 기록이 없습니다.</p>
+                  )}
+                  {detail.visitPagination.totalPages > 1 ? (
+                    <nav className="admin-sales-pagination" aria-label="방문 이력 페이지">
+                      <button
+                        type="button"
+                        disabled={visitPage <= 1}
+                        onClick={() => setVisitPage((page) => Math.max(1, page - 1))}
+                      >‹</button>
+                      <span>{visitPage} / {detail.visitPagination.totalPages}</span>
+                      <button
+                        type="button"
+                        disabled={visitPage >= detail.visitPagination.totalPages}
+                        onClick={() =>
+                          setVisitPage((page) =>
+                            Math.min(detail.visitPagination.totalPages, page + 1),
+                          )
+                        }
+                      >›</button>
+                    </nav>
+                  ) : null}
+                </section>
+              </div>
+            ) : null}
+          </aside>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -942,7 +1225,7 @@ function SalesFilterSelect({
 }: {
   label: string;
   onChange: (value: string) => void;
-  options: string[];
+  options: Array<string | { value: string; label: string }>;
   value: string;
 }) {
   return (
@@ -951,14 +1234,32 @@ function SalesFilterSelect({
       <span className="admin-sales-select-wrap">
         <select value={value} onChange={(event) => onChange(event.target.value)}>
           {options.map((option) => (
-            <option key={option} value={option}>
-              {option}
+            <option
+              key={typeof option === "string" ? option : option.value}
+              value={typeof option === "string" ? option : option.value}
+            >
+              {typeof option === "string" ? option : option.label}
             </option>
           ))}
         </select>
       </span>
     </label>
   );
+}
+
+function localDateTimeValue(date: Date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function formatAdminDateTime(value: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("ko-KR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
 }
 
 function OverviewTab({ data }: { data: AdminConsolePayload }) {

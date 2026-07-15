@@ -259,6 +259,66 @@ export async function unlockAdminAccount(accessToken: string, userId: string) {
   );
 }
 
+export async function fetchAdminDentalSales(
+  accessToken: string,
+  filters: DentalSalesFilters,
+  page: number,
+  pageSize = 20,
+) {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  for (const [key, value] of Object.entries(filters)) {
+    const clean = value.trim();
+    if (clean) params.set(key, clean);
+  }
+  return adminFetch<DentalSalesListPayload>(
+    `/api/v1/admin/dental-sales?${params.toString()}`,
+    accessToken,
+  );
+}
+
+export async function fetchAdminDentalSalesDetail(
+  accessToken: string,
+  profileId: string,
+  visitPage = 1,
+) {
+  return adminFetch<DentalSalesDetailPayload>(
+    `/api/v1/admin/dental-sales/${encodeURIComponent(profileId)}?visitPage=${visitPage}`,
+    accessToken,
+  );
+}
+
+export async function assignAdminDentalSalesperson(
+  accessToken: string,
+  profileId: string,
+  assignedSalespersonUserId: string | null,
+) {
+  return adminFetch<AdminActionResult>(
+    `/api/v1/admin/dental-sales/${encodeURIComponent(profileId)}`,
+    accessToken,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ assignedSalespersonUserId }),
+    },
+  );
+}
+
+export async function createAdminDentalSalesVisit(
+  accessToken: string,
+  profileId: string,
+  body: {
+    visitedAt: string;
+    salespersonUserId: string;
+    detailStatus: DentalSalesVisitDetailStatus;
+    note?: string;
+  },
+) {
+  return adminFetch<AdminActionResult>(
+    `/api/v1/admin/dental-sales/${encodeURIComponent(profileId)}/visits`,
+    accessToken,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
 async function adminFetch<T>(
   path: string,
   accessToken: string,
@@ -289,3 +349,9 @@ async function adminFetch<T>(
 
   return payload as T;
 }
+import type {
+  DentalSalesDetailPayload,
+  DentalSalesFilters,
+  DentalSalesListPayload,
+  DentalSalesVisitDetailStatus,
+} from "./dental-sales";
