@@ -92,6 +92,7 @@ export default function AdminHome() {
   const [consoleData, setConsoleData] = useState<AdminConsolePayload>(emptyConsole);
   const [isLoadingConsole, setIsLoadingConsole] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -229,6 +230,7 @@ export default function AdminHome() {
         password: loginPassword,
       });
       setLoginPassword("");
+      setIsPasswordVisible(false);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "로그인에 실패했습니다.");
     } finally {
@@ -272,42 +274,37 @@ export default function AdminHome() {
   if (!session) {
     return (
       <main className="admin-login">
+        <div className="admin-login-brand" aria-label="치카픽 어드민">
+          <span className="admin-login-brand-symbol">
+            <Image
+              src="/chikapick_logo.png"
+              alt=""
+              fill
+              sizes="45px"
+              priority
+            />
+          </span>
+          <span className="admin-login-brand-text">
+            <Image
+              src="/chikapick_logo_text.svg"
+              alt=""
+              fill
+              sizes="101px"
+              priority
+            />
+          </span>
+          <span className="admin-login-brand-label">어드민</span>
+        </div>
         <section className="admin-login-card" aria-labelledby="admin-login-title">
-          <div className="admin-brand">
-            <span className="admin-brand-symbol">
-              <Image
-                src="/chikapick_logo.png"
-                alt=""
-                fill
-                sizes="32px"
-                priority
-              />
-            </span>
-            <span className="admin-brand-text" aria-label="치카픽">
-              <Image
-                src="/chikapick_logo_text.svg"
-                alt=""
-                fill
-                sizes="80px"
-                priority
-              />
-            </span>
-            <span>어드민</span>
-          </div>
-          <div>
-            <h1 id="admin-login-title">치카픽 운영 콘솔</h1>
-            <p>
-              병원 가입 심사, 면허 인증, 소속 승인, 사용자 권한과 운영 상태를
-              한곳에서 관리합니다.
-            </p>
-          </div>
+          <h1 id="admin-login-title">치과하면 치카픽, 오늘도 함께 힘내요!</h1>
           <form className="admin-login-form" onSubmit={handlePasswordSignIn}>
             <label>
-              <span>아이디(이메일)</span>
+              <span>이메일</span>
               <input
                 autoComplete="username"
                 inputMode="email"
                 name="email"
+                placeholder="your@email.com"
                 type="email"
                 value={loginEmail}
                 onChange={(event) => setLoginEmail(event.target.value)}
@@ -315,19 +312,41 @@ export default function AdminHome() {
             </label>
             <label>
               <span>비밀번호</span>
-              <input
-                autoComplete="current-password"
-                name="password"
-                type="password"
-                value={loginPassword}
-                onChange={(event) => setLoginPassword(event.target.value)}
-              />
+              <span className="admin-password-field">
+                <input
+                  autoComplete="current-password"
+                  name="password"
+                  placeholder="비밀번호"
+                  type={isPasswordVisible ? "text" : "password"}
+                  value={loginPassword}
+                  onChange={(event) => setLoginPassword(event.target.value)}
+                />
+                <button
+                  className="admin-password-toggle"
+                  type="button"
+                  aria-label={isPasswordVisible ? "비밀번호 숨기기" : "비밀번호 표시"}
+                  aria-pressed={isPasswordVisible}
+                  onClick={() => setIsPasswordVisible((isVisible) => !isVisible)}
+                >
+                  <Image
+                    src={isPasswordVisible ? "/Type=Visible.svg" : "/Type=Invisible.svg"}
+                    alt=""
+                    width={22}
+                    height={22}
+                  />
+                </button>
+              </span>
             </label>
-            <button type="submit" disabled={isSigningIn}>
+            <button className="admin-login-submit" type="submit" disabled={isSigningIn}>
               {isSigningIn ? "로그인 중" : "로그인"}
             </button>
           </form>
-          {message ? <p className="admin-message admin-message--error">{message}</p> : null}
+          <div className="admin-login-feedback" aria-live="polite">
+            {message ? <p>{message}</p> : null}
+          </div>
+          <p className="admin-login-help">
+            계정 발급 및 비밀번호 재설정은 회사 대표에게 요청해 주세요.
+          </p>
         </section>
       </main>
     );

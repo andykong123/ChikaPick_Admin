@@ -69,19 +69,31 @@ textarea:focus-visible {
 .admin-entry,
 .admin-login {
   min-height: 100vh;
-  background: var(--chika-secondary-0);
+  background: var(--chika-base-1);
+}
+
+.admin-entry {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 32px;
 }
 
+.admin-login {
+  overflow: auto;
+  padding: 88px 20px 49px;
+  font-family: "Pretendard", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
 .admin-loading,
 .admin-login-card {
+  background: var(--surface);
+}
+
+.admin-loading {
   width: min(100%, 520px);
   border: 1px solid var(--border);
   border-radius: 20px;
-  background: var(--surface);
   box-shadow: 0 16px 40px rgba(0, 11, 38, 0.08);
   padding: 40px;
 }
@@ -94,9 +106,57 @@ textarea:focus-visible {
 }
 
 .admin-login-card {
+  position: relative;
+  width: min(100%, 484px);
+  height: 474px;
+  margin: 39px auto 0;
+  overflow: hidden;
+  border-radius: 16px;
+  box-shadow:
+    0 0 20px rgba(0, 11, 38, 0.07),
+    0 0 10px 2px rgba(0, 11, 38, 0.03);
+  padding: 40px 66px;
+}
+
+.admin-login-brand {
+  width: 218px;
+  height: 48px;
+  margin: 0 auto;
   display: flex;
-  flex-direction: column;
-  gap: 28px;
+  align-items: center;
+}
+
+.admin-login-brand-symbol,
+.admin-login-brand-text {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+}
+
+.admin-login-brand-symbol {
+  width: 45px;
+  height: 47px;
+}
+
+.admin-login-brand-text {
+  width: 101px;
+  height: 44px;
+  margin-left: 5px;
+}
+
+.admin-login-brand-symbol img,
+.admin-login-brand-text img {
+  object-fit: contain;
+}
+
+.admin-login-brand-label {
+  margin-left: 4px;
+  padding-top: 22px;
+  color: #011850;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 24px;
+  white-space: nowrap;
 }
 
 .admin-brand,
@@ -151,25 +211,18 @@ textarea:focus-visible {
 }
 
 .admin-login-card h1 {
-  margin: 0 0 10px;
-  color: var(--text-primary);
-  font-size: 28px;
-  font-weight: 800;
-  line-height: 36px;
-}
-
-.admin-login-card p {
   margin: 0;
-  color: var(--text-tertiary);
-  font-size: 15px;
-  font-weight: 400;
-  line-height: 24px;
-  word-break: keep-all;
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 30px;
+  letter-spacing: -0.44px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .admin-login-form {
-  display: grid;
-  gap: 12px;
+  margin-top: 35px;
 }
 
 .admin-inline-form {
@@ -181,8 +234,13 @@ textarea:focus-visible {
 }
 
 .admin-login-form label {
-  display: grid;
-  gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.admin-login-form label + label {
+  margin-top: 19px;
 }
 
 .admin-inline-form label {
@@ -191,10 +249,11 @@ textarea:focus-visible {
 }
 
 .admin-login-form label span {
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 18px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: -0.28px;
 }
 
 .admin-inline-form label span {
@@ -206,14 +265,50 @@ textarea:focus-visible {
 
 .admin-login-form input {
   width: 100%;
-  min-height: 44px;
-  border: 1px solid var(--border);
+  height: 44px;
+  border: 1px solid var(--chika-base-4);
   border-radius: 10px;
   background: var(--surface);
   color: var(--text-primary);
-  padding: 0 12px;
-  font-size: 14px;
-  line-height: 20px;
+  padding: 0 16px;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 22px;
+}
+
+.admin-login-form input::placeholder {
+  color: var(--chika-base-4);
+  opacity: 1;
+}
+
+.admin-password-field {
+  position: relative;
+  display: block;
+}
+
+.admin-password-field input {
+  display: block;
+  padding-right: 52px;
+}
+
+.admin-password-toggle {
+  position: absolute;
+  top: 0;
+  right: 5px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.admin-password-toggle:hover {
+  background: var(--chika-base-1);
 }
 
 .admin-inline-form input,
@@ -239,7 +334,7 @@ textarea:focus-visible {
   outline: none;
 }
 
-.admin-login-form button,
+.admin-login-submit,
 .admin-inline-form button,
 .admin-topbar-actions button,
 .admin-action-group button,
@@ -261,17 +356,58 @@ textarea:focus-visible {
   white-space: nowrap;
 }
 
-.admin-login-form button {
-  margin-top: 4px;
+.admin-login-submit {
+  width: 100%;
+  height: 44px;
+  margin-top: 40px;
+  border-radius: 14px;
+  background: #011b5a;
+  padding: 0 20px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+  letter-spacing: -0.32px;
 }
 
 .admin-inline-form button {
   min-height: 38px;
 }
 
-.admin-login-form button:disabled {
+.admin-login-submit:disabled {
   cursor: not-allowed;
   opacity: 0.62;
+}
+
+.admin-login-feedback {
+  position: absolute;
+  top: 357px;
+  left: 66px;
+  width: 352px;
+  min-height: 20px;
+  color: var(--danger);
+  text-align: center;
+}
+
+.admin-login-feedback p {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.admin-login-help {
+  position: absolute;
+  top: 396px;
+  left: 50%;
+  width: max-content;
+  margin: 0;
+  transform: translateX(-50%);
+  color: var(--text-quaternary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: -0.28px;
+  text-align: center;
 }
 
 .admin-shell {
@@ -795,14 +931,36 @@ td span {
 }
 
 @media (max-width: 760px) {
-  .admin-login,
   .admin-entry {
     padding: 20px;
   }
 
-  .admin-login-card,
   .admin-loading {
     padding: 28px 22px;
+  }
+
+  .admin-login {
+    padding: 56px 20px 40px;
+  }
+
+  .admin-login-card {
+    padding-right: 24px;
+    padding-left: 24px;
+  }
+
+  .admin-login-card h1 {
+    font-size: 20px;
+    letter-spacing: -0.4px;
+  }
+
+  .admin-login-feedback {
+    right: 24px;
+    left: 24px;
+    width: auto;
+  }
+
+  .admin-login-help {
+    width: calc(100% - 48px);
   }
 
   .admin-topbar {
