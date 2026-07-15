@@ -1064,6 +1064,397 @@ td span {
   gap: 2px;
 }
 
+.admin-workspace-heading--sales p {
+  max-width: 780px;
+  color: #6b7280;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: -0.28px;
+}
+
+.admin-content--sales {
+  max-width: none;
+  gap: 25px;
+  padding-top: 25px;
+}
+
+.admin-sales-filters {
+  height: 82px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--chika-base-1);
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) 68px 54px;
+  gap: 12px;
+  align-items: end;
+  padding: 12px 20px;
+}
+
+.admin-sales-filter-field {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-sales-filter-field > span:first-child {
+  color: #6b7280;
+  font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 14px;
+}
+
+.admin-sales-select-wrap,
+.admin-sales-search-field {
+  position: relative;
+  min-width: 0;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+}
+
+.admin-sales-select-wrap::after {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid #9ca3af;
+  border-bottom: 1.5px solid #9ca3af;
+  content: "";
+  pointer-events: none;
+  transform: rotate(45deg);
+}
+
+.admin-sales-filter-field select,
+.admin-sales-filter-field input {
+  width: 100%;
+  height: 30px;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #161616;
+  font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.admin-sales-filter-field select {
+  appearance: none;
+  cursor: pointer;
+  padding: 0 34px 0 12px;
+}
+
+.admin-sales-filter-field input {
+  padding: 0 10px 0 34px;
+}
+
+.admin-sales-filter-field input::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+}
+
+.admin-sales-filter-field input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.admin-sales-select-wrap:focus-within,
+.admin-sales-search-field:focus-within {
+  border-color: var(--chika-secondary-6);
+  box-shadow: 0 0 0 2px rgba(2, 61, 199, 0.1);
+}
+
+.admin-sales-search-icon {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid #9ca3af;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+.admin-sales-search-icon::after {
+  position: absolute;
+  right: -4px;
+  bottom: -3px;
+  width: 5px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: #9ca3af;
+  content: "";
+  transform: rotate(45deg);
+  transform-origin: left center;
+}
+
+.admin-sales-reset,
+.admin-sales-submit {
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.admin-sales-reset {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: #6b7280;
+}
+
+.admin-sales-submit {
+  border: 1px solid var(--chika-secondary-4);
+  background: #3b6ee8;
+  color: var(--surface);
+}
+
+.admin-sales-reset:hover,
+.admin-sales-reset:focus-visible {
+  background: var(--chika-base-2);
+}
+
+.admin-sales-submit:hover,
+.admin-sales-submit:focus-visible {
+  background: var(--chika-secondary-6);
+}
+
+.admin-sales-table-scroll {
+  width: calc(100% + 12px);
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.admin-sales-table {
+  width: 100%;
+  min-width: 1020px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
+}
+
+.admin-sales-table th {
+  height: 40px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: #f9fafb;
+  color: #6b7280;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.admin-sales-table td {
+  height: 44px;
+  min-height: 44px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: var(--surface);
+  color: #161616;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-sales-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-sales-table td span {
+  margin: 0;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.admin-sales-clinic-name {
+  font-weight: 700 !important;
+}
+
+.admin-sales-mono,
+.admin-sales-invite-code {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.admin-sales-invite-code {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+}
+
+.admin-sales-invite-code > span {
+  display: inline;
+}
+
+.admin-sales-invite-code button {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.admin-sales-invite-code button:hover,
+.admin-sales-invite-code button:focus-visible {
+  background: var(--chika-base-1);
+}
+
+.admin-sales-copy-icon {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+.admin-sales-copy-icon::before,
+.admin-sales-copy-icon::after {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border: 1.3px solid #9ca3af;
+  border-radius: 1px;
+  content: "";
+}
+
+.admin-sales-copy-icon::before {
+  top: 1px;
+  left: 1px;
+}
+
+.admin-sales-copy-icon::after {
+  right: 1px;
+  bottom: 1px;
+  background: var(--surface);
+}
+
+.admin-sales-status {
+  width: fit-content;
+  min-height: 18px;
+  border-radius: 4px;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  font-size: 12px !important;
+  font-weight: 600;
+  line-height: 15px !important;
+}
+
+.admin-sales-status--unvisited {
+  background: #fee9d9;
+  color: #f56e00 !important;
+}
+
+.admin-sales-status--visited {
+  background: #dbeafe;
+  color: #2563eb !important;
+}
+
+.admin-sales-status--joined {
+  background: #d1fae5;
+  color: #059669 !important;
+}
+
+.admin-sales-centered {
+  text-align: center !important;
+}
+
+.admin-sales-detail-status--empty {
+  color: #9ca3af !important;
+}
+
+.admin-sales-detail-button {
+  min-height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: #6b7280;
+  cursor: pointer;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 15px;
+  white-space: nowrap;
+}
+
+.admin-sales-detail-button:hover,
+.admin-sales-detail-button:focus-visible {
+  border-color: var(--chika-secondary-4);
+  color: var(--chika-secondary-6);
+}
+
+.admin-sales-empty {
+  height: 132px !important;
+  color: #9ca3af !important;
+  text-align: center;
+}
+
+.admin-sales-pagination {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.admin-sales-pagination button {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 22px;
+}
+
+.admin-sales-pagination button:hover,
+.admin-sales-pagination button:focus-visible {
+  background: var(--chika-secondary-0);
+}
+
+.admin-sales-pagination .admin-sales-page-active {
+  border: 2px solid var(--chika-secondary-6);
+  background: var(--chika-secondary-0);
+  color: var(--chika-secondary-6);
+  box-shadow: 0 1px 0 var(--chika-secondary-1);
+}
+
+.admin-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 @media (max-width: 1100px) {
   .admin-shell {
     width: 100%;
@@ -1118,6 +1509,18 @@ td span {
   .admin-metric-grid,
   .admin-card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-sales-table-scroll {
+    width: 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-sales-filters {
+    height: auto;
+    min-height: 82px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -1176,6 +1579,11 @@ td span {
 
   .admin-inline-form {
     grid-template-columns: 1fr;
+  }
+
+  .admin-sales-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 16px;
   }
 
   .admin-content {

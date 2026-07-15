@@ -144,6 +144,7 @@ Do not expose plaintext invite codes in Admin. The invite tab should inspect inv
 
 ## Current Admin Surfaces
 
+- 치과 영업 관리: Figma-matched regional clinic sales table with client-side filters, invite-code copying, status display, and pagination state. It currently uses the design reference rows; live privileged clinic-sales data must wait for a typed `ChikaPick_API` Admin endpoint rather than querying Supabase from the browser.
 - 수동 병원 가입 심사: pending owner manual hospital submissions, short-lived business-license file links, approve/reject.
 - 소속 신청 승인: pending doctor/staff clinic memberships, approve/reject.
 - 면허 인증: partner dentist license verification review and approval/rejection.
