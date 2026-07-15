@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  assignAdminDentalSalesperson,
   createAdminDentalSalesVisit,
   fetchAdminDentalSales,
+  fetchAdminDentalSalesDetail,
   inviteAdminAccount,
   sendAdminPasswordReset,
   unlockAdminAccount,
@@ -142,6 +144,63 @@ test("fetchAdminDentalSales sends server-side filters and pagination", async () 
   assert.equal(url.searchParams.get("clinicName"), "서울");
   assert.equal(url.searchParams.get("status"), "VISITING");
   assert.equal(url.searchParams.has("salespersonId"), false);
+});
+
+test("fetchAdminDentalSalesDetail requests the selected profile and visit page", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(
+      JSON.stringify({
+        profile: {},
+        visits: [],
+        visitPagination: { page: 2, pageSize: 20, totalItems: 0, totalPages: 1 },
+        salespeople: [],
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+
+  try {
+    await fetchAdminDentalSalesDetail("access-token", "sales/1", 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(
+    calls[0]?.input,
+    "https://api.example.com/api/v1/admin/dental-sales/sales%2F1?visitPage=2",
+  );
+});
+
+test("assignAdminDentalSalesperson patches the assignee selected in the detail card", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(JSON.stringify({ ok: true, message: "saved" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    await assignAdminDentalSalesperson("access-token", "sales/1", "admin-2");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(
+    calls[0]?.input,
+    "https://api.example.com/api/v1/admin/dental-sales/sales%2F1",
+  );
+  assert.equal(calls[0]?.init?.method, "PATCH");
+  assert.deepEqual(JSON.parse(calls[0]?.init?.body as string), {
+    assignedSalespersonUserId: "admin-2",
+  });
 });
 
 test("createAdminDentalSalesVisit posts an immutable visit payload", async () => {

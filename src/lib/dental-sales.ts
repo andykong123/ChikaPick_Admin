@@ -12,6 +12,7 @@ export type DentalSalesDetailStatus =
 export interface DentalSalesperson {
   id: string;
   name: string;
+  teamName?: string | null;
 }
 
 export interface DentalSalesRow {
@@ -69,6 +70,19 @@ export interface DentalSalesDetailPayload {
     assignedSalesperson: DentalSalesperson | null;
     claimedAt: string | null;
     signedAt: string | null;
+    representativeName?: string | null;
+    businessRegistrationNumber?: string | null;
+    medicalInstitutionType?: string | null;
+    externalConnectorName?: string | null;
+    isAppVisible?: boolean;
+    businessLicense?: {
+      fileName: string;
+      url?: string | null;
+    } | null;
+    informationCompletion?: {
+      percentage: number;
+      updatedAt: string | null;
+    } | null;
   };
   visits: DentalSalesVisit[];
   visitPagination: DentalSalesPagination;
@@ -119,6 +133,45 @@ export function dentalSalesStatusLabel(status: DentalSalesHospitalStatus) {
 export function dentalSalesDetailLabel(status: DentalSalesDetailStatus | null) {
   if (!status) return "—";
   return dentalSalesDetailOptions.find((option) => option.value === status)?.label ?? status;
+}
+
+export function dentalSalesVisitTitle(
+  status: DentalSalesVisitDetailStatus,
+  salesCode: string,
+) {
+  switch (status) {
+    case "INTEREST":
+      return "방문 상담 - 관심/검토 중";
+    case "CODE_SHARED":
+      return `초대코드 ${salesCode} 전달`;
+    case "REJECTED":
+      return "영업 제안 거절";
+    case "ON_HOLD":
+      return "후속 논의 보류";
+  }
+}
+
+export function dentalSalesRegionLabel(city: string, district: string) {
+  const shortCity = city
+    .replace(/특별자치시$/, "")
+    .replace(/특별자치도$/, "")
+    .replace(/특별시$/, "")
+    .replace(/광역시$/, "")
+    .replace(/도$/, "");
+  return `${shortCity} / ${district}`;
+}
+
+export function dentalSalesBusinessFileError(file: {
+  size: number;
+  type: string;
+}) {
+  if (!["image/jpeg", "image/png", "application/pdf"].includes(file.type)) {
+    return "JPG, PNG, PDF 파일만 선택할 수 있습니다.";
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    return "파일 크기는 10MB 이하여야 합니다.";
+  }
+  return null;
 }
 
 export function dentalSalesPageNumbers(currentPage: number, totalPages: number) {

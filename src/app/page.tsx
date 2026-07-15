@@ -36,11 +36,14 @@ import {
 } from "@/lib/browser-session";
 import {
   dentalSalesDetailLabel,
+  dentalSalesBusinessFileError,
   dentalSalesDetailOptions,
   dentalSalesPageNumbers,
+  dentalSalesRegionLabel,
   dentalSalesStatusLabel,
   dentalSalesStatusOptions,
   dentalSalesVisitDetailOptions,
+  dentalSalesVisitTitle,
   emptyDentalSalesFilters,
   type DentalSalesDetailPayload,
   type DentalSalesFilters,
@@ -126,6 +129,9 @@ export default function AdminHome() {
   const [activePrimaryTab, setActivePrimaryTab] = useState<
     (typeof primaryTabs)[number]["id"] | null
   >("dashboard");
+  const [selectedDentalSalesProfileId, setSelectedDentalSalesProfileId] = useState<
+    string | null
+  >(null);
   const [consoleData, setConsoleData] = useState<AdminConsolePayload>(emptyConsole);
   const [isLoadingConsole, setIsLoadingConsole] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -141,6 +147,8 @@ export default function AdminHome() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const lastAutoLoadedAccessTokenRef = useRef<string | null>(null);
   const lastActivityAtRef = useRef(0);
+  const isDentalSalesDetailView =
+    activePrimaryTab === "dental-sales" && selectedDentalSalesProfileId !== null;
 
   const loadConsole = useCallback(
     async (currentSession: Session | null) => {
@@ -427,7 +435,10 @@ export default function AdminHome() {
                 key={tab.id}
                 className={activePrimaryTab === tab.id ? "admin-nav-active" : undefined}
                 aria-current={activePrimaryTab === tab.id ? "page" : undefined}
-                onClick={() => setActivePrimaryTab(tab.id)}
+                onClick={() => {
+                  setActivePrimaryTab(tab.id);
+                  if (tab.id !== "dental-sales") setSelectedDentalSalesProfileId(null);
+                }}
               >
                 <span className="admin-nav-icon" style={maskIcon(tab.icon)} />
                 <span className="admin-nav-label">{tab.label}</span>
@@ -452,6 +463,7 @@ export default function AdminHome() {
                 onClick={() => {
                   setActivePrimaryTab(null);
                   setActiveTab(tab.id);
+                  setSelectedDentalSalesProfileId(null);
                 }}
               >
                 <span className="admin-nav-icon" style={maskIcon(tab.icon)} />
@@ -463,7 +475,18 @@ export default function AdminHome() {
       </aside>
 
       <section className="admin-main">
-        <header className="admin-topbar">
+        <header
+          className={`admin-topbar${isDentalSalesDetailView ? " admin-topbar--detail" : ""}`}
+        >
+          {isDentalSalesDetailView ? (
+            <nav className="admin-detail-breadcrumb" aria-label="현재 위치">
+              <button type="button" onClick={() => setSelectedDentalSalesProfileId(null)}>
+                치과 영업 관리
+              </button>
+              <span aria-hidden="true">›</span>
+              <strong>상세보기</strong>
+            </nav>
+          ) : null}
           <div className="admin-topbar-tools">
             <button type="button" aria-label="검색">
               <Image src="/Type=Search.svg" alt="" width={24} height={24} />
@@ -478,37 +501,39 @@ export default function AdminHome() {
           </div>
         </header>
 
-        <div
-          className={`admin-workspace-heading${
-            activePrimaryTab === "dental-sales" ? " admin-workspace-heading--sales" : ""
-          }`}
-        >
-          <div>
-            <div className="admin-workspace-title-row">
-              <h1>
+        {!isDentalSalesDetailView ? (
+          <div
+            className={`admin-workspace-heading${
+              activePrimaryTab === "dental-sales" ? " admin-workspace-heading--sales" : ""
+            }`}
+          >
+            <div>
+              <div className="admin-workspace-title-row">
+                <h1>
+                  {activePrimaryTab === "dental-sales"
+                    ? "치과 영업 관리"
+                    : tabs.find((tab) => tab.id === activeTab)?.label}
+                </h1>
+                {activePrimaryTab === "dental-sales" ? <DentalSalesInfoTooltip /> : null}
+              </div>
+              <p>
                 {activePrimaryTab === "dental-sales"
-                  ? "치과 영업 관리"
-                  : tabs.find((tab) => tab.id === activeTab)?.label}
-              </h1>
-              {activePrimaryTab === "dental-sales" ? <DentalSalesInfoTooltip /> : null}
+                  ? "전국 치과를 지역별로 조회하고 초대 코드를 확인 할 수 있으며 영업 현황을 관리합니다."
+                  : "실제 운영 데이터는 ChikaPick_API 관리자 엔드포인트에서 불러옵니다."}
+              </p>
             </div>
-            <p>
-              {activePrimaryTab === "dental-sales"
-                ? "전국 치과를 지역별로 조회하고 초대 코드를 확인 할 수 있으며 영업 현황을 관리합니다."
-                : "실제 운영 데이터는 ChikaPick_API 관리자 엔드포인트에서 불러옵니다."}
-            </p>
+            {activePrimaryTab !== "dental-sales" ? (
+              <div className="admin-topbar-actions">
+                <button type="button" onClick={() => loadConsole(session)}>
+                  {isLoadingConsole ? "새로고침 중" : "새로고침"}
+                </button>
+                <button type="button" onClick={signOut}>
+                  로그아웃
+                </button>
+              </div>
+            ) : null}
           </div>
-          {activePrimaryTab !== "dental-sales" ? (
-            <div className="admin-topbar-actions">
-              <button type="button" onClick={() => loadConsole(session)}>
-                {isLoadingConsole ? "새로고침 중" : "새로고침"}
-              </button>
-              <button type="button" onClick={signOut}>
-                로그아웃
-              </button>
-            </div>
-          ) : null}
-        </div>
+        ) : null}
 
         {message && activePrimaryTab !== "dental-sales" ? (
           <p className="admin-message">{message}</p>
@@ -517,10 +542,14 @@ export default function AdminHome() {
         <div
           className={`admin-content${
             activePrimaryTab === "dental-sales" ? " admin-content--sales" : ""
-          }`}
+          }${isDentalSalesDetailView ? " admin-content--sales-detail" : ""}`}
         >
           {activePrimaryTab === "dental-sales" ? (
-            <DentalSalesTab accessToken={session?.access_token ?? ""} />
+            <DentalSalesTab
+              accessToken={session?.access_token ?? ""}
+              selectedProfileId={selectedDentalSalesProfileId}
+              onSelectProfile={setSelectedDentalSalesProfileId}
+            />
           ) : activeTab === "overview" ? (
             <OverviewTab data={consoleData} />
           ) : activeTab === "manual" ? (
@@ -669,7 +698,15 @@ function DentalSalesInfoTooltip() {
   );
 }
 
-function DentalSalesTab({ accessToken }: { accessToken: string }) {
+function DentalSalesTab({
+  accessToken,
+  onSelectProfile,
+  selectedProfileId,
+}: {
+  accessToken: string;
+  onSelectProfile: (profileId: string | null) => void;
+  selectedProfileId: string | null;
+}) {
   const [draftFilters, setDraftFilters] = useState<DentalSalesFilters>({
     ...emptyDentalSalesFilters,
   });
@@ -682,13 +719,16 @@ function DentalSalesTab({ accessToken }: { accessToken: string }) {
   const [errorMessage, setErrorMessage] = useState("");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [copyFailed, setCopyFailed] = useState(false);
-  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [detail, setDetail] = useState<DentalSalesDetailPayload | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
   const [actionMessage, setActionMessage] = useState("");
   const [isSavingAssignment, setIsSavingAssignment] = useState(false);
   const [isSavingVisit, setIsSavingVisit] = useState(false);
+  const [isAssignmentEditing, setIsAssignmentEditing] = useState(false);
+  const [isVisitFormOpen, setIsVisitFormOpen] = useState(false);
+  const [businessFileName, setBusinessFileName] = useState("");
+  const [businessFileError, setBusinessFileError] = useState("");
   const [visitPage, setVisitPage] = useState(1);
   const [visitForm, setVisitForm] = useState<{
     visitedAt: string;
@@ -717,7 +757,7 @@ function DentalSalesTab({ accessToken }: { accessToken: string }) {
     }
   }, [accessToken, appliedFilters, currentPage]);
 
-  const loadDetail = useCallback(async () => {
+  const loadDetail = useCallback(async (page = visitPage) => {
     if (!accessToken || !selectedProfileId) return;
     setIsDetailLoading(true);
     setDetailError("");
@@ -725,7 +765,7 @@ function DentalSalesTab({ accessToken }: { accessToken: string }) {
       const payload = await fetchAdminDentalSalesDetail(
         accessToken,
         selectedProfileId,
-        visitPage,
+        page,
       );
       setDetail(payload);
       setVisitForm((form) => ({
@@ -756,11 +796,17 @@ function DentalSalesTab({ accessToken }: { accessToken: string }) {
   useEffect(() => {
     if (!selectedProfileId) return;
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setSelectedProfileId(null);
+      if (event.key === "Escape") {
+        setIsAssignmentEditing(false);
+        setIsVisitFormOpen(false);
+        setBusinessFileName("");
+        setBusinessFileError("");
+        onSelectProfile(null);
+      }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectedProfileId]);
+  }, [onSelectProfile, selectedProfileId]);
 
   const pageNumbers = dentalSalesPageNumbers(
     listData?.pagination.page ?? 1,
@@ -806,6 +852,7 @@ function DentalSalesTab({ accessToken }: { accessToken: string }) {
       setActionMessage(result.message);
       setVisitForm((form) => ({ ...form, salespersonUserId }));
       await Promise.all([loadDetail(), loadList()]);
+      setIsAssignmentEditing(false);
     } catch (error) {
       setActionMessage(error instanceof Error ? error.message : "담당자를 변경하지 못했습니다.");
     } finally {
@@ -832,12 +879,79 @@ function DentalSalesTab({ accessToken }: { accessToken: string }) {
         note: "",
       }));
       setVisitPage(1);
-      await Promise.all([loadDetail(), loadList()]);
+      await Promise.all([loadDetail(1), loadList()]);
     } catch (error) {
       setActionMessage(error instanceof Error ? error.message : "방문 기록을 저장하지 못했습니다.");
     } finally {
       setIsSavingVisit(false);
     }
+  }
+
+  function selectBusinessFile(file: File | undefined) {
+    setBusinessFileError("");
+    setBusinessFileName("");
+    if (!file) return;
+    const validationError = dentalSalesBusinessFileError(file);
+    if (validationError) {
+      setBusinessFileError(validationError);
+      return;
+    }
+    setBusinessFileName(file.name);
+  }
+
+  function closeDetail() {
+    setIsAssignmentEditing(false);
+    setIsVisitFormOpen(false);
+    setBusinessFileName("");
+    setBusinessFileError("");
+    onSelectProfile(null);
+  }
+
+  function openDetail(profileId: string) {
+    setDetail(null);
+    setVisitPage(1);
+    setActionMessage("");
+    setIsAssignmentEditing(false);
+    setIsVisitFormOpen(false);
+    setBusinessFileName("");
+    setBusinessFileError("");
+    setVisitForm({
+      visitedAt: localDateTimeValue(new Date()),
+      salespersonUserId: "",
+      detailStatus: "INTEREST",
+      note: "",
+    });
+    onSelectProfile(profileId);
+  }
+
+  if (selectedProfileId) {
+    return (
+      <DentalSalesDetailPage
+        actionMessage={actionMessage}
+        businessFileError={businessFileError}
+        businessFileName={businessFileName}
+        detail={detail}
+        detailError={detailError}
+        isAssignmentEditing={isAssignmentEditing}
+        isDetailLoading={isDetailLoading}
+        isSavingAssignment={isSavingAssignment}
+        isSavingVisit={isSavingVisit}
+        isVisitFormOpen={isVisitFormOpen}
+        onAssignmentEdit={() => setIsAssignmentEditing((isEditing) => !isEditing)}
+        onAssignmentSave={(salespersonId) => void saveAssignment(salespersonId)}
+        onBack={closeDetail}
+        onBusinessFileSelect={selectBusinessFile}
+        onDetailRetry={() => void loadDetail()}
+        onVisitFormToggle={() => setIsVisitFormOpen((isOpen) => !isOpen)}
+        onVisitSubmit={saveVisit}
+        onVisitFormChange={(patch) =>
+          setVisitForm((form) => ({ ...form, ...patch }))
+        }
+        onVisitPageChange={setVisitPage}
+        visitForm={visitForm}
+        visitPage={visitPage}
+      />
+    );
   }
 
   return (
@@ -1006,12 +1120,7 @@ function DentalSalesTab({ accessToken }: { accessToken: string }) {
                   <button
                     className="admin-sales-detail-button"
                     type="button"
-                    onClick={() => {
-                      setSelectedProfileId(row.id);
-                      setDetail(null);
-                      setVisitPage(1);
-                      setActionMessage("");
-                    }}
+                    onClick={() => openDetail(row.id)}
                   >
                     상세보기
                   </button>
@@ -1081,197 +1190,450 @@ function DentalSalesTab({ accessToken }: { accessToken: string }) {
         </div>
       ) : null}
 
-      {selectedProfileId ? (
-        <div
-          className="admin-sales-drawer-backdrop"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.currentTarget === event.target) setSelectedProfileId(null);
-          }}
-        >
-          <aside
-            className="admin-sales-drawer"
-            role="dialog"
-            aria-modal="true"
-            aria-label="치과 영업 상세"
-          >
-            <header className="admin-sales-drawer-header">
-              <div>
-                <p>영업 상세</p>
-                <h2>{detail?.profile.clinicName ?? "치과 정보"}</h2>
-              </div>
+    </>
+  );
+}
+
+type DentalSalesVisitForm = {
+  visitedAt: string;
+  salespersonUserId: string;
+  detailStatus: DentalSalesVisitDetailStatus;
+  note: string;
+};
+
+function DentalSalesDetailPage({
+  actionMessage,
+  businessFileError,
+  businessFileName,
+  detail,
+  detailError,
+  isAssignmentEditing,
+  isDetailLoading,
+  isSavingAssignment,
+  isSavingVisit,
+  isVisitFormOpen,
+  onAssignmentEdit,
+  onAssignmentSave,
+  onBack,
+  onBusinessFileSelect,
+  onDetailRetry,
+  onVisitFormChange,
+  onVisitFormToggle,
+  onVisitPageChange,
+  onVisitSubmit,
+  visitForm,
+  visitPage,
+}: {
+  actionMessage: string;
+  businessFileError: string;
+  businessFileName: string;
+  detail: DentalSalesDetailPayload | null;
+  detailError: string;
+  isAssignmentEditing: boolean;
+  isDetailLoading: boolean;
+  isSavingAssignment: boolean;
+  isSavingVisit: boolean;
+  isVisitFormOpen: boolean;
+  onAssignmentEdit: () => void;
+  onAssignmentSave: (salespersonId: string) => void;
+  onBack: () => void;
+  onBusinessFileSelect: (file: File | undefined) => void;
+  onDetailRetry: () => void;
+  onVisitFormChange: (patch: Partial<DentalSalesVisitForm>) => void;
+  onVisitFormToggle: () => void;
+  onVisitPageChange: (page: number) => void;
+  onVisitSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  visitForm: DentalSalesVisitForm;
+  visitPage: number;
+}) {
+  if (isDetailLoading && !detail) {
+    return (
+      <section className="admin-sales-detail-state" aria-live="polite">
+        <p>치과 영업 상세 정보를 불러오는 중입니다.</p>
+      </section>
+    );
+  }
+
+  if (detailError && !detail) {
+    return (
+      <section className="admin-sales-detail-state" role="alert">
+        <p>{detailError}</p>
+        <div>
+          <button type="button" onClick={onBack}>목록으로</button>
+          <button type="button" onClick={onDetailRetry}>다시 시도</button>
+        </div>
+      </section>
+    );
+  }
+
+  if (!detail) return null;
+
+  const { profile } = detail;
+  const latestVisit = detail.visits[0] ?? null;
+  const assignedSalesperson = profile.assignedSalesperson;
+  const completionPercentage =
+    profile.informationCompletion?.percentage ??
+    (profile.detailStatus === "ACTIVE" ? 100 : null);
+  const businessLicenseName = businessFileName || profile.businessLicense?.fileName || "";
+
+  return (
+    <article className="admin-sales-detail-page">
+      <header className="admin-sales-detail-page-header">
+        <button className="admin-sales-detail-back" type="button" onClick={onBack}>
+          ‹ 목록으로
+        </button>
+        <h1>{profile.clinicName}</h1>
+        <p>병원별 영업 현황과 제휴 진행 이력을 관리합니다.</p>
+      </header>
+
+      <dl className="admin-sales-detail-summary">
+        <SummaryItem label="병원명" value={profile.clinicName} />
+        <SummaryItem
+          label="지역"
+          value={dentalSalesRegionLabel(profile.city, profile.district)}
+        />
+        <div>
+          <dt>상태</dt>
+          <dd>
+            <span
+              className={`admin-sales-status admin-sales-status--${
+                profile.status === "NOT_VISITED"
+                  ? "unvisited"
+                  : profile.status === "VISITING"
+                    ? "visited"
+                    : "joined"
+              }`}
+            >
+              {dentalSalesStatusLabel(profile.status)}
+            </span>
+          </dd>
+        </div>
+        <SummaryItem label="상세 상태" value={dentalSalesDetailLabel(profile.detailStatus)} />
+        <SummaryItem label="담당 영업자" value={assignedSalesperson?.name ?? "미지정"} />
+        <SummaryItem label="초대코드" value={profile.salesCode} mono />
+        <SummaryItem label="최근 방문일" value={formatAdminDate(latestVisit?.visitedAt ?? null)} />
+        <SummaryItem label="대표 계정 생성일" value={formatAdminDate(profile.claimedAt)} />
+      </dl>
+
+      <div className="admin-sales-detail-columns">
+        <section className="admin-sales-timeline-card">
+          <div className="admin-sales-detail-card-heading">
+            <h2>영업 기록</h2>
+            <button
+              className="admin-sales-register-button"
+              type="button"
+              aria-expanded={isVisitFormOpen}
+              onClick={onVisitFormToggle}
+            >
+              <span aria-hidden="true">＋</span>
+              등록
+            </button>
+          </div>
+
+          {isVisitFormOpen ? (
+            <form className="admin-sales-detail-visit-form" onSubmit={onVisitSubmit}>
+              <label>
+                <span>방문 일시</span>
+                <input
+                  type="datetime-local"
+                  required
+                  value={visitForm.visitedAt}
+                  onChange={(event) => onVisitFormChange({ visitedAt: event.target.value })}
+                />
+              </label>
+              <label>
+                <span>담당 영업자</span>
+                <select
+                  required
+                  value={visitForm.salespersonUserId}
+                  onChange={(event) =>
+                    onVisitFormChange({ salespersonUserId: event.target.value })
+                  }
+                >
+                  <option value="">선택</option>
+                  {detail.salespeople.map((person) => (
+                    <option key={person.id} value={person.id}>{person.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>상세 상태</span>
+                <select
+                  value={visitForm.detailStatus}
+                  onChange={(event) =>
+                    onVisitFormChange({
+                      detailStatus: event.target.value as DentalSalesVisitDetailStatus,
+                    })
+                  }
+                >
+                  {dentalSalesVisitDetailOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="admin-sales-detail-visit-note">
+                <span>메모 (선택)</span>
+                <textarea
+                  maxLength={2000}
+                  value={visitForm.note}
+                  placeholder="방문 내용이나 후속 조치를 기록해 주세요."
+                  onChange={(event) => onVisitFormChange({ note: event.target.value })}
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={isSavingVisit || !visitForm.salespersonUserId}
+              >
+                {isSavingVisit ? "저장 중" : "방문 기록 저장"}
+              </button>
+            </form>
+          ) : null}
+
+          {actionMessage ? (
+            <p className="admin-sales-detail-action-message" role="status">
+              {actionMessage}
+            </p>
+          ) : null}
+
+          {detail.visits.length ? (
+            <ol className="admin-sales-detail-timeline">
+              {detail.visits.map((visit) => (
+                <li key={visit.id}>
+                  <div className="admin-sales-timeline-marker" aria-hidden="true" />
+                  <article>
+                    <header>
+                      <div>
+                        <strong>{dentalSalesVisitTitle(visit.detailStatus, profile.salesCode)}</strong>
+                        <time>{formatAdminDetailDateTime(visit.visitedAt)}</time>
+                      </div>
+                      <span>{visit.salesperson.name} 작성</span>
+                    </header>
+                    <p>{visit.note || "기록된 메모가 없습니다."}</p>
+                  </article>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="admin-sales-detail-empty">아직 등록된 영업 기록이 없습니다.</p>
+          )}
+
+          {detail.visitPagination.totalPages > 1 ? (
+            <nav className="admin-sales-pagination" aria-label="영업 기록 페이지">
               <button
                 type="button"
-                aria-label="상세 닫기"
-                onClick={() => setSelectedProfileId(null)}
+                disabled={visitPage <= 1}
+                onClick={() => onVisitPageChange(Math.max(1, visitPage - 1))}
+              >‹</button>
+              <span>{visitPage} / {detail.visitPagination.totalPages}</span>
+              <button
+                type="button"
+                disabled={visitPage >= detail.visitPagination.totalPages}
+                onClick={() =>
+                  onVisitPageChange(
+                    Math.min(detail.visitPagination.totalPages, visitPage + 1),
+                  )
+                }
+              >›</button>
+            </nav>
+          ) : null}
+        </section>
+
+        <aside className="admin-sales-detail-sidebar" aria-label="치과 상세 정보">
+          <DetailCard title="병원 기본 정보">
+            <dl className="admin-sales-detail-info-list">
+              <DetailInfoRow label="병원명" value={profile.clinicName} />
+              <DetailInfoRow label="대표자 성명" value={profile.representativeName || "—"} />
+              <DetailInfoRow label="주소" value={profile.address} stacked />
+              <DetailInfoRow label="대표 전화번호" value={profile.phone || "—"} />
+              <DetailInfoRow
+                label="사업자 등록번호"
+                value={profile.businessRegistrationNumber || "—"}
+              />
+              <DetailInfoRow
+                label="의료기관 종류"
+                value={profile.medicalInstitutionType || "—"}
+              />
+            </dl>
+          </DetailCard>
+
+          <DetailCard
+            title="담당자 정보"
+            action={
+              <button
+                className="admin-sales-assignee-edit"
+                type="button"
+                aria-expanded={isAssignmentEditing}
+                onClick={onAssignmentEdit}
               >
-                ×
+                <Image src="/Type=edit.svg" alt="" width={18} height={18} />
+                수정
               </button>
-            </header>
-
-            {isDetailLoading && !detail ? (
-              <p className="admin-sales-drawer-state">상세 정보를 불러오는 중입니다.</p>
-            ) : detailError && !detail ? (
-              <div className="admin-sales-drawer-state" role="alert">
-                <p>{detailError}</p>
-                <button type="button" onClick={() => void loadDetail()}>다시 시도</button>
+            }
+          >
+            {isAssignmentEditing ? (
+              <label className="admin-sales-assignee-select">
+                <span>담당 영업자</span>
+                <select
+                  aria-label="담당 영업자 변경"
+                  value={assignedSalesperson?.id ?? ""}
+                  disabled={isSavingAssignment}
+                  onChange={(event) => onAssignmentSave(event.target.value)}
+                >
+                  <option value="">미지정</option>
+                  {detail.salespeople.map((person) => (
+                    <option key={person.id} value={person.id}>{person.name}</option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <div className="admin-sales-assignee-profile">
+                <span aria-hidden="true">{assignedSalesperson?.name.slice(0, 1) ?? "?"}</span>
+                <div>
+                  <strong>
+                    {assignedSalesperson
+                      ? `${assignedSalesperson.name}${
+                          assignedSalesperson.teamName
+                            ? ` (${assignedSalesperson.teamName})`
+                            : ""
+                        }`
+                      : "담당자 미지정"}
+                  </strong>
+                  <p>주 담당 영업 대표자</p>
+                </div>
               </div>
-            ) : detail ? (
-              <div className="admin-sales-drawer-body">
-                <section className="admin-sales-summary">
-                  <div className="admin-sales-summary-heading">
-                    <span
-                      className={`admin-sales-status admin-sales-status--${
-                        detail.profile.status === "NOT_VISITED"
-                          ? "unvisited"
-                          : detail.profile.status === "VISITING"
-                            ? "visited"
-                            : "joined"
-                      }`}
-                    >
-                      {dentalSalesStatusLabel(detail.profile.status)}
-                    </span>
-                    <span>{dentalSalesDetailLabel(detail.profile.detailStatus)}</span>
-                  </div>
-                  <dl>
-                    <div><dt>주소</dt><dd>{detail.profile.address}</dd></div>
-                    <div><dt>대표 전화</dt><dd>{detail.profile.phone ?? "미등록"}</dd></div>
-                    <div><dt>초대코드</dt><dd>{detail.profile.salesCode}</dd></div>
-                    <div><dt>가입 시각</dt><dd>{formatAdminDateTime(detail.profile.signedAt)}</dd></div>
-                  </dl>
-                </section>
+            )}
+            <dl className="admin-sales-detail-info-list admin-sales-detail-info-list--compact">
+              <DetailInfoRow
+                label="외부 연결자"
+                value={profile.externalConnectorName || "선택 안함"}
+              />
+            </dl>
+          </DetailCard>
 
-                <section className="admin-sales-drawer-section">
-                  <h3>담당 영업자</h3>
-                  <span className="admin-sales-select-wrap">
-                    <select
-                      aria-label="담당 영업자 변경"
-                      value={detail.profile.assignedSalesperson?.id ?? ""}
-                      disabled={isSavingAssignment}
-                      onChange={(event) => void saveAssignment(event.target.value)}
-                    >
-                      <option value="">미지정</option>
-                      {detail.salespeople.map((person) => (
-                        <option key={person.id} value={person.id}>{person.name}</option>
-                      ))}
-                    </select>
-                  </span>
-                </section>
+          <DetailCard title="사업자 등록증 첨부">
+            <div className="admin-sales-business-upload">
+              <p>파일 형식: JPG, PNG, PDF (최대 10MB)</p>
+              <input
+                id="admin-sales-business-file"
+                className="admin-visually-hidden"
+                type="file"
+                accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                onChange={(event) => {
+                  onBusinessFileSelect(event.target.files?.[0]);
+                  event.currentTarget.value = "";
+                }}
+              />
+              <label htmlFor="admin-sales-business-file">
+                <Image src="/Type=Upload.svg" alt="" width={18} height={18} />
+                파일 업로드
+              </label>
+              {businessLicenseName ? (
+                <span className="admin-sales-business-file-name">{businessLicenseName}</span>
+              ) : null}
+              {businessFileError ? (
+                <span className="admin-sales-business-file-error" role="alert">
+                  {businessFileError}
+                </span>
+              ) : null}
+            </div>
+          </DetailCard>
 
-                <section className="admin-sales-drawer-section">
-                  <h3>방문 기록 추가</h3>
-                  <form className="admin-sales-visit-form" onSubmit={saveVisit}>
-                    <label>
-                      <span>방문 일시</span>
-                      <input
-                        type="datetime-local"
-                        required
-                        value={visitForm.visitedAt}
-                        onChange={(event) =>
-                          setVisitForm((form) => ({ ...form, visitedAt: event.target.value }))
-                        }
-                      />
-                    </label>
-                    <label>
-                      <span>담당 영업자</span>
-                      <select
-                        required
-                        value={visitForm.salespersonUserId}
-                        onChange={(event) =>
-                          setVisitForm((form) => ({
-                            ...form,
-                            salespersonUserId: event.target.value,
-                          }))
-                        }
-                      >
-                        <option value="">선택</option>
-                        {detail.salespeople.map((person) => (
-                          <option key={person.id} value={person.id}>{person.name}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      <span>상세 상태</span>
-                      <select
-                        value={visitForm.detailStatus}
-                        onChange={(event) =>
-                          setVisitForm((form) => ({
-                            ...form,
-                            detailStatus: event.target.value as DentalSalesVisitDetailStatus,
-                          }))
-                        }
-                      >
-                        {dentalSalesVisitDetailOptions.map((option) => (
-                          <option key={option.value} value={option.value}>{option.label}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="admin-sales-visit-note">
-                      <span>메모 (선택)</span>
-                      <textarea
-                        maxLength={2000}
-                        value={visitForm.note}
-                        onChange={(event) =>
-                          setVisitForm((form) => ({ ...form, note: event.target.value }))
-                        }
-                        placeholder="방문 내용이나 후속 조치를 기록해 주세요."
-                      />
-                    </label>
-                    <button
-                      type="submit"
-                      disabled={isSavingVisit || !visitForm.salespersonUserId}
-                    >
-                      {isSavingVisit ? "저장 중" : "방문 기록 저장"}
-                    </button>
-                  </form>
-                </section>
-
-                {actionMessage ? <p className="admin-sales-action-message">{actionMessage}</p> : null}
-
-                <section className="admin-sales-drawer-section">
-                  <h3>방문 이력</h3>
-                  {detail.visits.length ? (
-                    <ol className="admin-sales-visit-list">
-                      {detail.visits.map((visit) => (
-                        <li key={visit.id}>
-                          <div>
-                            <strong>{dentalSalesDetailLabel(visit.detailStatus)}</strong>
-                            <time>{formatAdminDateTime(visit.visitedAt)}</time>
-                          </div>
-                          <p>{visit.salesperson.name}</p>
-                          {visit.note ? <p>{visit.note}</p> : null}
-                        </li>
-                      ))}
-                    </ol>
-                  ) : (
-                    <p className="admin-sales-drawer-state">아직 방문 기록이 없습니다.</p>
-                  )}
-                  {detail.visitPagination.totalPages > 1 ? (
-                    <nav className="admin-sales-pagination" aria-label="방문 이력 페이지">
-                      <button
-                        type="button"
-                        disabled={visitPage <= 1}
-                        onClick={() => setVisitPage((page) => Math.max(1, page - 1))}
-                      >‹</button>
-                      <span>{visitPage} / {detail.visitPagination.totalPages}</span>
-                      <button
-                        type="button"
-                        disabled={visitPage >= detail.visitPagination.totalPages}
-                        onClick={() =>
-                          setVisitPage((page) =>
-                            Math.min(detail.visitPagination.totalPages, page + 1),
-                          )
-                        }
-                      >›</button>
-                    </nav>
-                  ) : null}
-                </section>
+          <DetailCard title="필수 정보 입력 상태">
+            <dl className="admin-sales-detail-info-list admin-sales-completion-list">
+              <DetailInfoRow
+                label="최근 정보 수정일"
+                value={formatAdminDate(profile.informationCompletion?.updatedAt ?? null)}
+              />
+              <div className="admin-sales-completion-row">
+                <div>
+                  <dt>정보 관리 완료율</dt>
+                  <dd>{completionPercentage === null ? "—" : `${completionPercentage}%`}</dd>
+                </div>
+                <span aria-hidden="true">
+                  <i style={{ width: `${completionPercentage ?? 0}%` }} />
+                </span>
               </div>
-            ) : null}
-          </aside>
-        </div>
-      ) : null}
-    </>
+            </dl>
+            <button
+              className="admin-sales-review-button"
+              type="button"
+              disabled
+              title="파트너 병원 정보 검토 화면 연결 예정"
+            >
+              등록 정보 검토하기
+            </button>
+            <div className="admin-sales-app-visibility">
+              <div>
+                <strong>앱 노출 승인</strong>
+                <p>승인 후 사용자 앱에 치과 정보가 노출됩니다</p>
+              </div>
+              <span
+                className={profile.isAppVisible ? "is-active" : undefined}
+                role="switch"
+                aria-checked={profile.isAppVisible ?? false}
+                aria-disabled="true"
+              >
+                <i />
+              </span>
+            </div>
+          </DetailCard>
+        </aside>
+      </div>
+    </article>
+  );
+}
+
+function SummaryItem({
+  label,
+  mono = false,
+  value,
+}: {
+  label: string;
+  mono?: boolean;
+  value: string;
+}) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd className={mono ? "admin-sales-mono" : undefined}>{value}</dd>
+    </div>
+  );
+}
+
+function DetailCard({
+  action,
+  children,
+  title,
+}: {
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  title: string;
+}) {
+  return (
+    <section className="admin-sales-detail-card">
+      <header>
+        <h2>{title}</h2>
+        {action}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function DetailInfoRow({
+  label,
+  stacked = false,
+  value,
+}: {
+  label: string;
+  stacked?: boolean;
+  value: string;
+}) {
+  return (
+    <div className={stacked ? "admin-sales-detail-info-stacked" : undefined}>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
+    </div>
   );
 }
 
@@ -1310,14 +1672,22 @@ function localDateTimeValue(date: Date) {
   return local.toISOString().slice(0, 16);
 }
 
-function formatAdminDateTime(value: string | null) {
+function formatAdminDate(value: string | null) {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}.${month}.${day}`;
+}
+
+function formatAdminDetailDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${formatAdminDate(value)} ${hours}:${minutes}`;
 }
 
 function OverviewTab({ data }: { data: AdminConsolePayload }) {
