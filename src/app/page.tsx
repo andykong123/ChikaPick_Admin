@@ -62,6 +62,23 @@ const tabs: Array<{
   { id: "operations", label: "운영 도구", icon: "/Type=Dashboard.svg" },
 ];
 
+const primaryTabs = [
+  { id: "dashboard", label: "운영 현황", icon: "/Type=Dashboard.svg" },
+  { id: "dental-sales", label: "치과 영업 관리", icon: "/Type=Graph.svg" },
+  { id: "partner-clinics", label: "파트너 치과 관리", icon: "/Type=Hospital.svg" },
+  { id: "hospital-review", label: "병원 가입 심사", icon: "/Type=Accept.svg", badge: 9 },
+  { id: "license-review", label: "의사 면허 인증", icon: "/Type=Accept.svg", badge: 9 },
+  { id: "secret-feedback", label: "시크릿 피드백", icon: "/Type=Opinion.svg" },
+  { id: "chikapick-accounts", label: "치카픽 계정 조회", icon: "/Type=Family.svg" },
+  { id: "partner-accounts", label: "파트너스 계정 조회", icon: "/Type=Family.svg" },
+  { id: "sales-performance", label: "영업 성과 관리", icon: "/Type=Price.svg" },
+  { id: "memberships", label: "멤버십 관리", icon: "/Type=Ticket.svg" },
+  { id: "terms-management", label: "약관 관리", icon: "/Type=Diary.svg" },
+  { id: "admin-accounts", label: "어드민 계정 관리", icon: "/Type=Mypage.svg" },
+  { id: "external-connectors", label: "외부 연결자 관리", icon: "/Type=Share.svg" },
+  { id: "audit-log", label: "감사 로그", icon: "/Type=Log.svg" },
+] as const;
+
 const emptyConsole: AdminConsolePayload = {
   metrics: [
     { label: "수동 병원 심사 대기", value: 0, tone: "orange" },
@@ -89,6 +106,9 @@ export default function AdminHome() {
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+  const [activePrimaryTab, setActivePrimaryTab] = useState<
+    (typeof primaryTabs)[number]["id"] | null
+  >("dashboard");
   const [consoleData, setConsoleData] = useState<AdminConsolePayload>(emptyConsole);
   const [isLoadingConsole, setIsLoadingConsole] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -372,33 +392,75 @@ export default function AdminHome() {
           </span>
           <span className="admin-sidebar-brand-text" aria-label="치카픽">
             <Image
-              src="/chikapick_logo_text.svg"
+              src="/chikapick_logo_text_light.svg"
               alt=""
               fill
-              sizes="68px"
+              sizes="54px"
               priority
             />
           </span>
           <span>어드민</span>
         </div>
-        <nav>
-          {tabs.map((tab) => (
-            <button
-              type="button"
-              key={tab.id}
-              className={activeTab === tab.id ? "admin-nav-active" : undefined}
-              aria-current={activeTab === tab.id ? "page" : undefined}
-              onClick={() => setActiveTab(tab.id)}
-            >
-              <span className="admin-nav-icon" style={maskIcon(tab.icon)} />
-              <span>{tab.label}</span>
-            </button>
-          ))}
+        <nav className="admin-navigation">
+          <div className="admin-navigation-primary">
+            {primaryTabs.map((tab) => (
+              <button
+                type="button"
+                key={tab.id}
+                className={activePrimaryTab === tab.id ? "admin-nav-active" : undefined}
+                aria-current={activePrimaryTab === tab.id ? "page" : undefined}
+                onClick={() => setActivePrimaryTab(tab.id)}
+              >
+                <span className="admin-nav-icon" style={maskIcon(tab.icon)} />
+                <span className="admin-nav-label">{tab.label}</span>
+                {"badge" in tab ? <span className="admin-nav-badge">{tab.badge}</span> : null}
+              </button>
+            ))}
+          </div>
+          <div className="admin-navigation-legacy">
+            <p>기존 관리 메뉴</p>
+            {tabs.map((tab) => (
+              <button
+                type="button"
+                key={tab.id}
+                className={
+                  activePrimaryTab === null && activeTab === tab.id
+                    ? "admin-nav-active"
+                    : undefined
+                }
+                aria-current={
+                  activePrimaryTab === null && activeTab === tab.id ? "page" : undefined
+                }
+                onClick={() => {
+                  setActivePrimaryTab(null);
+                  setActiveTab(tab.id);
+                }}
+              >
+                <span className="admin-nav-icon" style={maskIcon(tab.icon)} />
+                <span className="admin-nav-label">{tab.label}</span>
+              </button>
+            ))}
+          </div>
         </nav>
       </aside>
 
       <section className="admin-main">
         <header className="admin-topbar">
+          <div className="admin-topbar-tools">
+            <button type="button" aria-label="검색">
+              <Image src="/Type=Search.svg" alt="" width={24} height={24} />
+            </button>
+            <span className="admin-topbar-divider" aria-hidden="true" />
+            <button type="button" aria-label="알림">
+              <Image src="/Type=Notification.svg" alt="" width={24} height={24} />
+            </button>
+            <button type="button" aria-label="도움말">
+              <Image src="/Type=Question.svg" alt="" width={24} height={24} />
+            </button>
+          </div>
+        </header>
+
+        <div className="admin-workspace-heading">
           <div>
             <h1>{tabs.find((tab) => tab.id === activeTab)?.label}</h1>
             <p>실제 운영 데이터는 ChikaPick_API 관리자 엔드포인트에서 불러옵니다.</p>
@@ -411,7 +473,7 @@ export default function AdminHome() {
               로그아웃
             </button>
           </div>
-        </header>
+        </div>
 
         {message ? <p className="admin-message">{message}</p> : null}
 
