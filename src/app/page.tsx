@@ -356,11 +356,12 @@ export default function AdminHome() {
                   aria-pressed={isPasswordVisible}
                   onClick={() => setIsPasswordVisible((isVisible) => !isVisible)}
                 >
-                  <Image
-                    src={isPasswordVisible ? "/Type=Visible.svg" : "/Type=Invisible.svg"}
-                    alt=""
-                    width={22}
-                    height={22}
+                  <span
+                    className="admin-password-toggle-icon"
+                    aria-hidden="true"
+                    style={maskIcon(
+                      isPasswordVisible ? "/Type=Visible.svg" : "/Type=Invisible.svg",
+                    )}
                   />
                 </button>
               </span>
