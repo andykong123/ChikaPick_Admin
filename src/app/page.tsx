@@ -274,6 +274,14 @@ export default function AdminHome() {
   if (!session) {
     return (
       <main className="admin-login">
+        {message ? (
+          <div className="admin-login-toast" role="alert" aria-atomic="true">
+            <span className="admin-login-toast-icon" aria-hidden="true">
+              <Image src="/Type=Error.svg" alt="" width={20} height={20} />
+            </span>
+            <p>{message}</p>
+          </div>
+        ) : null}
         <div className="admin-login-brand" aria-label="치카픽 어드민">
           <span className="admin-login-brand-symbol">
             <Image
@@ -341,9 +349,6 @@ export default function AdminHome() {
               {isSigningIn ? "로그인 중" : "로그인"}
             </button>
           </form>
-          <div className="admin-login-feedback" aria-live="polite">
-            {message ? <p>{message}</p> : null}
-          </div>
           <p className="admin-login-help">
             계정 발급 및 비밀번호 재설정은 회사 대표에게 요청해 주세요.
           </p>
