@@ -148,7 +148,7 @@ Do not expose plaintext invite codes in Admin. The invite tab should inspect inv
 
 ## Current Admin Surfaces
 
-- 치과 영업 관리: live nationwide HIRA clinic sales directory from `ChikaPick_API`, with server-owned filters/pagination, regional owner-code copying, status/detail display, active-Admin salesperson assignment, and a responsive right drawer for immutable timestamped visit records. `NOT_VISITED`, `VISITING`, and `SIGNED` are backend lifecycle states; signed rows show `INFORMATION_MISSING` until all five Partners hospital-information sections are complete, then `ACTIVE`.
+- 치과 영업 관리: live nationwide HIRA clinic sales directory from `ChikaPick_API`, with server-owned filters/pagination, regional owner-code copying, status/detail display, an accessible hover/focus status glossary beside the page title, active-Admin salesperson assignment, and a responsive right drawer for immutable timestamped visit records. `NOT_VISITED`, `VISITING`, and `SIGNED` are backend lifecycle states; signed rows show `INFORMATION_MISSING` until all five Partners hospital-information sections are complete, then `ACTIVE`.
 - 수동 병원 가입 심사: pending owner manual hospital submissions, short-lived business-license file links, approve/reject.
 - 소속 신청 승인: pending doctor/staff clinic memberships, approve/reject.
 - 면허 인증: partner dentist license verification review and approval/rejection.

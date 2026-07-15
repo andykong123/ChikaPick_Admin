@@ -484,11 +484,14 @@ export default function AdminHome() {
           }`}
         >
           <div>
-            <h1>
-              {activePrimaryTab === "dental-sales"
-                ? "치과 영업 관리"
-                : tabs.find((tab) => tab.id === activeTab)?.label}
-            </h1>
+            <div className="admin-workspace-title-row">
+              <h1>
+                {activePrimaryTab === "dental-sales"
+                  ? "치과 영업 관리"
+                  : tabs.find((tab) => tab.id === activeTab)?.label}
+              </h1>
+              {activePrimaryTab === "dental-sales" ? <DentalSalesInfoTooltip /> : null}
+            </div>
             <p>
               {activePrimaryTab === "dental-sales"
                 ? "전국 치과를 지역별로 조회하고 초대 코드를 확인 할 수 있으며 영업 현황을 관리합니다."
@@ -608,6 +611,61 @@ export default function AdminHome() {
         </div>
       </section>
     </main>
+  );
+}
+
+function DentalSalesInfoTooltip() {
+  return (
+    <div className="admin-sales-info">
+      <button
+        type="button"
+        className="admin-sales-info-trigger"
+        aria-label="치과 영업 상태 안내"
+        aria-describedby="dental-sales-status-tooltip"
+      >
+        <Image src="/Type=Info.svg" alt="" width={16} height={16} />
+      </button>
+      <div
+        id="dental-sales-status-tooltip"
+        className="admin-sales-info-tooltip"
+        role="tooltip"
+      >
+        <span>[상태]</span>
+        <ul>
+          <li>
+            미방문 : 아직 방문 영업이 이루어지지 않은 병원입니다. 최초 방문 대상을
+            선정할 때 활용하세요.
+          </li>
+          <li>
+            방문 : 1회 이상 방문·상담 이력이 있지만, 아직 가입이 완료되지 않은
+            병원입니다. 최근 방문 기록의 상세 상태를 함께 확인하세요.
+          </li>
+          <li>
+            가입완료 : 파트너스 가입 및 병원 정보 설정을 모두 완료하여, 사용자 앱에
+            제휴 치과로 노출되는 병원입니다. 영업 성과 집계에 포함됩니다.
+          </li>
+        </ul>
+        <span>[상세 상태]</span>
+        <ul>
+          <li>
+            관심/검토 : 병원이 서비스에 긍정적인 반응을 보이며 내부 검토 중인
+            상태입니다. 후속 방문·자료 전달 일정이 필요합니다.
+          </li>
+          <li>
+            코드 전달 : 초대코드 또는 가입 링크를 안내한 상태입니다. 코드 사용 여부와
+            실제 가입 완료 여부를 추적하세요.
+          </li>
+          <li>
+            거절 : 병원이 명확히 사용 계획이 없다고 답변한 상태입니다. 불필요한 추가
+            방문을 줄이고, 사유를 데이터로 남겨주세요.
+          </li>
+          <li>
+            보류 : 병원 사정으로 일정 기간 이후 재논의를 요청한 상태입니다. 재방문
+            예정일을 함께 기록해두면 좋습니다.
+          </li>
+        </ul>
+      </div>
+    </div>
   );
 }
 
