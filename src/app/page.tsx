@@ -39,6 +39,7 @@ import {
   dentalSalesDetailLabel,
   dentalSalesBusinessFileError,
   dentalSalesDetailOptions,
+  dentalSalesCompletionViewState,
   dentalSalesPageNumbers,
   dentalSalesRegionLabel,
   dentalSalesStatusLabel,
@@ -1415,9 +1416,12 @@ function DentalSalesDetailPage({
   const { profile } = detail;
   const latestVisit = detail.visits[0] ?? null;
   const assignedSalesperson = profile.assignedSalesperson;
-  const completionPercentage =
-    profile.informationCompletion?.percentage ??
-    (profile.detailStatus === "ACTIVE" ? 100 : null);
+  const completionView = dentalSalesCompletionViewState({
+    detailStatus: profile.detailStatus,
+    isAppVisible: profile.isAppVisible,
+    percentage: profile.informationCompletion?.percentage,
+  });
+  const { completionPercentage, isAppVisible, isComplete } = completionView;
   const businessLicenseName = businessFileName || profile.businessLicense?.fileName || "";
 
   return (
@@ -1697,7 +1701,15 @@ function DentalSalesDetailPage({
             </div>
           </DetailCard>
 
-          <DetailCard title="필수 정보 입력 상태">
+          <DetailCard
+            className={isComplete ? "admin-sales-detail-card--information-complete" : undefined}
+            description={
+              isComplete
+                ? "치과에서 필수 정보를 모두 입력했습니다. 등록된 정보를 검토한 후, 필요한 내용을 수정하고 앱 노출 여부를 확정해 주세요."
+                : undefined
+            }
+            title="필수 정보 입력 상태"
+          >
             <dl className="admin-sales-detail-info-list admin-sales-completion-list">
               <DetailInfoRow
                 label="최근 정보 수정일"
@@ -1713,23 +1725,25 @@ function DentalSalesDetailPage({
                 </span>
               </div>
             </dl>
-            <button
-              className="admin-sales-review-button"
-              type="button"
-              disabled
-              title="파트너 병원 정보 검토 화면 연결 예정"
-            >
-              등록 정보 검토하기
-            </button>
+            <div className="admin-sales-completion-review">
+              <button
+                className="admin-sales-review-button"
+                type="button"
+                disabled={!isComplete}
+                title={isComplete ? undefined : "필수 정보 입력 완료 후 검토할 수 있습니다."}
+              >
+                등록 정보 검토하기
+              </button>
+            </div>
             <div className="admin-sales-app-visibility">
               <div>
                 <strong>앱 노출 승인</strong>
                 <p>승인 후 사용자 앱에 치과 정보가 노출됩니다</p>
               </div>
               <span
-                className={profile.isAppVisible ? "is-active" : undefined}
+                className={isAppVisible ? "is-active" : undefined}
                 role="switch"
-                aria-checked={profile.isAppVisible ?? false}
+                aria-checked={isAppVisible}
                 aria-disabled="true"
               >
                 <i />
@@ -1872,16 +1886,23 @@ function SummaryItem({
 function DetailCard({
   action,
   children,
+  className,
+  description,
   title,
 }: {
   action?: React.ReactNode;
   children: React.ReactNode;
+  className?: string;
+  description?: string;
   title: string;
 }) {
   return (
-    <section className="admin-sales-detail-card">
+    <section className={`admin-sales-detail-card${className ? ` ${className}` : ""}`}>
       <header>
-        <h2>{title}</h2>
+        <div className="admin-sales-detail-card-title">
+          <h2>{title}</h2>
+          {description ? <p>{description}</p> : null}
+        </div>
         {action}
       </header>
       {children}

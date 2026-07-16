@@ -184,6 +184,26 @@ export function isDentalSalesVisitDetailStatus(
   return status !== null && ["INTEREST", "CODE_SHARED", "REJECTED", "ON_HOLD"].includes(status);
 }
 
+export function dentalSalesCompletionViewState({
+  detailStatus,
+  isAppVisible,
+  percentage,
+}: {
+  detailStatus: DentalSalesDetailStatus | null;
+  isAppVisible?: boolean;
+  percentage?: number | null;
+}) {
+  const completionPercentage =
+    percentage ?? (detailStatus === "ACTIVE" ? 100 : null);
+  const isComplete = completionPercentage === 100;
+
+  return {
+    completionPercentage,
+    isAppVisible: isAppVisible ?? isComplete,
+    isComplete,
+  };
+}
+
 export function dentalSalesRegionLabel(city: string, district: string) {
   const shortCity = city
     .replace(/특별자치시$/, "")

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  dentalSalesCompletionViewState,
   dentalSalesBusinessFileError,
   dentalSalesDetailLabel,
   dentalSalesPageNumbers,
@@ -30,6 +31,31 @@ test("dental sales detail helpers format live detail-page labels", () => {
     "초대코드 SU1234 전달",
   );
   assert.equal(dentalSalesVisitTitle("ON_HOLD", "SU1234"), "후속 논의 보류");
+});
+
+test("completion view switches to the completed card at exactly 100 percent", () => {
+  assert.deepEqual(
+    dentalSalesCompletionViewState({
+      detailStatus: "INFORMATION_MISSING",
+      percentage: 99,
+    }),
+    {
+      completionPercentage: 99,
+      isAppVisible: false,
+      isComplete: false,
+    },
+  );
+  assert.deepEqual(
+    dentalSalesCompletionViewState({
+      detailStatus: "ACTIVE",
+      percentage: 100,
+    }),
+    {
+      completionPercentage: 100,
+      isAppVisible: true,
+      isComplete: true,
+    },
+  );
 });
 
 test("business registration attachment validation enforces the Figma limits", () => {
