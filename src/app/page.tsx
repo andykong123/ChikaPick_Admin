@@ -10,6 +10,7 @@ import {
   assignAdminDentalSalesperson,
   createAdminExternalConnector,
   createAdminDentalSalesVisit,
+  deleteAdminMembershipPartner,
   deleteAdminExternalConnector,
   fetchAdminAccountDirectory,
   fetchAdminConsole,
@@ -17,6 +18,7 @@ import {
   fetchAdminDentalSalesDetail,
   fetchAdminExternalConnectors,
   fetchAdminManualHospitalSubmissions,
+  fetchAdminMembershipManagement,
   fetchAdminPartnerClinicDetail,
   fetchAdminPartnerClinics,
   fetchAdminPartnerAccountDetail,
@@ -32,6 +34,7 @@ import {
   sendAdminPasswordReset,
   searchAdminPartnerAccounts,
   unlockAdminAccount,
+  updateAdminMembershipPartner,
   withdrawAdminAccount,
   updateClinicMembership,
   updateLicenseVerification,
@@ -115,6 +118,18 @@ import {
   manualHospitalReviewStatusLabel,
   normalizeManualHospitalRejectionReason,
 } from "@/lib/manual-hospital-review";
+import {
+  defaultAdminMembershipFilters,
+  formatMembershipDate,
+  membershipCategories,
+  membershipCategoryLabel,
+  membershipPageNumbers,
+  membershipSortLabel,
+  type AdminMembershipFilters,
+  type AdminMembershipManagementPayload,
+  type AdminMembershipPartner,
+  type MembershipCategory,
+} from "@/lib/membership-management";
 import {
   formatExternalConnectorDate,
   type ExternalConnectorDirectoryPayload,
@@ -691,6 +706,7 @@ export default function AdminHome() {
               activePrimaryTab === "secret-feedback" ||
               activePrimaryTab === "chikapick-accounts" ||
               activePrimaryTab === "partner-accounts" ||
+              activePrimaryTab === "memberships" ||
               activePrimaryTab === "external-connectors"
                 ? " admin-workspace-heading--sales"
                 : ""
@@ -729,6 +745,8 @@ export default function AdminHome() {
                       ? isPartnerAccountSearchView
                         ? "치카픽 파트너스 계정 조회"
                         : "파트너스 계정 관리"
+                    : activePrimaryTab === "memberships"
+                      ? "치카픽 멤버십 관리"
                     : activePrimaryTab === "admin-accounts"
                       ? "어드민 계정 관리"
                     : activePrimaryTab === "external-connectors"
@@ -754,6 +772,8 @@ export default function AdminHome() {
                     ? "치카픽 서비스에 가입한 환자 계정을 이메일로 조회하고 계정 상태를 확인합니다."
                   : activePrimaryTab === "partner-accounts"
                     ? "치카픽 파트너스에 가입한 계정을 이메일로 조회하고 소속 정보를 확인합니다."
+                  : activePrimaryTab === "memberships"
+                    ? "치카픽 멤버십 탭에 노출될 제휴 업체를 등록합니다."
                   : activePrimaryTab === "admin-accounts"
                     ? "치카픽 어드민 계정을 생성하고 초대하며, 권한 및 계정 정보를 관리할 수 있습니다."
                   : activePrimaryTab === "external-connectors"
@@ -777,6 +797,7 @@ export default function AdminHome() {
             activePrimaryTab !== "secret-feedback" &&
             activePrimaryTab !== "chikapick-accounts" &&
             activePrimaryTab !== "partner-accounts" &&
+            activePrimaryTab !== "memberships" &&
             activePrimaryTab !== "admin-accounts" &&
             activePrimaryTab !== "external-connectors" ? (
               <div className="admin-topbar-actions">
@@ -796,7 +817,8 @@ export default function AdminHome() {
         activePrimaryTab !== "partner-clinics" &&
         activePrimaryTab !== "sales-performance" &&
         activePrimaryTab !== "chikapick-accounts" &&
-        activePrimaryTab !== "partner-accounts" ? (
+        activePrimaryTab !== "partner-accounts" &&
+        activePrimaryTab !== "memberships" ? (
           <p className="admin-message">{message}</p>
         ) : null}
 
@@ -834,6 +856,10 @@ export default function AdminHome() {
           }${
             activePrimaryTab === "partner-accounts" && isPartnerAccountSearchView
               ? " admin-content--partner-account-search"
+              : ""
+          }${
+            activePrimaryTab === "memberships"
+              ? " admin-content--memberships"
               : ""
           }${
             activePrimaryTab === "admin-accounts"
@@ -892,6 +918,8 @@ export default function AdminHome() {
             ) : (
               <PartnerAccountsTab accessToken={session?.access_token ?? ""} />
             )
+          ) : activePrimaryTab === "memberships" ? (
+            <MembershipManagementTab accessToken={session?.access_token ?? ""} />
           ) : activePrimaryTab === "admin-accounts" ? (
             <AdminAccountsTab
               accessToken={session?.access_token ?? ""}
@@ -1032,6 +1060,432 @@ export default function AdminHome() {
         </div>
       </section>
     </main>
+  );
+}
+
+function MembershipManagementTab({ accessToken }: { accessToken: string }) {
+  const [filters, setFilters] = useState<AdminMembershipFilters>(
+    defaultAdminMembershipFilters,
+  );
+  const [searchInput, setSearchInput] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [data, setData] = useState<AdminMembershipManagementPayload>({
+    items: [],
+    pagination: { page: 1, pageSize: 6, totalItems: 0, totalPages: 1 },
+    inquiries: [],
+    pendingInquiryCount: 0,
+  });
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [editingPartner, setEditingPartner] = useState<AdminMembershipPartner | null>(
+    null,
+  );
+  const [editName, setEditName] = useState("");
+  const [editCategory, setEditCategory] = useState<MembershipCategory>("lab");
+  const [editOrder, setEditOrder] = useState("1");
+  const [busyPartnerId, setBusyPartnerId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const requestSequenceRef = useRef(0);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setCurrentPage(1);
+      setFilters((current) =>
+        current.query === searchInput
+          ? current
+          : { ...current, query: searchInput },
+      );
+    }, 250);
+    return () => window.clearTimeout(timeout);
+  }, [searchInput]);
+
+  const loadMemberships = useCallback(async () => {
+    if (!accessToken) return;
+    const requestSequence = ++requestSequenceRef.current;
+    setIsLoading(true);
+    setError("");
+    try {
+      const payload = await fetchAdminMembershipManagement(
+        accessToken,
+        filters,
+        currentPage,
+      );
+      if (requestSequence !== requestSequenceRef.current) return;
+      setData(payload);
+      setSelectedIds((current) => {
+        const visibleIds = new Set(payload.items.map((item) => item.id));
+        return new Set([...current].filter((id) => visibleIds.has(id)));
+      });
+    } catch (loadError) {
+      if (requestSequence !== requestSequenceRef.current) return;
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "멤버십 업체 목록을 불러오지 못했습니다.",
+      );
+    } finally {
+      if (requestSequence === requestSequenceRef.current) setIsLoading(false);
+    }
+  }, [accessToken, currentPage, filters]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => void loadMemberships(), 0);
+    return () => window.clearTimeout(timeout);
+  }, [loadMemberships]);
+
+  function openEditDialog(partner: AdminMembershipPartner) {
+    setEditingPartner(partner);
+    setEditName(partner.name);
+    setEditCategory(partner.category);
+    setEditOrder(String(partner.recommendedOrder));
+    setNotice("");
+  }
+
+  async function runPartnerAction(
+    partnerId: string,
+    action: () => Promise<{ message: string }>,
+  ) {
+    setBusyPartnerId(partnerId);
+    setError("");
+    setNotice("");
+    try {
+      const result = await action();
+      setNotice(result.message);
+      await loadMemberships();
+      return true;
+    } catch (actionError) {
+      setError(
+        actionError instanceof Error
+          ? actionError.message
+          : "멤버십 업체 정보를 변경하지 못했습니다.",
+      );
+      return false;
+    } finally {
+      setBusyPartnerId(null);
+    }
+  }
+
+  async function submitEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingPartner) return;
+    const recommendedOrder = Number(editOrder);
+    if (!editName.trim() || !Number.isInteger(recommendedOrder) || recommendedOrder < 1) {
+      setError("업체명과 추천순을 확인해 주세요.");
+      return;
+    }
+    const saved = await runPartnerAction(editingPartner.id, () =>
+      updateAdminMembershipPartner(accessToken, editingPartner.id, {
+        category: editCategory,
+        name: editName.trim(),
+        recommendedOrder,
+      }),
+    );
+    if (saved) setEditingPartner(null);
+  }
+
+  const allRowsSelected =
+    data.items.length > 0 && data.items.every((item) => selectedIds.has(item.id));
+
+  return (
+    <section className="admin-membership-management" aria-label="치카픽 멤버십 관리">
+      <div className="admin-membership-toolbar">
+        <div className="admin-membership-category-filters" aria-label="업체 카테고리">
+          {membershipCategories.map((category) => (
+            <button
+              type="button"
+              key={category.code}
+              className={filters.category === category.code ? "is-active" : undefined}
+              aria-pressed={filters.category === category.code}
+              onClick={() => {
+                setCurrentPage(1);
+                setFilters((current) => ({ ...current, category: category.code }));
+              }}
+            >
+              {category.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="admin-membership-search-controls">
+          <label className="admin-membership-search">
+            <span className="admin-membership-search-icon" aria-hidden="true" />
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="업체명 검색"
+              aria-label="업체명 검색"
+            />
+          </label>
+          <label className="admin-membership-sort">
+            <span className="sr-only">정렬 기준</span>
+            <select
+              value={filters.sort}
+              aria-label="정렬 기준"
+              onChange={(event) => {
+                setCurrentPage(1);
+                setFilters((current) => ({
+                  ...current,
+                  sort: event.target.value as AdminMembershipFilters["sort"],
+                }));
+              }}
+            >
+              <option value="recommended">{membershipSortLabel("recommended")}</option>
+              <option value="name">{membershipSortLabel("name")}</option>
+              <option value="updated">{membershipSortLabel("updated")}</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      {error ? <p className="admin-membership-feedback is-error" role="alert">{error}</p> : null}
+      {notice ? <p className="admin-membership-feedback" role="status">{notice}</p> : null}
+
+      <div className="admin-membership-content-grid">
+        <div className="admin-membership-directory">
+          <div className="admin-membership-table-shell" aria-busy={isLoading}>
+            <table className="admin-membership-table">
+              <thead>
+                <tr>
+                  <th className="admin-membership-check-cell">
+                    <input
+                      type="checkbox"
+                      aria-label="현재 페이지 전체 선택"
+                      checked={allRowsSelected}
+                      onChange={(event) =>
+                        setSelectedIds(
+                          event.target.checked
+                            ? new Set(data.items.map((item) => item.id))
+                            : new Set(),
+                        )
+                      }
+                    />
+                  </th>
+                  <th>업체명</th>
+                  <th>카테고리</th>
+                  <th className="is-centered">추천순</th>
+                  <th className="is-centered">수정일</th>
+                  <th className="is-centered">수정</th>
+                  <th className="is-centered">삭제</th>
+                  <th className="is-centered">On/Off</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.items.map((partner) => {
+                  const isBusy = busyPartnerId === partner.id;
+                  return (
+                    <tr key={partner.id}>
+                      <td className="admin-membership-check-cell">
+                        <input
+                          type="checkbox"
+                          aria-label={`${partner.name} 선택`}
+                          checked={selectedIds.has(partner.id)}
+                          onChange={(event) =>
+                            setSelectedIds((current) => {
+                              const next = new Set(current);
+                              if (event.target.checked) next.add(partner.id);
+                              else next.delete(partner.id);
+                              return next;
+                            })
+                          }
+                        />
+                      </td>
+                      <td className="admin-membership-name-cell">{partner.name}</td>
+                      <td>
+                        <span className="admin-membership-category-badge">
+                          {membershipCategoryLabel(partner.category)}
+                        </span>
+                      </td>
+                      <td className="is-centered">{partner.recommendedOrder}</td>
+                      <td className="is-centered admin-membership-date-cell">
+                        {formatMembershipDate(partner.updatedAt)}
+                      </td>
+                      <td className="is-centered">
+                        <button
+                          type="button"
+                          className="admin-membership-edit-button"
+                          disabled={isBusy}
+                          onClick={() => openEditDialog(partner)}
+                        >
+                          수정
+                        </button>
+                      </td>
+                      <td className="is-centered">
+                        <button
+                          type="button"
+                          className="admin-membership-delete-button"
+                          disabled={isBusy}
+                          onClick={() => {
+                            if (!window.confirm(`${partner.name} 업체를 삭제하시겠습니까?`)) return;
+                            void runPartnerAction(partner.id, () =>
+                              deleteAdminMembershipPartner(accessToken, partner.id),
+                            );
+                          }}
+                        >
+                          삭제
+                        </button>
+                      </td>
+                      <td className="is-centered">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={partner.isVisible}
+                          aria-label={`${partner.name} 노출 ${partner.isVisible ? "끄기" : "켜기"}`}
+                          className="admin-membership-toggle"
+                          disabled={isBusy}
+                          onClick={() =>
+                            void runPartnerAction(partner.id, () =>
+                              updateAdminMembershipPartner(accessToken, partner.id, {
+                                isVisible: !partner.isVisible,
+                              }),
+                            )
+                          }
+                        >
+                          <span />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {!isLoading && data.items.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="admin-membership-empty-row">
+                      조회된 멤버십 업체가 없습니다.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+            {isLoading ? <div className="admin-membership-loading">불러오는 중...</div> : null}
+          </div>
+
+          <nav className="admin-membership-pagination" aria-label="멤버십 업체 페이지">
+            <button
+              type="button"
+              aria-label="이전 페이지"
+              disabled={currentPage <= 1 || isLoading}
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            >
+              ←
+            </button>
+            {membershipPageNumbers(currentPage, data.pagination.totalPages).map((page) => (
+              <button
+                type="button"
+                key={page}
+                className={page === currentPage ? "is-active" : undefined}
+                aria-current={page === currentPage ? "page" : undefined}
+                onClick={() => setCurrentPage(page)}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              type="button"
+              aria-label="다음 페이지"
+              disabled={currentPage >= data.pagination.totalPages || isLoading}
+              onClick={() =>
+                setCurrentPage((page) => Math.min(data.pagination.totalPages, page + 1))
+              }
+            >
+              →
+            </button>
+          </nav>
+        </div>
+
+        <aside className="admin-membership-inquiries" aria-label="문의 요청">
+          <div className="admin-membership-inquiry-title">
+            <h2>문의 요청</h2>
+            <span>{data.pendingInquiryCount}</span>
+          </div>
+          <div className="admin-membership-inquiry-list">
+            {data.inquiries.map((inquiry) => (
+              <article key={inquiry.id}>
+                <div>
+                  <strong>{inquiry.requesterName ?? "이름 미등록"}</strong>
+                  <p>{inquiry.requesterEmail ?? "이메일 미등록"}</p>
+                  <b>{inquiry.partnerName} 문의 요청</b>
+                  {inquiry.clinicName ? <small>{inquiry.clinicName}</small> : null}
+                </div>
+                <span className="admin-membership-category-badge">
+                  {membershipCategoryLabel(inquiry.partnerCategory)}
+                </span>
+              </article>
+            ))}
+            {!isLoading && data.inquiries.length === 0 ? (
+              <p className="admin-membership-inquiry-empty">대기 중인 문의 요청이 없습니다.</p>
+            ) : null}
+          </div>
+        </aside>
+      </div>
+
+      {editingPartner ? (
+        <div className="admin-account-dialog-layer admin-membership-edit-layer">
+          <button
+            type="button"
+            className="admin-account-dialog-backdrop"
+            aria-label="멤버십 업체 수정 닫기"
+            onClick={() => setEditingPartner(null)}
+          />
+          <div
+            className="admin-account-dialog admin-membership-edit-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-membership-edit-title"
+          >
+            <header>
+              <h2 id="admin-membership-edit-title">멤버십 업체 수정</h2>
+              <button type="button" onClick={() => setEditingPartner(null)} aria-label="닫기">
+                ×
+              </button>
+            </header>
+            <form onSubmit={submitEdit}>
+              <label>
+                <span>업체명</span>
+                <input
+                  value={editName}
+                  maxLength={80}
+                  onChange={(event) => setEditName(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>카테고리</span>
+                <select
+                  value={editCategory}
+                  onChange={(event) =>
+                    setEditCategory(event.target.value as MembershipCategory)
+                  }
+                >
+                  {membershipCategories.slice(1).map((category) => (
+                    <option key={category.code} value={category.code}>
+                      {category.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>추천순</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={10000}
+                  value={editOrder}
+                  onChange={(event) => setEditOrder(event.target.value)}
+                />
+              </label>
+              <div className="admin-account-dialog-actions">
+                <button type="button" onClick={() => setEditingPartner(null)}>
+                  취소
+                </button>
+                <button type="submit" disabled={busyPartnerId === editingPartner.id}>
+                  {busyPartnerId === editingPartner.id ? "저장 중" : "저장"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

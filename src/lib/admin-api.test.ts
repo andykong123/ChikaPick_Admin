@@ -6,11 +6,13 @@ import {
   createAdminExternalConnector,
   createAdminDentalSalesVisit,
   deleteAdminExternalConnector,
+  deleteAdminMembershipPartner,
   fetchAdminAccountDirectory,
   fetchAdminDentalSales,
   fetchAdminDentalSalesDetail,
   fetchAdminExternalConnectors,
   fetchAdminManualHospitalSubmissions,
+  fetchAdminMembershipManagement,
   fetchAdminPartnerClinicDetail,
   fetchAdminPartnerAccountDetail,
   fetchAdminPartnerClinics,
@@ -24,6 +26,7 @@ import {
   searchAdminPartnerAccounts,
   sendAdminPasswordReset,
   unlockAdminAccount,
+  updateAdminMembershipPartner,
   withdrawAdminAccount,
 } from "./admin-api.ts";
 import { emptyDentalSalesFilters } from "./dental-sales.ts";
@@ -121,6 +124,46 @@ test("fetchAdminExternalConnectors requests server pagination", async () => {
     calls[0]?.input,
     "https://api.example.com/api/v1/admin/external-connectors?page=2&pageSize=10",
   );
+});
+
+test("membership management API sends server filters and row mutations", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(JSON.stringify({ ok: true, items: [], pagination: {} }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    await fetchAdminMembershipManagement(
+      "access-token",
+      { category: "lab", query: " 서울 ", sort: "name" },
+      2,
+    );
+    await updateAdminMembershipPartner("access-token", "partner/id", {
+      isVisible: false,
+      recommendedOrder: 2,
+    });
+    await deleteAdminMembershipPartner("access-token", "partner/id");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(
+    calls[0]?.input,
+    "https://api.example.com/api/v1/admin/memberships?page=2&pageSize=6&sort=name&category=lab&search=%EC%84%9C%EC%9A%B8",
+  );
+  assert.equal(calls[1]?.input, "https://api.example.com/api/v1/admin/memberships/partner%2Fid");
+  assert.equal(calls[1]?.init?.method, "PATCH");
+  assert.deepEqual(JSON.parse(calls[1]?.init?.body as string), {
+    isVisible: false,
+    recommendedOrder: 2,
+  });
+  assert.equal(calls[2]?.init?.method, "DELETE");
 });
 
 test("fetchAdminSecretFeedback requests the anonymous feedback directory", async () => {

@@ -377,6 +377,54 @@ export async function deleteAdminExternalConnector(
   );
 }
 
+export async function fetchAdminMembershipManagement(
+  accessToken: string,
+  filters: AdminMembershipFilters,
+  page: number,
+  pageSize = 6,
+) {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+    sort: filters.sort,
+  });
+  if (filters.category !== "all") params.set("category", filters.category);
+  const search = filters.query.trim();
+  if (search) params.set("search", search);
+  return adminFetch<AdminMembershipManagementPayload>(
+    `/api/v1/admin/memberships?${params.toString()}`,
+    accessToken,
+  );
+}
+
+export async function updateAdminMembershipPartner(
+  accessToken: string,
+  partnerId: string,
+  body: Partial<{
+    category: MembershipCategory;
+    isVisible: boolean;
+    name: string;
+    recommendedOrder: number;
+  }>,
+) {
+  return adminFetch<AdminActionResult>(
+    `/api/v1/admin/memberships/${encodeURIComponent(partnerId)}`,
+    accessToken,
+    { method: "PATCH", body: JSON.stringify(body) },
+  );
+}
+
+export async function deleteAdminMembershipPartner(
+  accessToken: string,
+  partnerId: string,
+) {
+  return adminFetch<AdminActionResult>(
+    `/api/v1/admin/memberships/${encodeURIComponent(partnerId)}`,
+    accessToken,
+    { method: "DELETE" },
+  );
+}
+
 export async function sendAdminPasswordReset(
   accessToken: string,
   userId: string,
@@ -626,3 +674,8 @@ import type {
   SalesPerformanceFilters,
   SalesPerformancePayload,
 } from "./sales-performance";
+import type {
+  AdminMembershipFilters,
+  AdminMembershipManagementPayload,
+  MembershipCategory,
+} from "./membership-management";

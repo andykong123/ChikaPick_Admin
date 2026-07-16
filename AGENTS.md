@@ -122,6 +122,7 @@ Before pushing, always run `npm run test`, `npm run lint`, and `npm run build`.
 - `src/lib/partner-clinics.ts` - Partner-clinic directory/detail payloads plus Korea-time activity, registration, duration, response-rate, and feedback labels.
 - `src/lib/admin-detail-history.ts` - Shared browser-history state for the dental-sales and partner-clinic full-page detail views. Opening a detail pushes history; browser Back/Forward restores the list/detail selection.
 - `src/lib/license-verifications.ts` - Dentist-license review summary, pending-request selection, Korea-time request labels, and membership-role labels.
+- `src/lib/membership-management.ts` - ChikaPick membership partner/inquiry payloads, category/sort labels, Korea-date formatting, and compact pagination helpers.
 - `public/` - Tracked brand/navigation assets used by the admin UI.
 
 Path alias `@/*` maps to `./src/*`.
@@ -165,6 +166,9 @@ Current Admin API calls:
 - `GET /api/v1/admin/sales-performance`
 - `GET /api/v1/admin/partner-clinics`
 - `GET /api/v1/admin/partner-clinics/:clinicId`
+- `GET /api/v1/admin/memberships`
+- `PATCH /api/v1/admin/memberships/:partnerId`
+- `DELETE /api/v1/admin/memberships/:partnerId`
 - `POST /api/v1/auth/session/register`
 - `POST /api/v1/auth/session/heartbeat`
 
@@ -186,6 +190,7 @@ Do not expose plaintext invite codes in Admin. The invite tab should inspect inv
 - 파트너스 계정 조회: server-paginated Partners account directory backed by `ChikaPick_API`, with private server-side name/email/phone/clinic search, current clinic and representative/dentist/staff classification, Partners-device last activity, and UUID-based row detail. `단일 계정 정보 상세 조회하기` opens the Figma full-page exact-email search state with masked email/name/phone, patient country/family registration, Partners clinic/classification, account/activity timestamps, and a dedicated no-result state. `마스킹 해제` requires a separate audited API request; directory and UUID-detail responses continue to omit raw phone data.
 - 어드민 계정 관리: server-paginated Admin-only directory with role chips, name/email/ID search, Korea-time last-login/joined dates, invitation/active/locked status, and row actions. Super admins can use the Figma-aligned account-creation modal to invite admin, super-admin, and sales accounts with the required email and role fields; the API's initial display name is derived from the email local part. The Figma row dropdown sends password-reset emails, locks/unlocks accounts, or withdraws Admin access. Lock and withdrawal require confirmation and refresh the server-owned directory; withdrawal revokes Admin sessions without deleting unrelated patient/partner profiles.
 - 외부 연결자 관리: Figma-aligned, server-paginated active contact directory with name, affiliation, Korea registration date, responsive table, and super-admin-only registration/deletion. Registration requires both name and affiliation. Deletion is confirmed in the browser and soft-deactivates the API row so it disappears from future 치과 영업 관리 assignment choices without erasing historical references.
+- 치카픽 멤버십 관리: live server-paginated partner directory with category/search/sort filters, inline editing, soft deletion, and visibility toggles. The inquiry column shows the API-owned pending request count and requester snapshots; partner mutations reload the authoritative list and are audited by `ChikaPick_API`.
 - 시크릿 피드백: Admin-only submitted reservation-feedback metrics and server-paginated list. `상세보기` opens an anonymous right-side drawer ported from the Client survey and reuses its tracked Piki rating, Safe, and Close assets without exposing patient identity.
 - 초대코드 관리: inspect invite status and revoke unused invites without exposing plaintext invite codes.
 - 예약/전문의 소견 운영 조회: admin-wide operational oversight, including 즉시 예약 vs 일반 예약 source labels.
