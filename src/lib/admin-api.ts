@@ -342,6 +342,34 @@ export async function createAdminDentalSalesVisit(
   );
 }
 
+export async function fetchAdminPartnerClinics(
+  accessToken: string,
+  query: string,
+  page: number,
+  pageSize = 10,
+) {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  const cleanQuery = query.trim();
+  if (cleanQuery) params.set("query", cleanQuery);
+  return adminFetch<AdminPartnerClinicsPayload>(
+    `/api/v1/admin/partner-clinics?${params.toString()}`,
+    accessToken,
+  );
+}
+
+export async function fetchAdminPartnerClinicDetail(
+  accessToken: string,
+  clinicId: string,
+) {
+  return adminFetch<AdminPartnerClinicDetailPayload>(
+    `/api/v1/admin/partner-clinics/${encodeURIComponent(clinicId)}`,
+    accessToken,
+  );
+}
+
 async function adminFetch<T>(
   path: string,
   accessToken: string,
@@ -378,3 +406,7 @@ import type {
   DentalSalesListPayload,
   DentalSalesVisitDetailStatus,
 } from "./dental-sales";
+import type {
+  AdminPartnerClinicDetailPayload,
+  AdminPartnerClinicsPayload,
+} from "./partner-clinics";

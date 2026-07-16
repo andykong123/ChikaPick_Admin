@@ -1209,6 +1209,189 @@ td span {
   background: #f5f6f8;
 }
 
+.admin-content--partner-clinics {
+  max-width: none;
+  gap: 25px;
+  padding-top: 25px;
+}
+
+.admin-partner-clinics-filter {
+  height: 62px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--chika-base-1);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 20px;
+}
+
+.admin-partner-clinics-search {
+  position: relative;
+  min-width: 0;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+}
+
+.admin-partner-clinics-search:focus-within {
+  border-color: var(--chika-secondary-6);
+  box-shadow: 0 0 0 2px rgba(2, 61, 199, 0.1);
+}
+
+.admin-partner-clinics-search input {
+  width: 100%;
+  height: 30px;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #161616;
+  padding: 0 12px 0 34px;
+  font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.admin-partner-clinics-search input::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+}
+
+.admin-partner-clinics-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.admin-partner-clinics-filter > button {
+  width: 54px;
+  height: 32px;
+  border: 1px solid var(--chika-secondary-4);
+  border-radius: 6px;
+  background: #2563eb;
+  color: var(--surface);
+  cursor: pointer;
+  flex: 0 0 auto;
+  padding: 0;
+  font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.admin-partner-clinics-filter > button:hover,
+.admin-partner-clinics-filter > button:focus-visible {
+  background: var(--chika-secondary-6);
+}
+
+.admin-partner-clinics-table-scroll {
+  width: calc(100% + 12px);
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.admin-partner-clinics-table {
+  width: 100%;
+  min-width: 1020px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
+}
+
+.admin-partner-clinics-col-hospital {
+  width: 210px;
+}
+
+.admin-partner-clinics-col-phone {
+  width: 120px;
+}
+
+.admin-partner-clinics-col-owner {
+  width: 90px;
+}
+
+.admin-partner-clinics-col-count {
+  width: 70px;
+}
+
+.admin-partner-clinics-col-activity {
+  width: 120px;
+}
+
+.admin-partner-clinics-col-date {
+  width: 190px;
+}
+
+.admin-partner-clinics-col-action {
+  width: 150px;
+}
+
+.admin-partner-clinics-table th {
+  height: 40px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: #f9fafb;
+  color: #6b7280;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.admin-partner-clinics-table td {
+  height: 60px;
+  min-height: 60px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: var(--surface);
+  color: #161616;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-partner-clinics-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-partner-clinics-table td strong {
+  overflow: hidden;
+  color: #161616;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-partner-clinics-table td > span {
+  overflow: hidden;
+  margin: 2px 0 0;
+  color: #9ca3af;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-partner-clinics-action-cell {
+  text-align: center;
+}
+
+.admin-partner-clinics-action-cell .admin-sales-detail-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 .admin-sales-filters {
   height: 82px;
   border: 1px solid var(--border);
@@ -2919,7 +3102,8 @@ td span {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .admin-sales-table-scroll {
+  .admin-sales-table-scroll,
+  .admin-partner-clinics-table-scroll {
     width: 100%;
   }
 

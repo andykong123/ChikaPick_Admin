@@ -13,6 +13,8 @@ import {
   fetchAdminConsole,
   fetchAdminDentalSales,
   fetchAdminDentalSalesDetail,
+  fetchAdminPartnerClinicDetail,
+  fetchAdminPartnerClinics,
   inviteAdminAccount,
   rejectManualHospitalSubmission,
   revokeInvite,
@@ -56,6 +58,12 @@ import {
   type DentalSalesListPayload,
   type DentalSalesVisitDetailStatus,
 } from "@/lib/dental-sales";
+import {
+  partnerClinicActivityLabel,
+  partnerClinicRegistrationLabel,
+  type AdminPartnerClinicDetailPayload,
+  type AdminPartnerClinicsPayload,
+} from "@/lib/partner-clinics";
 import { signInWithAdminPassword } from "@/lib/password-auth";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
@@ -515,7 +523,9 @@ export default function AdminHome() {
         {!isDentalSalesDetailView ? (
           <div
             className={`admin-workspace-heading${
-              activePrimaryTab === "dental-sales" ? " admin-workspace-heading--sales" : ""
+              activePrimaryTab === "dental-sales" || activePrimaryTab === "partner-clinics"
+                ? " admin-workspace-heading--sales"
+                : ""
             }`}
           >
             <div>
@@ -523,6 +533,8 @@ export default function AdminHome() {
                 <h1>
                   {activePrimaryTab === "dental-sales"
                     ? "치과 영업 관리"
+                    : activePrimaryTab === "partner-clinics"
+                      ? "파트너 치과 관리"
                     : activePrimaryTab === "admin-accounts"
                       ? "어드민 계정 관리"
                     : activePrimaryTab === "external-connectors"
@@ -534,6 +546,8 @@ export default function AdminHome() {
               <p>
                 {activePrimaryTab === "dental-sales"
                   ? "전국 치과를 지역별로 조회하고 초대 코드를 확인 할 수 있으며 영업 현황을 관리합니다."
+                  : activePrimaryTab === "partner-clinics"
+                    ? "가입 완료한 파트너 치과의 운영 상태를 모니터링하고 필요한 지원을 빠르게 진행할 수 있습니다."
                   : activePrimaryTab === "admin-accounts"
                     ? "어드민 및 영업 계정을 관리하고 외부 연결자를 추가합니다."
                   : activePrimaryTab === "external-connectors"
@@ -541,7 +555,8 @@ export default function AdminHome() {
                   : "실제 운영 데이터는 ChikaPick_API 관리자 엔드포인트에서 불러옵니다."}
               </p>
             </div>
-            {activePrimaryTab !== "dental-sales" ? (
+            {activePrimaryTab !== "dental-sales" &&
+            activePrimaryTab !== "partner-clinics" ? (
               <div className="admin-topbar-actions">
                 <button type="button" onClick={() => loadConsole(session)}>
                   {isLoadingConsole ? "새로고침 중" : "새로고침"}
@@ -554,13 +569,19 @@ export default function AdminHome() {
           </div>
         ) : null}
 
-        {message && activePrimaryTab !== "dental-sales" ? (
+        {message &&
+        activePrimaryTab !== "dental-sales" &&
+        activePrimaryTab !== "partner-clinics" ? (
           <p className="admin-message">{message}</p>
         ) : null}
 
         <div
           className={`admin-content${
             activePrimaryTab === "dental-sales" ? " admin-content--sales" : ""
+          }${
+            activePrimaryTab === "partner-clinics"
+              ? " admin-content--partner-clinics"
+              : ""
           }${isDentalSalesDetailView ? " admin-content--sales-detail" : ""}`}
         >
           {activePrimaryTab === "dental-sales" ? (
@@ -569,6 +590,8 @@ export default function AdminHome() {
               selectedProfileId={selectedDentalSalesProfileId}
               onSelectProfile={setSelectedDentalSalesProfileId}
             />
+          ) : activePrimaryTab === "partner-clinics" ? (
+            <PartnerClinicsTab accessToken={session?.access_token ?? ""} />
           ) : activeTab === "overview" ? (
             <OverviewTab data={consoleData} />
           ) : activeTab === "manual" ? (
@@ -723,6 +746,276 @@ function DentalSalesInfoTooltip() {
         </ul>
       </div>
     </div>
+  );
+}
+
+function PartnerClinicsTab({ accessToken }: { accessToken: string }) {
+  const [draftQuery, setDraftQuery] = useState("");
+  const [appliedQuery, setAppliedQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [listData, setListData] = useState<AdminPartnerClinicsPayload | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [selectedClinicId, setSelectedClinicId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<AdminPartnerClinicDetailPayload | null>(null);
+  const [detailError, setDetailError] = useState("");
+  const detailTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const detailCloseButtonRef = useRef<HTMLButtonElement>(null);
+
+  const loadClinics = useCallback(async () => {
+    if (!accessToken) return;
+    setIsLoading(true);
+    setErrorMessage("");
+    try {
+      const payload = await fetchAdminPartnerClinics(
+        accessToken,
+        appliedQuery,
+        currentPage,
+      );
+      setListData(payload);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "파트너 치과 목록을 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, appliedQuery, currentPage]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => void loadClinics(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadClinics]);
+
+  useEffect(() => {
+    if (!detail) return;
+    const previousOverflow = document.body.style.overflow;
+    const triggerButton = detailTriggerRef.current;
+    document.body.style.overflow = "hidden";
+    const focusTimer = window.setTimeout(
+      () => detailCloseButtonRef.current?.focus(),
+      0,
+    );
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.body.style.overflow = previousOverflow;
+      triggerButton?.focus();
+    };
+  }, [detail]);
+
+  useEffect(() => {
+    if (!detail) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setDetail(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [detail]);
+
+  async function openDetail(
+    clinicId: string,
+    triggerButton: HTMLButtonElement,
+  ) {
+    detailTriggerRef.current = triggerButton;
+    setSelectedClinicId(clinicId);
+    setDetailError("");
+    try {
+      setDetail(await fetchAdminPartnerClinicDetail(accessToken, clinicId));
+    } catch (error) {
+      setDetailError(
+        error instanceof Error
+          ? error.message
+          : "파트너 치과 상세 정보를 불러오지 못했습니다.",
+      );
+    } finally {
+      setSelectedClinicId(null);
+    }
+  }
+
+  function keepModalFocus(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Tab") return;
+    const focusableElements = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        'input:not([disabled]), textarea:not([disabled]), button:not([disabled])',
+      ),
+    );
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+    if (!firstElement || !lastElement) return;
+    if (event.shiftKey && document.activeElement === firstElement) {
+      event.preventDefault();
+      lastElement.focus();
+    } else if (!event.shiftKey && document.activeElement === lastElement) {
+      event.preventDefault();
+      firstElement.focus();
+    }
+  }
+
+  const pagination = listData?.pagination;
+  const pageNumbers = dentalSalesPageNumbers(
+    pagination?.page ?? currentPage,
+    pagination?.totalPages ?? 1,
+  );
+
+  return (
+    <>
+      <form
+        className="admin-partner-clinics-filter"
+        role="search"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setCurrentPage(1);
+          setAppliedQuery(draftQuery.trim());
+        }}
+      >
+        <label className="admin-partner-clinics-search">
+          <span className="admin-visually-hidden">파트너 치과 검색</span>
+          <span className="admin-sales-search-icon" aria-hidden="true" />
+          <input
+            type="search"
+            value={draftQuery}
+            placeholder="치과명, 주소, 전화번호, 대표자 검색"
+            onChange={(event) => setDraftQuery(event.target.value)}
+          />
+        </label>
+        <button type="submit">검색</button>
+      </form>
+
+      {errorMessage ? (
+        <div className="admin-sales-feedback admin-sales-feedback--error" role="alert">
+          <span>{errorMessage}</span>
+          <button type="button" onClick={() => void loadClinics()}>
+            다시 시도
+          </button>
+        </div>
+      ) : null}
+
+      {detailError ? (
+        <div className="admin-sales-feedback admin-sales-feedback--error" role="alert">
+          <span>{detailError}</span>
+          <button type="button" onClick={() => setDetailError("")}>
+            닫기
+          </button>
+        </div>
+      ) : null}
+
+      <div className="admin-partner-clinics-table-scroll" aria-busy={isLoading}>
+        <table className="admin-partner-clinics-table">
+          <colgroup>
+            <col className="admin-partner-clinics-col-hospital" />
+            <col className="admin-partner-clinics-col-phone" />
+            <col className="admin-partner-clinics-col-owner" />
+            <col className="admin-partner-clinics-col-count" />
+            <col className="admin-partner-clinics-col-count" />
+            <col className="admin-partner-clinics-col-activity" />
+            <col className="admin-partner-clinics-col-date" />
+            <col className="admin-partner-clinics-col-action" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>병원</th>
+              <th>연락처</th>
+              <th>대표자명</th>
+              <th>의사 수</th>
+              <th>직원 수</th>
+              <th>최근 활동 여부</th>
+              <th>등록일</th>
+              <th aria-label="상세보기" />
+            </tr>
+          </thead>
+          <tbody>
+            {listData?.items.map((clinic) => (
+              <tr key={clinic.id}>
+                <td>
+                  <strong>{clinic.name}</strong>
+                  <span title={clinic.address ?? undefined}>
+                    {clinic.address ?? "주소 없음"}
+                  </span>
+                </td>
+                <td>{clinic.phone ?? "-"}</td>
+                <td>{clinic.representativeName ?? "-"}</td>
+                <td>{clinic.doctorCount}</td>
+                <td>{clinic.staffCount}</td>
+                <td>{partnerClinicActivityLabel(clinic.lastActiveAt)}</td>
+                <td>{partnerClinicRegistrationLabel(clinic.createdAt)}</td>
+                <td className="admin-partner-clinics-action-cell">
+                  <button
+                    className="admin-sales-detail-button"
+                    type="button"
+                    disabled={selectedClinicId !== null}
+                    onClick={(event) => void openDetail(clinic.id, event.currentTarget)}
+                  >
+                    {selectedClinicId === clinic.id ? "불러오는 중" : "상세보기"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {!isLoading && (listData?.items.length ?? 0) === 0 ? (
+              <tr>
+                <td className="admin-sales-empty" colSpan={8}>
+                  검색 조건에 맞는 파트너 치과가 없습니다.
+                </td>
+              </tr>
+            ) : null}
+            {isLoading && !listData ? (
+              <tr>
+                <td className="admin-sales-empty" colSpan={8}>
+                  파트너 치과를 불러오는 중입니다.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+
+      {pagination ? (
+        <nav className="admin-sales-pagination" aria-label="파트너 치과 목록 페이지">
+          <button
+            type="button"
+            aria-label="이전 페이지"
+            disabled={pagination.page <= 1 || isLoading}
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+          >
+            ‹
+          </button>
+          {pageNumbers.map((pageNumber) => (
+            <button
+              type="button"
+              key={pageNumber}
+              className={
+                pageNumber === pagination.page ? "admin-sales-page-active" : undefined
+              }
+              aria-current={pageNumber === pagination.page ? "page" : undefined}
+              disabled={isLoading}
+              onClick={() => setCurrentPage(pageNumber)}
+            >
+              {pageNumber}
+            </button>
+          ))}
+          <button
+            type="button"
+            aria-label="다음 페이지"
+            disabled={pagination.page >= pagination.totalPages || isLoading}
+            onClick={() =>
+              setCurrentPage((page) => Math.min(pagination.totalPages, page + 1))
+            }
+          >
+            ›
+          </button>
+        </nav>
+      ) : null}
+
+      {detail ? (
+        <HospitalInformationReviewModal
+          closeButtonRef={detailCloseButtonRef}
+          information={detail.hospitalInformation}
+          onClose={() => setDetail(null)}
+          onKeyDown={keepModalFocus}
+        />
+      ) : null}
+    </>
   );
 }
 

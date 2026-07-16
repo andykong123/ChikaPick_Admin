@@ -7,6 +7,8 @@ import {
   createAdminDentalSalesVisit,
   fetchAdminDentalSales,
   fetchAdminDentalSalesDetail,
+  fetchAdminPartnerClinicDetail,
+  fetchAdminPartnerClinics,
   inviteAdminAccount,
   sendAdminPasswordReset,
   unlockAdminAccount,
@@ -198,6 +200,58 @@ test("fetchAdminDentalSalesDetail requests the selected profile and visit page",
   assert.equal(
     calls[0]?.input,
     "https://api.example.com/api/v1/admin/dental-sales/sales%2F1?visitPage=2",
+  );
+});
+
+test("fetchAdminPartnerClinics sends the Figma search and pagination query", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(
+      JSON.stringify({
+        items: [],
+        pagination: { page: 2, pageSize: 10, totalItems: 0, totalPages: 1 },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+
+  try {
+    await fetchAdminPartnerClinics("access-token", "  대표 치과  ", 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const url = new URL(calls[0]?.input.toString() ?? "");
+  assert.equal(url.pathname, "/api/v1/admin/partner-clinics");
+  assert.equal(url.searchParams.get("page"), "2");
+  assert.equal(url.searchParams.get("pageSize"), "10");
+  assert.equal(url.searchParams.get("query"), "대표 치과");
+});
+
+test("fetchAdminPartnerClinicDetail encodes the selected clinic id", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(JSON.stringify({ hospitalInformation: {} }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    await fetchAdminPartnerClinicDetail("access-token", "clinic/1");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(
+    calls[0]?.input,
+    "https://api.example.com/api/v1/admin/partner-clinics/clinic%2F1",
   );
 });
 
