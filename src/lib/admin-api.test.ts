@@ -17,6 +17,7 @@ import {
   fetchAdminSalesPerformance,
   fetchAdminSecretFeedback,
   inviteAdminAccount,
+  isAdminApiNotFound,
   lockAdminAccount,
   lookupAdminChikapickAccount,
   lookupAdminPartnerAccount,
@@ -229,7 +230,10 @@ test("Partners account detail APIs use an exact-email POST and encoded UUID path
   };
 
   try {
-    await lookupAdminPartnerAccount("access-token", "partner@example.com");
+    await lookupAdminPartnerAccount("access-token", {
+      email: "partner@example.com",
+      unmask: true,
+    });
     await fetchAdminPartnerAccountDetail("access-token", "user/id");
   } finally {
     globalThis.fetch = originalFetch;
@@ -241,12 +245,34 @@ test("Partners account detail APIs use an exact-email POST and encoded UUID path
   );
   assert.deepEqual(JSON.parse(calls[0]?.init?.body as string), {
     email: "partner@example.com",
+    unmask: true,
   });
   assert.equal(
     calls[1]?.input,
     "https://api.example.com/api/v1/admin/partner-accounts/user%2Fid",
   );
   assert.equal(calls[1]?.init?.method, undefined);
+});
+
+test("Admin API errors preserve HTTP not-found state for empty search views", async () => {
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ error: "NOT_FOUND", message: "없음" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  try {
+    await assert.rejects(
+      () =>
+        lookupAdminPartnerAccount("access-token", {
+          email: "missing@example.com",
+        }),
+      (error) => isAdminApiNotFound(error),
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("deleteAdminExternalConnector deletes the selected contact", async () => {

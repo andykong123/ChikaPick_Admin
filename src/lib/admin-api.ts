@@ -345,11 +345,14 @@ export async function searchAdminPartnerAccounts(
   );
 }
 
-export async function lookupAdminPartnerAccount(accessToken: string, email: string) {
-  return adminFetch<AdminPartnerAccountDetailPayload>(
+export async function lookupAdminPartnerAccount(
+  accessToken: string,
+  body: { email: string; unmask?: boolean },
+) {
+  return adminFetch<AdminPartnerAccountLookupPayload>(
     "/api/v1/admin/partner-accounts/lookup",
     accessToken,
-    { method: "POST", body: JSON.stringify({ email }) },
+    { method: "POST", body: JSON.stringify(body) },
   );
 }
 
@@ -542,6 +545,26 @@ export async function fetchAdminPartnerClinicDetail(
   );
 }
 
+export class AdminApiError extends Error {
+  readonly status: number;
+  readonly code: string | null;
+
+  constructor(
+    message: string,
+    status: number,
+    code: string | null,
+  ) {
+    super(message);
+    this.name = "AdminApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+export function isAdminApiNotFound(error: unknown) {
+  return error instanceof AdminApiError && error.status === 404;
+}
+
 async function adminFetch<T>(
   path: string,
   accessToken: string,
@@ -565,9 +588,14 @@ async function adminFetch<T>(
       typeof payload.message === "string"
         ? payload.message
         : "관리자 API 요청에 실패했습니다.";
-    throw new Error(
-      message,
-    );
+    const code =
+      typeof payload === "object" &&
+      payload !== null &&
+      "error" in payload &&
+      typeof payload.error === "string"
+        ? payload.error
+        : null;
+    throw new AdminApiError(message, response.status, code);
   }
 
   return payload as T;
@@ -581,6 +609,7 @@ import type { SecretFeedbackPayload } from "./secret-feedback";
 import type { ChikapickAccountLookupPayload } from "./chikapick-accounts";
 import type {
   AdminPartnerAccountDetailPayload,
+  AdminPartnerAccountLookupPayload,
   AdminPartnerAccountsPayload,
 } from "./partner-accounts";
 import type {

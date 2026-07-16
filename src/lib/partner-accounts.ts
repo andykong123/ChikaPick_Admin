@@ -34,6 +34,23 @@ export interface AdminPartnerAccountDetailPayload {
   account: AdminPartnerAccountDetail;
 }
 
+export interface AdminPartnerAccountLookupPayload {
+  account: {
+    email: string | null;
+    fullName: string | null;
+    mobileNo: string | null;
+    countryCode: string | null;
+    status: string;
+    createdAt: string | null;
+    lastActiveAt: string | null;
+    withdrawnAt: string | null;
+    family: { registered: boolean };
+    clinicName: string | null;
+    classification: string;
+  };
+  masked: boolean;
+}
+
 const classificationLabels: Record<string, string> = {
   affiliated_dentist: "소속 치과 의사",
   representative: "대표",
@@ -77,6 +94,13 @@ export function partnerAccountStatusLabel(status: string) {
 export function partnerAccountLoginProviderLabel(provider: string) {
   const normalized = provider.trim().toLowerCase();
   return loginProviderLabels[normalized] ?? `${provider || "기타"} 로그인`;
+}
+
+export function partnerAccountCountryLabel(countryCode: string | null) {
+  if (!countryCode) return "-";
+  if (countryCode === "KR") return "대한민국";
+  if (countryCode === "OTHER") return "외국";
+  return countryCode;
 }
 
 export function formatPartnerAccountDate(value: string | null) {

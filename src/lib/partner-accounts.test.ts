@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   formatPartnerAccountDate,
   partnerAccountClassificationLabel,
+  partnerAccountCountryLabel,
   partnerAccountLoginProviderLabel,
   partnerAccountMembershipStatusLabel,
   partnerAccountStatusLabel,
@@ -20,6 +21,8 @@ test("Partners account labels map directory and detail values", () => {
   assert.equal(partnerAccountMembershipStatusLabel(null), "미소속");
   assert.equal(partnerAccountStatusLabel("withdrawn"), "탈퇴");
   assert.equal(partnerAccountLoginProviderLabel("kakao"), "카카오 로그인");
+  assert.equal(partnerAccountCountryLabel("KR"), "대한민국");
+  assert.equal(partnerAccountCountryLabel("OTHER"), "외국");
 });
 
 test("Partners account timestamps render in Korea time", () => {

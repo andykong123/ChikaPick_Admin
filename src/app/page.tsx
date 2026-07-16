@@ -23,6 +23,7 @@ import {
   fetchAdminSalesPerformance,
   fetchAdminSecretFeedback,
   inviteAdminAccount,
+  isAdminApiNotFound,
   lockAdminAccount,
   lookupAdminChikapickAccount,
   lookupAdminPartnerAccount,
@@ -79,10 +80,12 @@ import {
 import {
   formatPartnerAccountDate,
   partnerAccountClassificationLabel,
+  partnerAccountCountryLabel,
   partnerAccountLoginProviderLabel,
   partnerAccountMembershipStatusLabel,
   partnerAccountStatusLabel,
   type AdminPartnerAccountDetail,
+  type AdminPartnerAccountLookupPayload,
   type AdminPartnerAccountsPayload,
 } from "@/lib/partner-accounts";
 import {
@@ -248,7 +251,7 @@ export default function AdminHome() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<AdminAccountRole>("admin");
   const [adminAccountDialog, setAdminAccountDialog] = useState<"invite" | null>(null);
-  const [partnerAccountLookupRequest, setPartnerAccountLookupRequest] = useState(0);
+  const [isPartnerAccountSearchView, setIsPartnerAccountSearchView] = useState(false);
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const lastAutoLoadedAccessTokenRef = useRef<string | null>(null);
@@ -602,6 +605,7 @@ export default function AdminHome() {
                 aria-current={activePrimaryTab === tab.id ? "page" : undefined}
                 onClick={() => {
                   clearAdminDetail();
+                  setIsPartnerAccountSearchView(false);
                   setActivePrimaryTab(tab.id);
                   if (tab.id === "admin-accounts" || tab.id === "external-connectors") {
                     setActiveTab("users");
@@ -629,6 +633,7 @@ export default function AdminHome() {
                 }
                 onClick={() => {
                   clearAdminDetail();
+                  setIsPartnerAccountSearchView(false);
                   setActivePrimaryTab(null);
                   setActiveTab(tab.id);
                 }}
@@ -697,6 +702,10 @@ export default function AdminHome() {
               activePrimaryTab === "partner-accounts"
                 ? " admin-workspace-heading--partner-accounts"
                 : ""
+            }${
+              activePrimaryTab === "partner-accounts" && isPartnerAccountSearchView
+                ? " admin-workspace-heading--partner-account-search"
+                : ""
             }`}
           >
             <div>
@@ -717,7 +726,9 @@ export default function AdminHome() {
                     : activePrimaryTab === "chikapick-accounts"
                       ? "치카픽 계정 조회"
                     : activePrimaryTab === "partner-accounts"
-                      ? "파트너스 계정 관리"
+                      ? isPartnerAccountSearchView
+                        ? "치카픽 파트너스 계정 조회"
+                        : "파트너스 계정 관리"
                     : activePrimaryTab === "admin-accounts"
                       ? "어드민 계정 관리"
                     : activePrimaryTab === "external-connectors"
@@ -726,7 +737,7 @@ export default function AdminHome() {
                 </h1>
                 {activePrimaryTab === "dental-sales" ? <DentalSalesInfoTooltip /> : null}
               </div>
-              {activePrimaryTab !== "partner-accounts" ? <p>
+              {activePrimaryTab !== "partner-accounts" || isPartnerAccountSearchView ? <p>
                 {activePrimaryTab === "dental-sales"
                   ? "전국 치과를 지역별로 조회하고 초대 코드를 확인 할 수 있으며 영업 현황을 관리합니다."
                   : activePrimaryTab === "partner-clinics"
@@ -741,6 +752,8 @@ export default function AdminHome() {
                     ? "어드민 관리자에게만 전송되는 시크릿 피드백 입니다."
                   : activePrimaryTab === "chikapick-accounts"
                     ? "치카픽 서비스에 가입한 환자 계정을 이메일로 조회하고 계정 상태를 확인합니다."
+                  : activePrimaryTab === "partner-accounts"
+                    ? "치카픽 파트너스에 가입한 계정을 이메일로 조회하고 소속 정보를 확인합니다."
                   : activePrimaryTab === "admin-accounts"
                     ? "치카픽 어드민 계정을 생성하고 초대하며, 권한 및 계정 정보를 관리할 수 있습니다."
                   : activePrimaryTab === "external-connectors"
@@ -748,11 +761,11 @@ export default function AdminHome() {
                   : "실제 운영 데이터는 ChikaPick_API 관리자 엔드포인트에서 불러옵니다."}
               </p> : null}
             </div>
-            {activePrimaryTab === "partner-accounts" ? (
+            {activePrimaryTab === "partner-accounts" && !isPartnerAccountSearchView ? (
               <button
                 type="button"
                 className="admin-partner-accounts-lookup-trigger"
-                onClick={() => setPartnerAccountLookupRequest((request) => request + 1)}
+                onClick={() => setIsPartnerAccountSearchView(true)}
               >
                 단일 계정 정보 상세 조회하기
               </button>
@@ -763,6 +776,7 @@ export default function AdminHome() {
             activePrimaryTab !== "license-review" &&
             activePrimaryTab !== "secret-feedback" &&
             activePrimaryTab !== "chikapick-accounts" &&
+            activePrimaryTab !== "partner-accounts" &&
             activePrimaryTab !== "admin-accounts" &&
             activePrimaryTab !== "external-connectors" ? (
               <div className="admin-topbar-actions">
@@ -818,6 +832,10 @@ export default function AdminHome() {
               ? " admin-content--partner-accounts"
               : ""
           }${
+            activePrimaryTab === "partner-accounts" && isPartnerAccountSearchView
+              ? " admin-content--partner-account-search"
+              : ""
+          }${
             activePrimaryTab === "admin-accounts"
               ? " admin-content--admin-accounts"
               : ""
@@ -869,10 +887,11 @@ export default function AdminHome() {
           ) : activePrimaryTab === "chikapick-accounts" ? (
             <ChikapickAccountsTab accessToken={session?.access_token ?? ""} />
           ) : activePrimaryTab === "partner-accounts" ? (
-            <PartnerAccountsTab
-              accessToken={session?.access_token ?? ""}
-              lookupRequest={partnerAccountLookupRequest}
-            />
+            isPartnerAccountSearchView ? (
+              <PartnerAccountSearchView accessToken={session?.access_token ?? ""} />
+            ) : (
+              <PartnerAccountsTab accessToken={session?.access_token ?? ""} />
+            )
           ) : activePrimaryTab === "admin-accounts" ? (
             <AdminAccountsTab
               accessToken={session?.access_token ?? ""}
@@ -2076,13 +2095,157 @@ function SecretFeedbackDetail({
   );
 }
 
-function PartnerAccountsTab({
-  accessToken,
-  lookupRequest,
+function PartnerAccountSearchView({ accessToken }: { accessToken: string }) {
+  const [email, setEmail] = useState("");
+  const [searchedEmail, setSearchedEmail] = useState("");
+  const [result, setResult] = useState<AdminPartnerAccountLookupPayload | null>(null);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const runLookup = async ({
+    lookupEmail,
+    unmask,
+  }: {
+    lookupEmail: string;
+    unmask: boolean;
+  }) => {
+    if (!accessToken || isLoading) return;
+    const normalizedEmail = lookupEmail.trim();
+    setIsLoading(true);
+    setError("");
+    try {
+      const payload = await lookupAdminPartnerAccount(accessToken, {
+        email: normalizedEmail,
+        unmask,
+      });
+      setResult(payload);
+      setSearchedEmail(normalizedEmail);
+      setEmail(payload.account.email || normalizedEmail);
+    } catch (lookupError) {
+      setResult(null);
+      if (isAdminApiNotFound(lookupError)) {
+        setEmail("");
+        setSearchedEmail("");
+      } else {
+        setError(
+          lookupError instanceof Error
+            ? lookupError.message
+            : "파트너스 계정 조회에 실패했습니다.",
+        );
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const submitLookup = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const lookupEmail =
+      result && email === result.account.email ? searchedEmail : email;
+    void runLookup({ lookupEmail, unmask: false });
+  };
+
+  return (
+    <section className="admin-partner-account-search-view">
+      <form className="admin-partner-account-search-block" onSubmit={submitLookup}>
+        <label htmlFor="partner-account-search-email">이메일</label>
+        <input
+          id="partner-account-search-email"
+          required
+          type="email"
+          autoComplete="off"
+          maxLength={320}
+          placeholder="가입한 이메일을 입력해 주세요"
+          value={email}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            setError("");
+          }}
+        />
+        <button type="submit" disabled={isLoading || !email.trim()}>
+          {isLoading && !result ? "조회 중" : "조회"}
+        </button>
+      </form>
+
+      {error ? (
+        <p className="admin-partner-account-search-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+
+      {result ? (
+        <section className="admin-partner-account-search-result" aria-live="polite">
+          <header>
+            <h2>검색 결과</h2>
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() =>
+                void runLookup({
+                  lookupEmail: searchedEmail,
+                  unmask: result.masked,
+                })
+              }
+            >
+              {isLoading
+                ? "처리 중"
+                : result.masked
+                  ? "마스킹 해제"
+                  : "마스킹 적용"}
+            </button>
+          </header>
+          <PartnerAccountSearchResult account={result.account} />
+        </section>
+      ) : (
+        <section className="admin-partner-account-search-empty" aria-live="polite">
+          <span aria-hidden="true">
+            <Image src="/Type=Question.svg" alt="" width={24} height={24} />
+          </span>
+          <p>조회된 계정이 없습니다.</p>
+        </section>
+      )}
+    </section>
+  );
+}
+
+function PartnerAccountSearchResult({
+  account,
 }: {
-  accessToken: string;
-  lookupRequest: number;
+  account: AdminPartnerAccountLookupPayload["account"];
 }) {
+  const fields = [
+    { label: "이메일", value: account.email || "-" },
+    { label: "이름", value: account.fullName || "-" },
+    { label: "전화번호", value: account.mobileNo || "-" },
+    { label: "가입국가", value: partnerAccountCountryLabel(account.countryCode) },
+    { label: "계정 상태", value: partnerAccountStatusLabel(account.status), status: true },
+    { label: "생성 시간", value: formatPartnerAccountDate(account.createdAt) },
+    { label: "마지막 접속 시간", value: formatPartnerAccountDate(account.lastActiveAt) },
+    { label: "탈퇴 일시", value: formatPartnerAccountDate(account.withdrawnAt) },
+    { label: "가족계정 등록 여부", value: account.family.registered ? "등록" : "미등록" },
+    { label: "소속 병원", value: account.clinicName || "-" },
+    { label: "분류", value: partnerAccountClassificationLabel(account.classification) },
+  ];
+
+  return (
+    <dl>
+      {fields.map((field) => (
+        <div key={field.label}>
+          <dt>{field.label}</dt>
+          <dd>
+            {field.status ? (
+              <span className="admin-partner-account-search-status">{field.value}</span>
+            ) : (
+              field.value
+            )}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function PartnerAccountsTab({ accessToken }: { accessToken: string }) {
   const [draftQuery, setDraftQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -2092,11 +2255,6 @@ function PartnerAccountsTab({
   const [detail, setDetail] = useState<AdminPartnerAccountDetail | null>(null);
   const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
   const [detailError, setDetailError] = useState("");
-  const [isLookupOpen, setIsLookupOpen] = useState(false);
-  const [lookupEmail, setLookupEmail] = useState("");
-  const [lookupError, setLookupError] = useState("");
-  const [isLookingUp, setIsLookingUp] = useState(false);
-  const handledLookupRequestRef = useRef(lookupRequest);
 
   const loadDirectory = useCallback(async () => {
     if (!accessToken) return;
@@ -2128,17 +2286,6 @@ function PartnerAccountsTab({
     return () => window.clearTimeout(timeoutId);
   }, [loadDirectory]);
 
-  useEffect(() => {
-    if (lookupRequest === handledLookupRequestRef.current) return;
-    handledLookupRequestRef.current = lookupRequest;
-    const timeoutId = window.setTimeout(() => {
-      setLookupEmail("");
-      setLookupError("");
-      setIsLookupOpen(true);
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [lookupRequest]);
-
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const query = draftQuery.trim();
@@ -2166,27 +2313,6 @@ function PartnerAccountsTab({
       );
     } finally {
       setDetailLoadingId(null);
-    }
-  };
-
-  const submitLookup = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!accessToken || isLookingUp || !lookupEmail.trim()) return;
-    setIsLookingUp(true);
-    setLookupError("");
-    try {
-      const payload = await lookupAdminPartnerAccount(accessToken, lookupEmail.trim());
-      setDetail(payload.account);
-      setDetailError("");
-      setIsLookupOpen(false);
-    } catch (loadError) {
-      setLookupError(
-        loadError instanceof Error
-          ? loadError.message
-          : "파트너스 계정을 찾지 못했습니다.",
-      );
-    } finally {
-      setIsLookingUp(false);
     }
   };
 
@@ -2313,64 +2439,6 @@ function PartnerAccountsTab({
         <p className="admin-partner-accounts-error" role="alert">
           {detailError}
         </p>
-      ) : null}
-
-      {isLookupOpen ? (
-        <div className="admin-partner-account-modal-layer">
-          <button
-            type="button"
-            className="admin-partner-account-modal-backdrop"
-            aria-label="단일 계정 조회 창 닫기"
-            onClick={() => setIsLookupOpen(false)}
-          />
-          <section
-            className="admin-partner-account-lookup-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="partner-account-lookup-title"
-          >
-            <header>
-              <h2 id="partner-account-lookup-title">단일 계정 정보 상세 조회</h2>
-              <button
-                type="button"
-                aria-label="닫기"
-                onClick={() => setIsLookupOpen(false)}
-              >
-                ×
-              </button>
-            </header>
-            <form onSubmit={submitLookup}>
-              <label htmlFor="partner-account-lookup-email">이메일</label>
-              <input
-                id="partner-account-lookup-email"
-                autoFocus
-                required
-                type="email"
-                autoComplete="off"
-                maxLength={320}
-                placeholder="가입한 이메일을 입력해 주세요"
-                value={lookupEmail}
-                onChange={(event) => {
-                  setLookupEmail(event.target.value);
-                  setLookupError("");
-                }}
-              />
-              {lookupError ? <p role="alert">{lookupError}</p> : null}
-              <footer>
-                <button
-                  type="button"
-                  disabled={isLookingUp}
-                  onClick={() => setIsLookupOpen(false)}
-                >
-                  취소
-                </button>
-                <button type="submit" disabled={isLookingUp || !lookupEmail.trim()}>
-                  {isLookingUp ? "조회 중" : "상세 조회"}
-                </button>
-              </footer>
-            </form>
-          </section>
-        </div>
       ) : null}
 
       {detail ? (
