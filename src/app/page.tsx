@@ -10,6 +10,7 @@ import {
   assignAdminDentalSalesperson,
   createAdminExternalConnector,
   createAdminDentalSalesVisit,
+  fetchAdminAccountDirectory,
   fetchAdminConsole,
   fetchAdminDentalSales,
   fetchAdminDentalSalesDetail,
@@ -30,6 +31,15 @@ import {
   type AdminAccountRole,
   type ManualHospitalSubmission,
 } from "@/lib/admin-api";
+import {
+  adminAccountDirectoryRoleLabel,
+  adminAccountDirectoryStatusLabel,
+  defaultAdminAccountDirectoryFilters,
+  formatAdminAccountDirectoryDate,
+  type AdminAccountDirectoryFilters,
+  type AdminAccountDirectoryPayload,
+  type AdminAccountDirectoryRole,
+} from "@/lib/admin-accounts";
 import { shouldAutoLoadAdminConsole } from "@/lib/admin-auth-session";
 import {
   adminDetailFromHistoryState,
@@ -199,6 +209,10 @@ export default function AdminHome() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<AdminAccountRole>("admin");
   const [externalConnectorName, setExternalConnectorName] = useState("");
+  const [adminAccountDialog, setAdminAccountDialog] = useState<
+    "invite" | "connector" | null
+  >(null);
+  const [canManageAdminAccounts, setCanManageAdminAccounts] = useState(false);
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const lastAutoLoadedAccessTokenRef = useRef<string | null>(null);
@@ -307,6 +321,7 @@ export default function AdminHome() {
         autoLoadConsole(nextSession);
       } else {
         lastAutoLoadedAccessTokenRef.current = null;
+        setCanManageAdminAccounts(false);
         setConsoleData(emptyConsole);
       }
     });
@@ -325,6 +340,7 @@ export default function AdminHome() {
       onSessionInvalidated: async () => {
         await supabase.auth.signOut();
         lastAutoLoadedAccessTokenRef.current = null;
+        setCanManageAdminAccounts(false);
         setSession(null);
         setConsoleData(emptyConsole);
         setMessage("세션이 만료되어 다시 로그인해 주세요.");
@@ -356,6 +372,7 @@ export default function AdminHome() {
       ) {
         void supabase.auth.signOut().then(() => {
           lastAutoLoadedAccessTokenRef.current = null;
+          setCanManageAdminAccounts(false);
           setSession(null);
           setConsoleData(emptyConsole);
           setMessage("1시간 동안 활동이 없어 자동 로그아웃되었습니다.");
@@ -401,6 +418,7 @@ export default function AdminHome() {
   async function signOut() {
     await supabase.auth.signOut();
     lastAutoLoadedAccessTokenRef.current = null;
+    setCanManageAdminAccounts(false);
     setSession(null);
   }
 
@@ -670,17 +688,26 @@ export default function AdminHome() {
                   : activePrimaryTab === "license-review"
                     ? "제출된 치과의사 면허증의 식별 가능 여부와 성명, 면허번호, 보건복지부 발급 여부를 확인한 후 승인 또는 반려해 주세요."
                   : activePrimaryTab === "admin-accounts"
-                    ? "어드민 및 영업 계정을 관리하고 외부 연결자를 추가합니다."
+                    ? "치카픽 어드민 계정을 생성하고 초대하며, 권한 및 계정 정보를 관리할 수 있습니다."
                   : activePrimaryTab === "external-connectors"
                     ? "치과 영업 관리에서 지정할 외부 연결자를 추가하고 확인합니다."
                   : "실제 운영 데이터는 ChikaPick_API 관리자 엔드포인트에서 불러옵니다."}
               </p>
             </div>
-            {activePrimaryTab !== "dental-sales" &&
+            {activePrimaryTab === "admin-accounts" && canManageAdminAccounts ? (
+              <button
+                className="admin-account-heading-action"
+                type="button"
+                onClick={() => setAdminAccountDialog("connector")}
+              >
+                외부 연결자 등록
+              </button>
+            ) : activePrimaryTab !== "dental-sales" &&
             activePrimaryTab !== "partner-clinics" &&
             activePrimaryTab !== "sales-performance" &&
             activePrimaryTab !== "hospital-review" &&
-            activePrimaryTab !== "license-review" ? (
+            activePrimaryTab !== "license-review" &&
+            activePrimaryTab !== "admin-accounts" ? (
               <div className="admin-topbar-actions">
                 <button type="button" onClick={() => loadConsole(session)}>
                   {isLoadingConsole ? "새로고침 중" : "새로고침"}
@@ -719,6 +746,10 @@ export default function AdminHome() {
             activePrimaryTab === "license-review"
               ? " admin-content--license-review"
               : ""
+          }${
+            activePrimaryTab === "admin-accounts"
+              ? " admin-content--admin-accounts"
+              : ""
           }${isDentalSalesDetailView ? " admin-content--sales-detail" : ""}${
             isPartnerClinicDetailView ? " admin-content--partner-detail" : ""
           }`}
@@ -756,6 +787,32 @@ export default function AdminHome() {
               }
               onReject={(id, note) =>
                 runAction((token) => rejectManualHospitalSubmission(token, id, note))
+              }
+            />
+          ) : activePrimaryTab === "admin-accounts" ? (
+            <AdminAccountsTab
+              accessToken={session?.access_token ?? ""}
+              dialog={adminAccountDialog}
+              onCanManageChange={setCanManageAdminAccounts}
+              onDialogChange={setAdminAccountDialog}
+              onCreateConnector={(name) =>
+                runAction((token) => createAdminExternalConnector(token, name))
+              }
+              onInvite={(body) =>
+                runAction((token) =>
+                  inviteAdminAccount(token, {
+                    ...body,
+                    redirectTo: adminResetRedirectUrl(),
+                  }),
+                )
+              }
+              onPasswordReset={(userId) =>
+                runAction((token) =>
+                  sendAdminPasswordReset(token, userId, adminResetRedirectUrl()),
+                )
+              }
+              onUnlock={(userId) =>
+                runAction((token) => unlockAdminAccount(token, userId))
               }
             />
           ) : activePrimaryTab === "license-review" ? (
@@ -867,6 +924,447 @@ export default function AdminHome() {
         </div>
       </section>
     </main>
+  );
+}
+
+function AdminAccountsTab({
+  accessToken,
+  dialog,
+  onCanManageChange,
+  onCreateConnector,
+  onDialogChange,
+  onInvite,
+  onPasswordReset,
+  onUnlock,
+}: {
+  accessToken: string;
+  dialog: "invite" | "connector" | null;
+  onCanManageChange: (canManage: boolean) => void;
+  onCreateConnector: (name: string) => Promise<boolean>;
+  onDialogChange: (dialog: "invite" | "connector" | null) => void;
+  onInvite: (body: {
+    email: string;
+    fullName: string;
+    role: AdminAccountRole;
+  }) => Promise<boolean>;
+  onPasswordReset: (userId: string) => Promise<boolean>;
+  onUnlock: (userId: string) => Promise<boolean>;
+}) {
+  const [filters, setFilters] = useState<AdminAccountDirectoryFilters>(
+    defaultAdminAccountDirectoryFilters,
+  );
+  const [draftQuery, setDraftQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [data, setData] = useState<AdminAccountDirectoryPayload | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [openActionId, setOpenActionId] = useState<string | null>(null);
+  const [actionUserId, setActionUserId] = useState<string | null>(null);
+  const [inviteName, setInviteName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<AdminAccountRole>("admin");
+  const [connectorName, setConnectorName] = useState("");
+  const [dialogError, setDialogError] = useState("");
+  const [isDialogSubmitting, setIsDialogSubmitting] = useState(false);
+
+  const loadAccounts = useCallback(async () => {
+    if (!accessToken) return;
+    setIsLoading(true);
+    setErrorMessage("");
+    try {
+      const payload = await fetchAdminAccountDirectory(
+        accessToken,
+        filters,
+        currentPage,
+      );
+      setData(payload);
+      onCanManageChange(payload.canManage);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "어드민 계정 목록을 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, currentPage, filters, onCanManageChange]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => void loadAccounts(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadAccounts]);
+
+  const pagination = data?.pagination;
+  const pageNumbers = dentalSalesPageNumbers(
+    pagination?.page ?? currentPage,
+    pagination?.totalPages ?? 1,
+  );
+  const canManage = data?.canManage === true;
+  const roleFilters: Array<{ label: string; value: AdminAccountDirectoryRole }> = [
+    { label: "전체", value: "all" },
+    { label: "최고 관리자", value: "super_admin" },
+    { label: "영업 담당자", value: "sales" },
+    { label: "운영 관리자", value: "admin" },
+  ];
+
+  function closeDialog() {
+    if (isDialogSubmitting) return;
+    onDialogChange(null);
+    setDialogError("");
+  }
+
+  async function submitInvite(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const fullName = inviteName.trim();
+    const email = inviteEmail.trim();
+    if (!fullName || !email) {
+      setDialogError("이름과 이메일을 입력해 주세요.");
+      return;
+    }
+    setDialogError("");
+    setIsDialogSubmitting(true);
+    const succeeded = await onInvite({ fullName, email, role: inviteRole });
+    if (succeeded) {
+      setInviteName("");
+      setInviteEmail("");
+      setInviteRole("admin");
+      onDialogChange(null);
+      await loadAccounts();
+    }
+    setIsDialogSubmitting(false);
+  }
+
+  async function submitConnector(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = connectorName.trim();
+    if (!name) {
+      setDialogError("외부 연결자 이름을 입력해 주세요.");
+      return;
+    }
+    setDialogError("");
+    setIsDialogSubmitting(true);
+    const succeeded = await onCreateConnector(name);
+    if (succeeded) {
+      setConnectorName("");
+      onDialogChange(null);
+    }
+    setIsDialogSubmitting(false);
+  }
+
+  async function handlePasswordReset(userId: string) {
+    setActionUserId(userId);
+    const succeeded = await onPasswordReset(userId);
+    if (succeeded) setOpenActionId(null);
+    setActionUserId(null);
+  }
+
+  async function handleUnlock(userId: string) {
+    if (!window.confirm("이 어드민 계정의 잠금을 해제하시겠습니까?")) return;
+    setActionUserId(userId);
+    const succeeded = await onUnlock(userId);
+    if (succeeded) {
+      setOpenActionId(null);
+      await loadAccounts();
+    }
+    setActionUserId(null);
+  }
+
+  return (
+    <section className="admin-account-directory">
+      <div className="admin-account-directory-toolbar">
+        <div className="admin-account-role-filters" aria-label="어드민 계정 역할 필터">
+          {roleFilters.map((filter) => (
+            <button
+              type="button"
+              key={filter.value}
+              className={filters.role === filter.value ? "is-active" : undefined}
+              aria-pressed={filters.role === filter.value}
+              onClick={() => {
+                setCurrentPage(1);
+                setFilters((current) => ({ ...current, role: filter.value }));
+              }}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+        <div className="admin-account-directory-actions">
+          <form
+            role="search"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setCurrentPage(1);
+              setFilters((current) => ({
+                ...current,
+                query: draftQuery.trim(),
+              }));
+            }}
+          >
+            <span className="admin-sales-search-icon" aria-hidden="true" />
+            <input
+              type="search"
+              value={draftQuery}
+              placeholder="검색"
+              aria-label="어드민 계정 검색"
+              onChange={(event) => setDraftQuery(event.target.value)}
+            />
+          </form>
+          {canManage ? (
+            <button type="button" onClick={() => onDialogChange("invite")}>
+              초대하기
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {errorMessage ? (
+        <div className="admin-sales-feedback admin-sales-feedback--error" role="alert">
+          <span>{errorMessage}</span>
+          <button type="button" onClick={() => void loadAccounts()}>
+            다시 시도
+          </button>
+        </div>
+      ) : null}
+
+      <div className="admin-account-directory-table-scroll" aria-busy={isLoading}>
+        <table className="admin-account-directory-table">
+          <colgroup>
+            <col className="admin-account-col-name" />
+            <col className="admin-account-col-email" />
+            <col className="admin-account-col-id" />
+            <col className="admin-account-col-role" />
+            <col className="admin-account-col-status" />
+            <col className="admin-account-col-login" />
+            <col className="admin-account-col-joined" />
+            <col className="admin-account-col-action" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>사용자 이름</th>
+              <th>이메일</th>
+              <th>ID</th>
+              <th>역할</th>
+              <th>계정 상태</th>
+              <th>최근 로그인</th>
+              <th>가입일</th>
+              <th className="admin-account-action-heading">액션</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data?.items.map((account) => (
+              <tr key={account.id}>
+                <td title={account.fullName ?? undefined}>{account.fullName ?? "-"}</td>
+                <td title={account.email ?? undefined}>{account.email ?? "-"}</td>
+                <td title={account.accountId}>{account.accountId}</td>
+                <td>{adminAccountDirectoryRoleLabel(account.role)}</td>
+                <td>
+                  <span
+                    className={`admin-account-status admin-account-status--${account.status}`}
+                  >
+                    {adminAccountDirectoryStatusLabel(account.status)}
+                  </span>
+                </td>
+                <td>{formatAdminAccountDirectoryDate(account.lastLoginAt, true)}</td>
+                <td>{formatAdminAccountDirectoryDate(account.joinedAt)}</td>
+                <td className="admin-account-action-cell">
+                  {canManage ? (
+                    <div className="admin-account-row-action">
+                      <button
+                        type="button"
+                        aria-label={`${account.fullName ?? account.email ?? "계정"} 관리`}
+                        aria-expanded={openActionId === account.id}
+                        onClick={() =>
+                          setOpenActionId((current) =>
+                            current === account.id ? null : account.id,
+                          )
+                        }
+                      >
+                        <span aria-hidden="true">⋮</span>
+                      </button>
+                      {openActionId === account.id ? (
+                        <div role="menu">
+                          <button
+                            type="button"
+                            role="menuitem"
+                            disabled={actionUserId === account.id}
+                            onClick={() => void handlePasswordReset(account.id)}
+                          >
+                            비밀번호 재설정 메일
+                          </button>
+                          {account.status === "locked" ? (
+                            <button
+                              type="button"
+                              role="menuitem"
+                              disabled={actionUserId === account.id}
+                              onClick={() => void handleUnlock(account.id)}
+                            >
+                              잠금 해제
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <span>-</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {!isLoading && (data?.items.length ?? 0) === 0 ? (
+              <tr>
+                <td className="admin-sales-empty" colSpan={8}>
+                  검색 조건에 맞는 어드민 계정이 없습니다.
+                </td>
+              </tr>
+            ) : null}
+            {isLoading && !data ? (
+              <tr>
+                <td className="admin-sales-empty" colSpan={8}>
+                  어드민 계정을 불러오는 중입니다.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+
+      {pagination ? (
+        <nav className="admin-sales-pagination" aria-label="어드민 계정 목록 페이지">
+          <button
+            type="button"
+            aria-label="이전 페이지"
+            disabled={pagination.page <= 1 || isLoading}
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+          >
+            ‹
+          </button>
+          {pageNumbers.map((pageNumber) => (
+            <button
+              type="button"
+              key={pageNumber}
+              className={
+                pageNumber === pagination.page ? "admin-sales-page-active" : undefined
+              }
+              aria-current={pageNumber === pagination.page ? "page" : undefined}
+              disabled={isLoading}
+              onClick={() => setCurrentPage(pageNumber)}
+            >
+              {pageNumber}
+            </button>
+          ))}
+          <button
+            type="button"
+            aria-label="다음 페이지"
+            disabled={pagination.page >= pagination.totalPages || isLoading}
+            onClick={() =>
+              setCurrentPage((page) => Math.min(pagination.totalPages, page + 1))
+            }
+          >
+            ›
+          </button>
+        </nav>
+      ) : null}
+
+      {dialog && canManage ? (
+        <div className="admin-account-dialog-layer">
+          <button
+            type="button"
+            className="admin-account-dialog-backdrop"
+            aria-label="계정 관리 창 닫기"
+            onClick={closeDialog}
+          />
+          <section
+            className="admin-account-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-account-dialog-title"
+          >
+            <header>
+              <h2 id="admin-account-dialog-title">
+                {dialog === "invite" ? "어드민 계정 초대" : "외부 연결자 등록"}
+              </h2>
+              <button type="button" aria-label="닫기" onClick={closeDialog}>
+                ×
+              </button>
+            </header>
+            {dialog === "invite" ? (
+              <form onSubmit={submitInvite}>
+                <label>
+                  <span>사용자 이름</span>
+                  <input
+                    autoFocus
+                    value={inviteName}
+                    maxLength={100}
+                    onChange={(event) => {
+                      setInviteName(event.target.value);
+                      setDialogError("");
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>이메일</span>
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(event) => {
+                      setInviteEmail(event.target.value);
+                      setDialogError("");
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>역할</span>
+                  <select
+                    value={inviteRole}
+                    onChange={(event) =>
+                      setInviteRole(event.target.value as AdminAccountRole)
+                    }
+                  >
+                    <option value="super_admin">최고 관리자</option>
+                    <option value="sales">영업 담당자</option>
+                    <option value="admin">운영 관리자</option>
+                  </select>
+                </label>
+                {dialogError ? <p role="alert">{dialogError}</p> : null}
+                <div>
+                  <button type="button" disabled={isDialogSubmitting} onClick={closeDialog}>
+                    취소
+                  </button>
+                  <button type="submit" disabled={isDialogSubmitting}>
+                    {isDialogSubmitting ? "발송 중" : "초대 메일 발송"}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={submitConnector}>
+                <label>
+                  <span>외부 연결자 이름</span>
+                  <input
+                    autoFocus
+                    value={connectorName}
+                    maxLength={100}
+                    onChange={(event) => {
+                      setConnectorName(event.target.value);
+                      setDialogError("");
+                    }}
+                  />
+                </label>
+                {dialogError ? <p role="alert">{dialogError}</p> : null}
+                <div>
+                  <button type="button" disabled={isDialogSubmitting} onClick={closeDialog}>
+                    취소
+                  </button>
+                  <button type="submit" disabled={isDialogSubmitting}>
+                    {isDialogSubmitting ? "등록 중" : "등록"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </section>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

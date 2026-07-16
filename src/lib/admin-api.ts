@@ -312,6 +312,25 @@ export async function unlockAdminAccount(accessToken: string, userId: string) {
   );
 }
 
+export async function fetchAdminAccountDirectory(
+  accessToken: string,
+  filters: AdminAccountDirectoryFilters,
+  page: number,
+  pageSize = 10,
+) {
+  const params = new URLSearchParams({
+    role: filters.role,
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  const query = filters.query.trim();
+  if (query) params.set("query", query);
+  return adminFetch<AdminAccountDirectoryPayload>(
+    `/api/v1/admin/accounts?${params.toString()}`,
+    accessToken,
+  );
+}
+
 export async function fetchAdminDentalSales(
   accessToken: string,
   filters: DentalSalesFilters,
@@ -455,6 +474,10 @@ async function adminFetch<T>(
 
   return payload as T;
 }
+import type {
+  AdminAccountDirectoryFilters,
+  AdminAccountDirectoryPayload,
+} from "./admin-accounts";
 import type {
   DentalSalesDetailPayload,
   DentalSalesFilters,
