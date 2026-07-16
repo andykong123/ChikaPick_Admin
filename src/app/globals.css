@@ -599,22 +599,6 @@ textarea:focus-visible {
   white-space: nowrap;
 }
 
-.admin-nav-badge {
-  width: 18px;
-  height: 18px;
-  margin-left: auto;
-  border-radius: 999px;
-  background: #ff7b03;
-  color: var(--surface);
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 14px;
-}
-
 .admin-main {
   min-width: 0;
   min-height: 100vh;
@@ -1207,6 +1191,313 @@ td span {
   max-width: none;
   gap: 20px;
   padding-top: 25px;
+}
+
+.admin-content--hospital-review {
+  max-width: none;
+  gap: 20px;
+  padding-top: 25px;
+}
+
+.admin-hospital-review {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-hospital-review-table-card {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.admin-hospital-review-table-card > header {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  color: #333;
+  font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.admin-hospital-review-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.admin-hospital-review-table {
+  width: 100%;
+  min-width: 1020px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
+}
+
+.admin-hospital-review-col-name {
+  width: 130px;
+}
+
+.admin-hospital-review-col-phone {
+  width: 120px;
+}
+
+.admin-hospital-review-col-address {
+  width: 260px;
+}
+
+.admin-hospital-review-col-file {
+  width: 90px;
+}
+
+.admin-hospital-review-col-account {
+  width: 160px;
+}
+
+.admin-hospital-review-col-date {
+  width: 100px;
+}
+
+.admin-hospital-review-col-status {
+  width: 160px;
+}
+
+.admin-hospital-review-table th {
+  height: 40px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: #f9fafb;
+  color: #6b7280;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: normal;
+  text-align: left;
+}
+
+.admin-hospital-review-table td {
+  height: 44px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: var(--surface);
+  color: #161616;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-hospital-review-table td a,
+.admin-hospital-review-table td > span:not(.admin-hospital-review-status) {
+  overflow: hidden;
+  color: inherit;
+  display: block;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-hospital-review-table td a:hover,
+.admin-hospital-review-table td a:focus-visible {
+  color: var(--chika-secondary-6);
+  text-decoration: underline;
+}
+
+.admin-hospital-review-table-card > .admin-sales-pagination {
+  min-height: 54px;
+}
+
+.admin-hospital-review-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-hospital-review-actions button {
+  height: 24px;
+  border: 1px solid var(--chika-secondary-6);
+  border-radius: 4px;
+  background: var(--chika-secondary-6);
+  color: var(--surface);
+  cursor: pointer;
+  padding: 0 7px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.admin-hospital-review-actions button:last-child {
+  border-color: #ff7b03;
+  background: var(--surface);
+  color: #ff7b03;
+}
+
+.admin-hospital-review-actions button:hover,
+.admin-hospital-review-actions button:focus-visible {
+  background: #002fa0;
+}
+
+.admin-hospital-review-actions button:last-child:hover,
+.admin-hospital-review-actions button:last-child:focus-visible {
+  background: #fff3e5;
+}
+
+.admin-hospital-review-actions button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.admin-hospital-review-status {
+  width: fit-content;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.admin-hospital-review-status--approved {
+  background: #ebfdf0;
+  color: #00a82d;
+}
+
+.admin-hospital-review-status--rejected {
+  background: #fff3e5;
+  color: #ff7b03;
+}
+
+.admin-hospital-review-status--cancelled {
+  background: var(--chika-base-2);
+  color: var(--text-tertiary);
+}
+
+.admin-hospital-review-dialog-layer {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.admin-hospital-review-dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 11, 38, 0.42);
+  cursor: default;
+}
+
+.admin-hospital-review-dialog {
+  position: relative;
+  width: min(440px, calc(100vw - 48px));
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 18px 50px rgba(0, 11, 38, 0.2);
+  padding: 28px;
+}
+
+.admin-hospital-review-dialog h2,
+.admin-hospital-review-dialog p {
+  margin: 0;
+}
+
+.admin-hospital-review-dialog h2 {
+  color: var(--text-primary);
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.admin-hospital-review-dialog > p {
+  margin-top: 8px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.admin-hospital-review-dialog form,
+.admin-hospital-review-dialog label {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-hospital-review-dialog form {
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.admin-hospital-review-dialog label {
+  gap: 6px;
+}
+
+.admin-hospital-review-dialog label > span {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-hospital-review-dialog textarea {
+  width: 100%;
+  min-height: 112px;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: 0;
+  padding: 12px;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.admin-hospital-review-dialog textarea:focus {
+  border-color: var(--chika-secondary-6);
+  box-shadow: 0 0 0 2px rgba(2, 61, 199, 0.1);
+}
+
+.admin-hospital-review-dialog form > p {
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.admin-hospital-review-dialog form > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-hospital-review-dialog form > div button {
+  min-width: 72px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-hospital-review-dialog form > div button:last-child {
+  border-color: #ff7b03;
+  background: #ff7b03;
+  color: var(--surface);
+}
+
+.admin-hospital-review-dialog form > div button:disabled {
+  cursor: wait;
+  opacity: 0.5;
 }
 
 .admin-performance {

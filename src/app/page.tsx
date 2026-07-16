@@ -13,6 +13,7 @@ import {
   fetchAdminConsole,
   fetchAdminDentalSales,
   fetchAdminDentalSalesDetail,
+  fetchAdminManualHospitalSubmissions,
   fetchAdminPartnerClinicDetail,
   fetchAdminPartnerClinics,
   fetchAdminSalesPerformance,
@@ -24,8 +25,10 @@ import {
   updateClinicMembership,
   updateLicenseVerification,
   type AdminConsolePayload,
+  type AdminManualHospitalSubmissionsPayload,
   type AdminMetric,
   type AdminAccountRole,
+  type ManualHospitalSubmission,
 } from "@/lib/admin-api";
 import { shouldAutoLoadAdminConsole } from "@/lib/admin-auth-session";
 import {
@@ -66,6 +69,12 @@ import {
   type DentalSalesListPayload,
   type DentalSalesVisitDetailStatus,
 } from "@/lib/dental-sales";
+import {
+  manualHospitalRequestAccount,
+  manualHospitalReviewDate,
+  manualHospitalReviewStatusLabel,
+  normalizeManualHospitalRejectionReason,
+} from "@/lib/manual-hospital-review";
 import {
   partnerClinicActivityLabel,
   partnerClinicDateLabel,
@@ -128,7 +137,7 @@ const primaryTabs = [
   { id: "dashboard", label: "운영 현황", icon: "/Type=Dashboard.svg" },
   { id: "dental-sales", label: "치과 영업 관리", icon: "/Type=Graph.svg" },
   { id: "partner-clinics", label: "파트너 치과 관리", icon: "/Type=Hospital.svg" },
-  { id: "hospital-review", label: "병원 가입 심사", icon: "/Type=Accept.svg", badge: 9 },
+  { id: "hospital-review", label: "병원 가입 심사", icon: "/Type=Accept.svg" },
   { id: "license-review", label: "치과의사 면허 인증", icon: "/Type=Accept.svg" },
   { id: "secret-feedback", label: "시크릿 피드백", icon: "/Type=Opinion.svg" },
   { id: "chikapick-accounts", label: "치카픽 계정 조회", icon: "/Type=Family.svg" },
@@ -551,7 +560,6 @@ export default function AdminHome() {
               >
                 <span className="admin-nav-icon" style={maskIcon(tab.icon)} />
                 <span className="admin-nav-label">{tab.label}</span>
-                {"badge" in tab ? <span className="admin-nav-badge">{tab.badge}</span> : null}
               </button>
             ))}
           </div>
@@ -623,6 +631,7 @@ export default function AdminHome() {
               activePrimaryTab === "dental-sales" ||
               activePrimaryTab === "partner-clinics" ||
               activePrimaryTab === "sales-performance" ||
+              activePrimaryTab === "hospital-review" ||
               activePrimaryTab === "license-review"
                 ? " admin-workspace-heading--sales"
                 : ""
@@ -637,6 +646,8 @@ export default function AdminHome() {
                       ? "파트너 치과 관리"
                     : activePrimaryTab === "sales-performance"
                       ? "영업 성과 관리"
+                    : activePrimaryTab === "hospital-review"
+                      ? "병원 가입 심사"
                     : activePrimaryTab === "license-review"
                       ? "치과 의사 면허 인증"
                     : activePrimaryTab === "admin-accounts"
@@ -654,6 +665,8 @@ export default function AdminHome() {
                     ? "가입 완료한 파트너 치과의 운영 상태를 모니터링하고 필요한 지원을 빠르게 진행할 수 있습니다."
                   : activePrimaryTab === "sales-performance"
                     ? "월 기준으로 영업 성과를 확인할 수 있습니다."
+                  : activePrimaryTab === "hospital-review"
+                    ? "직접 입력한 병원 정보와 사업자등록증 제출 건을 검토합니다."
                   : activePrimaryTab === "license-review"
                     ? "제출된 치과의사 면허증의 식별 가능 여부와 성명, 면허번호, 보건복지부 발급 여부를 확인한 후 승인 또는 반려해 주세요."
                   : activePrimaryTab === "admin-accounts"
@@ -666,6 +679,7 @@ export default function AdminHome() {
             {activePrimaryTab !== "dental-sales" &&
             activePrimaryTab !== "partner-clinics" &&
             activePrimaryTab !== "sales-performance" &&
+            activePrimaryTab !== "hospital-review" &&
             activePrimaryTab !== "license-review" ? (
               <div className="admin-topbar-actions">
                 <button type="button" onClick={() => loadConsole(session)}>
@@ -696,6 +710,10 @@ export default function AdminHome() {
           }${
             activePrimaryTab === "sales-performance"
               ? " admin-content--sales-performance"
+              : ""
+          }${
+            activePrimaryTab === "hospital-review"
+              ? " admin-content--hospital-review"
               : ""
           }${
             activePrimaryTab === "license-review"
@@ -729,6 +747,16 @@ export default function AdminHome() {
             <SalesPerformanceTab
               accessToken={session?.access_token ?? ""}
               isSuperAdmin={isSuperAdmin}
+            />
+          ) : activePrimaryTab === "hospital-review" ? (
+            <ManualHospitalReviewTab
+              accessToken={session?.access_token ?? ""}
+              onApprove={(id) =>
+                runAction((token) => approveManualHospitalSubmission(token, id, ""))
+              }
+              onReject={(id, note) =>
+                runAction((token) => rejectManualHospitalSubmission(token, id, note))
+              }
             />
           ) : activePrimaryTab === "license-review" ? (
             <LicenseReviewTab
@@ -3380,6 +3408,294 @@ function OverviewTab({ data }: { data: AdminConsolePayload }) {
         </Panel>
       </section>
     </>
+  );
+}
+
+function ManualHospitalReviewTab({
+  accessToken,
+  onApprove,
+  onReject,
+}: {
+  accessToken: string;
+  onApprove: (id: string) => Promise<boolean>;
+  onReject: (id: string, note: string) => Promise<boolean>;
+}) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [data, setData] = useState<AdminManualHospitalSubmissionsPayload | null>(
+    null,
+  );
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [actionSubmissionId, setActionSubmissionId] = useState<string | null>(null);
+  const [rejectionTarget, setRejectionTarget] =
+    useState<ManualHospitalSubmission | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectionError, setRejectionError] = useState("");
+
+  const loadSubmissions = useCallback(async () => {
+    if (!accessToken) return;
+    setIsLoading(true);
+    setErrorMessage("");
+    try {
+      setData(await fetchAdminManualHospitalSubmissions(accessToken, currentPage));
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "병원 가입 심사 목록을 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, currentPage]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => void loadSubmissions(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadSubmissions]);
+
+  const pagination = data?.pagination;
+  const pageNumbers = dentalSalesPageNumbers(
+    pagination?.page ?? currentPage,
+    pagination?.totalPages ?? 1,
+  );
+
+  async function handleApprove(item: ManualHospitalSubmission) {
+    if (!window.confirm(`${item.hospitalName} 가입 요청을 승인하시겠습니까?`)) return;
+    setActionSubmissionId(item.id);
+    const succeeded = await onApprove(item.id);
+    if (succeeded) await loadSubmissions();
+    setActionSubmissionId(null);
+  }
+
+  function openRejection(item: ManualHospitalSubmission) {
+    setRejectionTarget(item);
+    setRejectionReason("");
+    setRejectionError("");
+  }
+
+  function closeRejection() {
+    if (actionSubmissionId) return;
+    setRejectionTarget(null);
+    setRejectionReason("");
+    setRejectionError("");
+  }
+
+  async function submitRejection(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!rejectionTarget) return;
+    const reason = normalizeManualHospitalRejectionReason(rejectionReason);
+    if (!reason) {
+      setRejectionError("반려 사유를 입력해 주세요.");
+      return;
+    }
+
+    setActionSubmissionId(rejectionTarget.id);
+    setRejectionError("");
+    const succeeded = await onReject(rejectionTarget.id, reason);
+    if (succeeded) {
+      setRejectionTarget(null);
+      setRejectionReason("");
+      await loadSubmissions();
+    }
+    setActionSubmissionId(null);
+  }
+
+  return (
+    <section className="admin-hospital-review">
+      {errorMessage ? (
+        <div className="admin-sales-feedback admin-sales-feedback--error" role="alert">
+          <span>{errorMessage}</span>
+          <button type="button" onClick={() => void loadSubmissions()}>
+            다시 시도
+          </button>
+        </div>
+      ) : null}
+
+      <div className="admin-hospital-review-table-card" aria-busy={isLoading}>
+        <header>총 {pagination?.totalItems ?? 0}건</header>
+        <div className="admin-hospital-review-table-scroll">
+          <table className="admin-hospital-review-table">
+            <colgroup>
+              <col className="admin-hospital-review-col-name" />
+              <col className="admin-hospital-review-col-phone" />
+              <col className="admin-hospital-review-col-address" />
+              <col className="admin-hospital-review-col-file" />
+              <col className="admin-hospital-review-col-account" />
+              <col className="admin-hospital-review-col-date" />
+              <col className="admin-hospital-review-col-status" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>병원명</th>
+                <th>대표 전화번호</th>
+                <th>병원주소</th>
+                <th>첨부파일</th>
+                <th>요청자 계정</th>
+                <th>요청 일시</th>
+                <th>상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data?.items.map((item) => {
+                const isPending = item.status === "pending_review";
+                const isActing = actionSubmissionId === item.id;
+                return (
+                  <tr key={item.id}>
+                    <td title={item.hospitalName}>{item.hospitalName}</td>
+                    <td>{item.representativePhone || "-"}</td>
+                    <td title={item.address}>{item.address || "-"}</td>
+                    <td title={item.businessLicenseFileName}>
+                      {item.businessLicenseUrl ? (
+                        <a
+                          href={item.businessLicenseUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {item.businessLicenseFileName}
+                        </a>
+                      ) : (
+                        <span>{item.businessLicenseFileName}</span>
+                      )}
+                    </td>
+                    <td title={manualHospitalRequestAccount(item)}>
+                      {manualHospitalRequestAccount(item)}
+                    </td>
+                    <td>{manualHospitalReviewDate(item.createdAt)}</td>
+                    <td>
+                      {isPending ? (
+                        <>
+                          <span className="admin-visually-hidden">심사 대기</span>
+                          <div className="admin-hospital-review-actions">
+                            <button
+                              type="button"
+                              disabled={isActing}
+                              aria-label={`${item.hospitalName} 승인`}
+                              onClick={() => void handleApprove(item)}
+                            >
+                              승인
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isActing}
+                              aria-label={`${item.hospitalName} 반려`}
+                              onClick={() => openRejection(item)}
+                            >
+                              반려
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <span
+                          className={`admin-hospital-review-status admin-hospital-review-status--${item.status}`}
+                        >
+                          {manualHospitalReviewStatusLabel(item.status)}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {!isLoading && (data?.items.length ?? 0) === 0 ? (
+                <tr>
+                  <td className="admin-sales-empty" colSpan={7}>
+                    검토할 병원 가입 신청이 없습니다.
+                  </td>
+                </tr>
+              ) : null}
+              {isLoading && !data ? (
+                <tr>
+                  <td className="admin-sales-empty" colSpan={7}>
+                    병원 가입 심사 목록을 불러오는 중입니다.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+
+        {pagination ? (
+          <nav className="admin-sales-pagination" aria-label="병원 가입 심사 목록 페이지">
+            <button
+              type="button"
+              aria-label="이전 페이지"
+              disabled={pagination.page <= 1 || isLoading}
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            >
+              ‹
+            </button>
+            {pageNumbers.map((pageNumber) => (
+              <button
+                type="button"
+                key={pageNumber}
+                className={
+                  pageNumber === pagination.page ? "admin-sales-page-active" : undefined
+                }
+                aria-current={pageNumber === pagination.page ? "page" : undefined}
+                disabled={isLoading}
+                onClick={() => setCurrentPage(pageNumber)}
+              >
+                {pageNumber}
+              </button>
+            ))}
+            <button
+              type="button"
+              aria-label="다음 페이지"
+              disabled={pagination.page >= pagination.totalPages || isLoading}
+              onClick={() =>
+                setCurrentPage((page) => Math.min(pagination.totalPages, page + 1))
+              }
+            >
+              ›
+            </button>
+          </nav>
+        ) : null}
+      </div>
+
+      {rejectionTarget ? (
+        <div className="admin-hospital-review-dialog-layer">
+          <button
+            type="button"
+            className="admin-hospital-review-dialog-backdrop"
+            aria-label="반려 사유 입력 닫기"
+            onClick={closeRejection}
+          />
+          <section
+            className="admin-hospital-review-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-hospital-review-dialog-title"
+          >
+            <h2 id="admin-hospital-review-dialog-title">병원 가입 요청 반려</h2>
+            <p>{rejectionTarget.hospitalName} 신청자에게 전달할 사유를 입력해 주세요.</p>
+            <form onSubmit={submitRejection}>
+              <label>
+                <span>반려 사유</span>
+                <textarea
+                  autoFocus
+                  value={rejectionReason}
+                  maxLength={1000}
+                  placeholder="예: 사업자등록증의 내용을 식별할 수 없습니다."
+                  onChange={(event) => {
+                    setRejectionReason(event.target.value);
+                    setRejectionError("");
+                  }}
+                />
+              </label>
+              {rejectionError ? <p role="alert">{rejectionError}</p> : null}
+              <div>
+                <button type="button" disabled={Boolean(actionSubmissionId)} onClick={closeRejection}>
+                  취소
+                </button>
+                <button type="submit" disabled={Boolean(actionSubmissionId)}>
+                  {actionSubmissionId ? "처리 중" : "반려"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

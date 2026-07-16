@@ -7,6 +7,7 @@ import {
   createAdminDentalSalesVisit,
   fetchAdminDentalSales,
   fetchAdminDentalSalesDetail,
+  fetchAdminManualHospitalSubmissions,
   fetchAdminPartnerClinicDetail,
   fetchAdminPartnerClinics,
   fetchAdminSalesPerformance,
@@ -131,6 +132,37 @@ test("unlockAdminAccount posts the target admin id", async () => {
     "https://api.example.com/api/v1/admin/accounts/admin-2/unlock",
   );
   assert.equal(calls[0]?.init?.method, "POST");
+});
+
+test("fetchAdminManualHospitalSubmissions requests the Figma review page", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(
+      JSON.stringify({
+        items: [],
+        pagination: { page: 2, pageSize: 10, totalItems: 12, totalPages: 2 },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+
+  try {
+    await fetchAdminManualHospitalSubmissions("access-token", 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const url = new URL(calls[0]?.input.toString() ?? "");
+  assert.equal(url.pathname, "/api/v1/admin/manual-hospital-submissions");
+  assert.equal(url.searchParams.get("page"), "2");
+  assert.equal(url.searchParams.get("pageSize"), "10");
+  assert.equal(
+    (calls[0]?.init?.headers as Record<string, string>).Authorization,
+    "Bearer access-token",
+  );
 });
 
 test("fetchAdminDentalSales sends server-side filters and pagination", async () => {

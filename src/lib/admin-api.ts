@@ -1,4 +1,8 @@
-export type AdminReviewStatus = "pending_review" | "approved" | "rejected";
+export type AdminReviewStatus =
+  | "pending_review"
+  | "approved"
+  | "rejected"
+  | "cancelled";
 export type AdminAccountRole =
   | "admin"
   | "super_admin"
@@ -28,6 +32,16 @@ export interface ManualHospitalSubmission {
     id: string;
     email: string | null;
     fullName: string | null;
+  };
+}
+
+export interface AdminManualHospitalSubmissionsPayload {
+  items: ManualHospitalSubmission[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
   };
 }
 
@@ -175,6 +189,21 @@ const apiBaseUrl = () =>
 
 export async function fetchAdminConsole(accessToken: string) {
   return adminFetch<AdminConsolePayload>("/api/v1/admin/console", accessToken);
+}
+
+export async function fetchAdminManualHospitalSubmissions(
+  accessToken: string,
+  page: number,
+  pageSize = 10,
+) {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  return adminFetch<AdminManualHospitalSubmissionsPayload>(
+    `/api/v1/admin/manual-hospital-submissions?${params.toString()}`,
+    accessToken,
+  );
 }
 
 export async function approveManualHospitalSubmission(
