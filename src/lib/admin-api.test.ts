@@ -14,6 +14,7 @@ import {
   fetchAdminPartnerClinicDetail,
   fetchAdminPartnerClinics,
   fetchAdminSalesPerformance,
+  fetchAdminSecretFeedback,
   inviteAdminAccount,
   lockAdminAccount,
   sendAdminPasswordReset,
@@ -114,6 +115,34 @@ test("fetchAdminExternalConnectors requests server pagination", async () => {
   assert.equal(
     calls[0]?.input,
     "https://api.example.com/api/v1/admin/external-connectors?page=2&pageSize=10",
+  );
+});
+
+test("fetchAdminSecretFeedback requests the anonymous feedback directory", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(
+      JSON.stringify({
+        metrics: { total: 0, positive: 0, neutral: 0, negative: 0 },
+        items: [],
+        pagination: { page: 2, pageSize: 10, totalItems: 0, totalPages: 1 },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+
+  try {
+    await fetchAdminSecretFeedback("access-token", 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(
+    calls[0]?.input,
+    "https://api.example.com/api/v1/admin/secret-feedback?page=2&pageSize=10",
   );
 });
 

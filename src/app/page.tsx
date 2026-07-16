@@ -20,6 +20,7 @@ import {
   fetchAdminPartnerClinicDetail,
   fetchAdminPartnerClinics,
   fetchAdminSalesPerformance,
+  fetchAdminSecretFeedback,
   inviteAdminAccount,
   lockAdminAccount,
   rejectManualHospitalSubmission,
@@ -94,6 +95,14 @@ import {
   formatExternalConnectorDate,
   type ExternalConnectorDirectoryPayload,
 } from "@/lib/external-connectors";
+import {
+  formatSecretFeedbackDate,
+  secretFeedbackImpressionTags,
+  secretFeedbackRatingLabel,
+  secretFeedbackRatings,
+  type SecretFeedbackItem,
+  type SecretFeedbackPayload,
+} from "@/lib/secret-feedback";
 import {
   partnerClinicActivityLabel,
   partnerClinicDateLabel,
@@ -652,6 +661,7 @@ export default function AdminHome() {
               activePrimaryTab === "sales-performance" ||
               activePrimaryTab === "hospital-review" ||
               activePrimaryTab === "license-review" ||
+              activePrimaryTab === "secret-feedback" ||
               activePrimaryTab === "external-connectors"
                 ? " admin-workspace-heading--sales"
                 : ""
@@ -670,6 +680,8 @@ export default function AdminHome() {
                       ? "병원 가입 심사"
                     : activePrimaryTab === "license-review"
                       ? "치과 의사 면허 인증"
+                    : activePrimaryTab === "secret-feedback"
+                      ? "시크릿 피드백"
                     : activePrimaryTab === "admin-accounts"
                       ? "어드민 계정 관리"
                     : activePrimaryTab === "external-connectors"
@@ -689,6 +701,8 @@ export default function AdminHome() {
                     ? "직접 입력한 병원 정보와 사업자등록증 제출 건을 검토합니다."
                   : activePrimaryTab === "license-review"
                     ? "제출된 치과의사 면허증의 식별 가능 여부와 성명, 면허번호, 보건복지부 발급 여부를 확인한 후 승인 또는 반려해 주세요."
+                  : activePrimaryTab === "secret-feedback"
+                    ? "어드민 관리자에게만 전송되는 시크릿 피드백 입니다."
                   : activePrimaryTab === "admin-accounts"
                     ? "치카픽 어드민 계정을 생성하고 초대하며, 권한 및 계정 정보를 관리할 수 있습니다."
                   : activePrimaryTab === "external-connectors"
@@ -701,6 +715,7 @@ export default function AdminHome() {
             activePrimaryTab !== "sales-performance" &&
             activePrimaryTab !== "hospital-review" &&
             activePrimaryTab !== "license-review" &&
+            activePrimaryTab !== "secret-feedback" &&
             activePrimaryTab !== "admin-accounts" &&
             activePrimaryTab !== "external-connectors" ? (
               <div className="admin-topbar-actions">
@@ -740,6 +755,10 @@ export default function AdminHome() {
           }${
             activePrimaryTab === "license-review"
               ? " admin-content--license-review"
+              : ""
+          }${
+            activePrimaryTab === "secret-feedback"
+              ? " admin-content--secret-feedback"
               : ""
           }${
             activePrimaryTab === "admin-accounts"
@@ -788,6 +807,8 @@ export default function AdminHome() {
                 runAction((token) => rejectManualHospitalSubmission(token, id, note))
               }
             />
+          ) : activePrimaryTab === "secret-feedback" ? (
+            <SecretFeedbackTab accessToken={session?.access_token ?? ""} />
           ) : activePrimaryTab === "admin-accounts" ? (
             <AdminAccountsTab
               accessToken={session?.access_token ?? ""}
@@ -1706,6 +1727,288 @@ function ExternalConnectorsTab({
         </div>
       ) : null}
     </section>
+  );
+}
+
+function SecretFeedbackTab({ accessToken }: { accessToken: string }) {
+  const [data, setData] = useState<SecretFeedbackPayload | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [selectedFeedback, setSelectedFeedback] = useState<SecretFeedbackItem | null>(
+    null,
+  );
+
+  const loadFeedback = useCallback(async () => {
+    if (!accessToken) return;
+    setIsLoading(true);
+    setErrorMessage("");
+    try {
+      setData(await fetchAdminSecretFeedback(accessToken, currentPage));
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "시크릿 피드백을 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, currentPage]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => void loadFeedback(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadFeedback]);
+
+  useEffect(() => {
+    if (!selectedFeedback) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSelectedFeedback(null);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [selectedFeedback]);
+
+  const metrics = [
+    { label: "전체 피드백 수", value: data?.metrics.total ?? 0 },
+    { label: "매우만족/만족 수", value: data?.metrics.positive ?? 0 },
+    { label: "보통 수", value: data?.metrics.neutral ?? 0 },
+    { label: "매우 아쉬움/아쉬움 수", value: data?.metrics.negative ?? 0 },
+  ];
+  const pagination = data?.pagination;
+  const pageNumbers = dentalSalesPageNumbers(
+    pagination?.page ?? currentPage,
+    pagination?.totalPages ?? 1,
+  );
+
+  return (
+    <section className="admin-secret-feedback">
+      <div className="admin-secret-feedback-metrics">
+        {metrics.map((metric) => (
+          <article key={metric.label}>
+            <span>{metric.label}</span>
+            <strong>{metric.value.toLocaleString("ko-KR")}</strong>
+          </article>
+        ))}
+      </div>
+
+      {errorMessage ? (
+        <div className="admin-sales-feedback admin-sales-feedback--error" role="alert">
+          <span>{errorMessage}</span>
+          <button type="button" onClick={() => void loadFeedback()}>
+            다시 시도
+          </button>
+        </div>
+      ) : null}
+
+      <div className="admin-secret-feedback-table-scroll" aria-busy={isLoading}>
+        <table className="admin-secret-feedback-table">
+          <thead>
+            <tr>
+              <th>접수일시</th>
+              <th>병원명</th>
+              <th>만족도</th>
+              <th>상세보기</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data?.items.map((feedback) => (
+              <tr key={feedback.id}>
+                <td>{formatSecretFeedbackDate(feedback.submittedAt)}</td>
+                <td title={feedback.clinicName}>{feedback.clinicName}</td>
+                <td>
+                  <strong className={`is-${feedback.rating}`}>
+                    {secretFeedbackRatingLabel(feedback.rating, true)}
+                  </strong>
+                </td>
+                <td>
+                  <button type="button" onClick={() => setSelectedFeedback(feedback)}>
+                    상세보기
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {!isLoading && (data?.items.length ?? 0) === 0 ? (
+              <tr>
+                <td className="admin-sales-empty" colSpan={4}>
+                  접수된 시크릿 피드백이 없습니다.
+                </td>
+              </tr>
+            ) : null}
+            {isLoading && !data ? (
+              <tr>
+                <td className="admin-sales-empty" colSpan={4}>
+                  시크릿 피드백을 불러오는 중입니다.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+
+      {pagination && pagination.totalPages > 1 ? (
+        <nav className="admin-sales-pagination" aria-label="시크릿 피드백 목록 페이지">
+          <button
+            type="button"
+            aria-label="이전 페이지"
+            disabled={pagination.page <= 1 || isLoading}
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+          >
+            ‹
+          </button>
+          {pageNumbers.map((pageNumber) => (
+            <button
+              type="button"
+              key={pageNumber}
+              className={
+                pageNumber === pagination.page ? "admin-sales-page-active" : undefined
+              }
+              aria-current={pageNumber === pagination.page ? "page" : undefined}
+              disabled={isLoading}
+              onClick={() => setCurrentPage(pageNumber)}
+            >
+              {pageNumber}
+            </button>
+          ))}
+          <button
+            type="button"
+            aria-label="다음 페이지"
+            disabled={pagination.page >= pagination.totalPages || isLoading}
+            onClick={() =>
+              setCurrentPage((page) => Math.min(pagination.totalPages, page + 1))
+            }
+          >
+            ›
+          </button>
+        </nav>
+      ) : null}
+
+      {selectedFeedback ? (
+        <SecretFeedbackDetail
+          feedback={selectedFeedback}
+          onClose={() => setSelectedFeedback(null)}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function SecretFeedbackDetail({
+  feedback,
+  onClose,
+}: {
+  feedback: SecretFeedbackItem;
+  onClose: () => void;
+}) {
+  return (
+    <div className="admin-secret-feedback-detail-layer">
+      <button
+        type="button"
+        className="admin-secret-feedback-detail-backdrop"
+        aria-label="시크릿 피드백 상세 닫기"
+        tabIndex={-1}
+        onClick={onClose}
+      />
+      <aside
+        className="admin-secret-feedback-detail"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="secret-feedback-detail-title"
+      >
+        <div className="admin-secret-feedback-detail-scroll">
+          <header>
+            <h2 id="secret-feedback-detail-title">
+              오늘 <em>{feedback.clinicName}</em>에서의
+              <br />
+              진료경험은 어떠셨나요?
+            </h2>
+            <button type="button" aria-label="닫기" autoFocus onClick={onClose}>
+              <Image
+                src="/secret-feedback/Type=Close.png"
+                alt=""
+                width={24}
+                height={24}
+              />
+            </button>
+          </header>
+
+          <section className="admin-secret-feedback-notice">
+            <Image
+              src="/secret-feedback/Type=Safe.png"
+              alt=""
+              width={20}
+              height={20}
+            />
+            <div>
+              <h3>시크릿 피드백</h3>
+              <p>
+                이 피드백은 오직 치카픽 서비스를 개선하기 위한 내부 자료로만
+                활용됩니다. 불편하셨던 점, 아쉬웠던 점, 기대에 미치지 못했던 부분이
+                있다면 솔직하게 알려주세요. 솔직한 의견이 더 나은 치카픽을 만드는 데
+                가장 큰 도움이 됩니다.
+              </p>
+            </div>
+          </section>
+
+          <section className="admin-secret-feedback-detail-section">
+            <h3>1. 전반적인 만족도를 알려주세요.</h3>
+            <div className="admin-secret-feedback-rating-options">
+              {secretFeedbackRatings.map((rating) => {
+                const isSelected = rating.code === feedback.rating;
+                return (
+                  <div
+                    key={rating.code}
+                    className={isSelected ? "is-selected" : undefined}
+                    aria-current={isSelected ? "true" : undefined}
+                  >
+                    <Image
+                      src={rating.assetPath}
+                      alt=""
+                      width={33}
+                      height={40}
+                    />
+                    <span>{rating.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="admin-secret-feedback-detail-section">
+            <h3>2. 어떤 점이 가장 인상 깊었나요?</h3>
+            <p>해당하는 항목을 모두 선택해주세요.</p>
+            <div className="admin-secret-feedback-tags">
+              {secretFeedbackImpressionTags.map((tag) => (
+                <span
+                  key={tag.code}
+                  className={
+                    feedback.impressionTags.includes(tag.code) ? "is-selected" : undefined
+                  }
+                >
+                  {tag.label}
+                </span>
+              ))}
+            </div>
+          </section>
+
+          <section className="admin-secret-feedback-detail-section">
+            <div className="admin-secret-feedback-note-heading">
+              <h3>3. 치카픽에 전하고 싶은 말씀</h3>
+              <span>(선택)</span>
+            </div>
+            <p className="admin-secret-feedback-note">
+              {feedback.privateNote || "작성된 내용이 없습니다."}
+            </p>
+          </section>
+        </div>
+      </aside>
+    </div>
   );
 }
 

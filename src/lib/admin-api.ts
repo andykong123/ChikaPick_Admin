@@ -308,6 +308,21 @@ export async function fetchAdminExternalConnectors(
   );
 }
 
+export async function fetchAdminSecretFeedback(
+  accessToken: string,
+  page: number,
+  pageSize = 10,
+) {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  return adminFetch<SecretFeedbackPayload>(
+    `/api/v1/admin/secret-feedback?${params.toString()}`,
+    accessToken,
+  );
+}
+
 export async function deleteAdminExternalConnector(
   accessToken: string,
   connectorId: string,
@@ -522,6 +537,7 @@ import type {
   AdminAccountDirectoryPayload,
 } from "./admin-accounts";
 import type { ExternalConnectorDirectoryPayload } from "./external-connectors";
+import type { SecretFeedbackPayload } from "./secret-feedback";
 import type {
   DentalSalesDetailPayload,
   DentalSalesFilters,
