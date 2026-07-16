@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   assignAdminDentalSalesperson,
+  createAdminExternalConnector,
   createAdminDentalSalesVisit,
   fetchAdminDentalSales,
   fetchAdminDentalSalesDetail,
@@ -46,6 +47,31 @@ test("inviteAdminAccount posts super-admin invite details to the Admin API", asy
     role: "super_admin",
     redirectTo: "https://admin.example.com",
   });
+});
+
+test("createAdminExternalConnector posts a non-login contact name", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(JSON.stringify({ ok: true, message: "added" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    await createAdminExternalConnector("access-token", "박연결");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(
+    calls[0]?.input,
+    "https://api.example.com/api/v1/admin/external-connectors",
+  );
+  assert.deepEqual(JSON.parse(calls[0]?.init?.body as string), { name: "박연결" });
 });
 
 test("sendAdminPasswordReset posts the target admin id", async () => {
@@ -188,7 +214,12 @@ test("assignAdminDentalSalesperson patches the assignee selected in the detail c
   };
 
   try {
-    await assignAdminDentalSalesperson("access-token", "sales/1", "admin-2");
+    await assignAdminDentalSalesperson(
+      "access-token",
+      "sales/1",
+      "admin-2",
+      "connector-1",
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -200,6 +231,7 @@ test("assignAdminDentalSalesperson patches the assignee selected in the detail c
   assert.equal(calls[0]?.init?.method, "PATCH");
   assert.deepEqual(JSON.parse(calls[0]?.init?.body as string), {
     assignedSalespersonUserId: "admin-2",
+    externalConnectorId: "connector-1",
   });
 });
 

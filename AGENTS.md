@@ -121,7 +121,9 @@ Path alias `@/*` maps to `./src/*`.
 
 ## Admin API Contracts
 
-The console fetches one aggregate payload from `GET /api/v1/admin/console`, then renders all tabs from that payload. Mutations call specific admin endpoints and reload the aggregate payload on success. Reservation rows include `bookingSource` and `instantSlotId` so Admin can distinguish 즉시 예약 from 일반 예약. User rows include `isSuperAdmin` and `adminSecurity` so Admin can display super-admin state, failed login count, and locked accounts before enabling unlock actions.
+The console fetches one aggregate payload from `GET /api/v1/admin/console`, then renders all tabs from that payload. Mutations call specific admin endpoints and reload the aggregate payload on success. Reservation rows include `bookingSource` and `instantSlotId` so Admin can distinguish 즉시 예약 from 일반 예약. User rows include `isSuperAdmin`, `adminAccountType`, and `adminSecurity` so Admin can display super-admin state, distinguish general Admin and sales accounts, and show failed login count and locked accounts before enabling unlock actions. The aggregate also includes non-login external connectors added through account management.
+
+Dental-sales detail payloads include `canEditAssignment`, which is derived server-side from the current Admin account. Use that flag to expose the 담당자 정보 edit control; the assignment mutation is also enforced as super-admin-only by the API. Salesperson options come from active Admin accounts whose `adminAccountType` is `sales`, external-connector options come from the non-login external-connector records added in account management, and the assignment mutation persists both selections.
 
 Current Admin API calls:
 
@@ -135,6 +137,7 @@ Current Admin API calls:
 - `POST /api/v1/admin/accounts/invite`
 - `POST /api/v1/admin/accounts/:userId/password-reset`
 - `POST /api/v1/admin/accounts/:userId/unlock`
+- `POST /api/v1/admin/external-connectors`
 - `GET /api/v1/admin/dental-sales`
 - `GET /api/v1/admin/dental-sales/:profileId`
 - `PATCH /api/v1/admin/dental-sales/:profileId`
@@ -148,13 +151,13 @@ Do not expose plaintext invite codes in Admin. The invite tab should inspect inv
 
 ## Current Admin Surfaces
 
-- 치과 영업 관리: live nationwide HIRA clinic sales directory from `ChikaPick_API`, with server-owned filters/pagination, regional owner-code copying, status/detail display, an accessible hover/focus status glossary beside the page title, and a responsive full-page detail view. The detail view preserves live active-Admin salesperson assignment and immutable timestamped visit creation/history; its business-registration upload control currently performs browser-side JPG/PNG/PDF and 10MB validation only because no Admin upload endpoint exists yet. `NOT_VISITED`, `VISITING`, and `SIGNED` are backend lifecycle states; signed rows show `INFORMATION_MISSING` until all five Partners hospital-information sections are complete, then `ACTIVE`.
+- 치과 영업 관리: live nationwide HIRA clinic sales directory from `ChikaPick_API`, with server-owned filters/pagination, regional owner-code copying, status/detail display, an accessible hover/focus status glossary beside the page title, and a responsive full-page detail view. The detail view provides a super-admin-only inline editor whose salesperson list comes from active sales accounts and whose external-connector list comes from the non-login contacts added in 어드민 계정 관리; both assignments are persisted by the API. Visit creation/history remains immutable and timestamped. The visit-registration modal stores the custom title inside the existing immutable note contract; selected visit attachments and the business-registration upload control currently perform browser-side JPG/PNG/PDF and 10MB validation only because no Admin upload endpoint exists yet. `NOT_VISITED`, `VISITING`, and `SIGNED` are backend lifecycle states; signed rows show `INFORMATION_MISSING` until all five Partners hospital-information sections are complete, then `ACTIVE`.
 - 수동 병원 가입 심사: pending owner manual hospital submissions, short-lived business-license file links, approve/reject.
 - 소속 신청 승인: pending doctor/staff clinic memberships, approve/reject.
 - 면허 인증: partner dentist license verification review and approval/rejection.
 - 병원 관리: inspect ChikaPick partner clinics, owner counts, active member counts, and registration dates.
 - 사용자/권한 관리: inspect users, roles, memberships, account status, super-admin state, and admin lock state.
-- 어드민 계정 관리: super admins invite admin/super-admin accounts by email, send password reset emails, unlock failed-login locks, and rely on API audit logs.
+- 어드민 계정 관리: super admins invite admin, super-admin, and sales accounts by email; add non-login external connectors; send password reset emails; unlock failed-login locks; and rely on API audit logs. Active sales accounts and added external connectors populate the matching 치과 영업 관리 assignment lists.
 - 초대코드 관리: inspect invite status and revoke unused invites without exposing plaintext invite codes.
 - 예약/전문의 소견 운영 조회: admin-wide operational oversight, including 즉시 예약 vs 일반 예약 source labels.
 - 약관/운영 도구: terms version overview and operational queue/job status.

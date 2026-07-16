@@ -7,7 +7,10 @@ import {
   dentalSalesPageNumbers,
   dentalSalesRegionLabel,
   dentalSalesStatusLabel,
+  dentalSalesVisitNote,
+  dentalSalesVisitPresentation,
   dentalSalesVisitTitle,
+  isDentalSalesVisitDetailStatus,
 } from "./dental-sales.ts";
 
 test("dental sales status helpers expose the Korean lifecycle labels", () => {
@@ -42,6 +45,38 @@ test("business registration attachment validation enforces the Figma limits", ()
     dentalSalesBusinessFileError({ type: "image/png", size: 10 * 1024 * 1024 + 1 }),
     "파일 크기는 10MB 이하여야 합니다.",
   );
+});
+
+test("visit notes preserve a custom modal title without changing the API contract", () => {
+  const note = dentalSalesVisitNote("  첫 방문 상담  ", "  다음 주 재방문 예정  ");
+  assert.deepEqual(
+    dentalSalesVisitPresentation({
+      detailStatus: "INTEREST",
+      note,
+      salesCode: "SU1234",
+    }),
+    {
+      title: "첫 방문 상담",
+      memo: "다음 주 재방문 예정",
+    },
+  );
+});
+
+test("visit presentation keeps historical notes and generated titles compatible", () => {
+  assert.deepEqual(
+    dentalSalesVisitPresentation({
+      detailStatus: "CODE_SHARED",
+      note: "가입 링크 안내 완료",
+      salesCode: "SU1234",
+    }),
+    {
+      title: "초대코드 SU1234 전달",
+      memo: "가입 링크 안내 완료",
+    },
+  );
+  assert.equal(isDentalSalesVisitDetailStatus("ON_HOLD"), true);
+  assert.equal(isDentalSalesVisitDetailStatus("ACTIVE"), false);
+  assert.equal(isDentalSalesVisitDetailStatus(null), false);
 });
 
 test("dentalSalesPageNumbers keeps a five-page window around the current page", () => {

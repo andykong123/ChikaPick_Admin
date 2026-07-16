@@ -1,5 +1,8 @@
 export type AdminReviewStatus = "pending_review" | "approved" | "rejected";
-export type AdminAccountRole = "admin" | "super_admin";
+export type AdminAccountRole =
+  | "admin"
+  | "super_admin"
+  | "sales";
 export type MembershipRole = "owner" | "doctor" | "manager" | "staff";
 export type MembershipStatus = "active" | "pending" | "revoked";
 
@@ -78,6 +81,7 @@ export interface AdminUser {
   roles: string[];
   accountStatus: string | null;
   isSuperAdmin?: boolean;
+  adminAccountType?: "admin" | "sales";
   adminSecurity?: {
     failedLoginCount: number;
     lockedAt: string | null;
@@ -137,6 +141,12 @@ export interface AdminOperations {
   recentJobNote: string | null;
 }
 
+export interface AdminExternalConnector {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
 export interface AdminConsolePayload {
   metrics: AdminMetric[];
   manualHospitalSubmissions: ManualHospitalSubmission[];
@@ -144,6 +154,7 @@ export interface AdminConsolePayload {
   licenseVerificationRequests: LicenseVerificationRequest[];
   clinics: AdminClinic[];
   users: AdminUser[];
+  externalConnectors: AdminExternalConnector[];
   invites: AdminInvite[];
   reservations: AdminReservation[];
   consultations: AdminConsultation[];
@@ -239,6 +250,17 @@ export async function inviteAdminAccount(
   );
 }
 
+export async function createAdminExternalConnector(
+  accessToken: string,
+  name: string,
+) {
+  return adminFetch<AdminActionResult>(
+    "/api/v1/admin/external-connectors",
+    accessToken,
+    { method: "POST", body: JSON.stringify({ name }) },
+  );
+}
+
 export async function sendAdminPasswordReset(
   accessToken: string,
   userId: string,
@@ -291,13 +313,14 @@ export async function assignAdminDentalSalesperson(
   accessToken: string,
   profileId: string,
   assignedSalespersonUserId: string | null,
+  externalConnectorId: string | null,
 ) {
   return adminFetch<AdminActionResult>(
     `/api/v1/admin/dental-sales/${encodeURIComponent(profileId)}`,
     accessToken,
     {
       method: "PATCH",
-      body: JSON.stringify({ assignedSalespersonUserId }),
+      body: JSON.stringify({ assignedSalespersonUserId, externalConnectorId }),
     },
   );
 }

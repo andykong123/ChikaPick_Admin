@@ -8,6 +8,7 @@ import type { Session } from "@supabase/supabase-js";
 import {
   approveManualHospitalSubmission,
   assignAdminDentalSalesperson,
+  createAdminExternalConnector,
   createAdminDentalSalesVisit,
   fetchAdminConsole,
   fetchAdminDentalSales,
@@ -42,9 +43,10 @@ import {
   dentalSalesRegionLabel,
   dentalSalesStatusLabel,
   dentalSalesStatusOptions,
-  dentalSalesVisitDetailOptions,
-  dentalSalesVisitTitle,
+  dentalSalesVisitNote,
+  dentalSalesVisitPresentation,
   emptyDentalSalesFilters,
+  isDentalSalesVisitDetailStatus,
   type DentalSalesDetailPayload,
   type DentalSalesFilters,
   type DentalSalesListPayload,
@@ -111,6 +113,7 @@ const emptyConsole: AdminConsolePayload = {
   licenseVerificationRequests: [],
   clinics: [],
   users: [],
+  externalConnectors: [],
   invites: [],
   reservations: [],
   consultations: [],
@@ -143,6 +146,7 @@ export default function AdminHome() {
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<AdminAccountRole>("admin");
+  const [externalConnectorName, setExternalConnectorName] = useState("");
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const lastAutoLoadedAccessTokenRef = useRef<string | null>(null);
@@ -437,6 +441,9 @@ export default function AdminHome() {
                 aria-current={activePrimaryTab === tab.id ? "page" : undefined}
                 onClick={() => {
                   setActivePrimaryTab(tab.id);
+                  if (tab.id === "admin-accounts" || tab.id === "external-connectors") {
+                    setActiveTab("users");
+                  }
                   if (tab.id !== "dental-sales") setSelectedDentalSalesProfileId(null);
                 }}
               >
@@ -512,6 +519,10 @@ export default function AdminHome() {
                 <h1>
                   {activePrimaryTab === "dental-sales"
                     ? "치과 영업 관리"
+                    : activePrimaryTab === "admin-accounts"
+                      ? "어드민 계정 관리"
+                    : activePrimaryTab === "external-connectors"
+                      ? "외부 연결자 관리"
                     : tabs.find((tab) => tab.id === activeTab)?.label}
                 </h1>
                 {activePrimaryTab === "dental-sales" ? <DentalSalesInfoTooltip /> : null}
@@ -519,6 +530,10 @@ export default function AdminHome() {
               <p>
                 {activePrimaryTab === "dental-sales"
                   ? "전국 치과를 지역별로 조회하고 초대 코드를 확인 할 수 있으며 영업 현황을 관리합니다."
+                  : activePrimaryTab === "admin-accounts"
+                    ? "어드민 및 영업 계정을 관리하고 외부 연결자를 추가합니다."
+                  : activePrimaryTab === "external-connectors"
+                    ? "치과 영업 관리에서 지정할 외부 연결자를 추가하고 확인합니다."
                   : "실제 운영 데이터는 ChikaPick_API 관리자 엔드포인트에서 불러옵니다."}
               </p>
             </div>
@@ -597,6 +612,15 @@ export default function AdminHome() {
               inviteEmail={inviteEmail}
               inviteName={inviteName}
               inviteRole={inviteRole}
+              externalConnectorName={externalConnectorName}
+              onExternalConnectorNameChange={setExternalConnectorName}
+              onExternalConnectorCreate={() =>
+                runAction((token) =>
+                  createAdminExternalConnector(token, externalConnectorName),
+                ).then((ok) => {
+                  if (ok) setExternalConnectorName("");
+                })
+              }
               onInviteEmailChange={setInviteEmail}
               onInviteNameChange={setInviteName}
               onInviteRoleChange={setInviteRole}
@@ -729,13 +753,11 @@ function DentalSalesTab({
   const [isVisitFormOpen, setIsVisitFormOpen] = useState(false);
   const [businessFileName, setBusinessFileName] = useState("");
   const [businessFileError, setBusinessFileError] = useState("");
+  const [visitAttachmentNames, setVisitAttachmentNames] = useState<string[]>([]);
+  const [visitAttachmentError, setVisitAttachmentError] = useState("");
   const [visitPage, setVisitPage] = useState(1);
-  const [visitForm, setVisitForm] = useState<{
-    visitedAt: string;
-    salespersonUserId: string;
-    detailStatus: DentalSalesVisitDetailStatus;
-    note: string;
-  }>(() => ({
+  const [visitForm, setVisitForm] = useState<DentalSalesVisitForm>(() => ({
+    title: "",
     visitedAt: localDateTimeValue(new Date()),
     salespersonUserId: "",
     detailStatus: "INTEREST",
@@ -772,6 +794,9 @@ function DentalSalesTab({
         ...form,
         salespersonUserId:
           form.salespersonUserId || payload.profile.assignedSalesperson?.id || "",
+        detailStatus: isDentalSalesVisitDetailStatus(payload.profile.detailStatus)
+          ? payload.profile.detailStatus
+          : form.detailStatus,
       }));
     } catch (error) {
       setDetailError(
@@ -797,8 +822,17 @@ function DentalSalesTab({
     if (!selectedProfileId) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        if (isVisitFormOpen) {
+          setIsVisitFormOpen(false);
+          setVisitAttachmentNames([]);
+          setVisitAttachmentError("");
+          return;
+        }
+        if (isAssignmentEditing) {
+          setIsAssignmentEditing(false);
+          return;
+        }
         setIsAssignmentEditing(false);
-        setIsVisitFormOpen(false);
         setBusinessFileName("");
         setBusinessFileError("");
         onSelectProfile(null);
@@ -806,7 +840,7 @@ function DentalSalesTab({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onSelectProfile, selectedProfileId]);
+  }, [isAssignmentEditing, isVisitFormOpen, onSelectProfile, selectedProfileId]);
 
   const pageNumbers = dentalSalesPageNumbers(
     listData?.pagination.page ?? 1,
@@ -839,7 +873,10 @@ function DentalSalesTab({
     }
   }
 
-  async function saveAssignment(salespersonUserId: string) {
+  async function saveAssignment(
+    salespersonUserId: string,
+    externalConnectorId: string,
+  ) {
     if (!selectedProfileId) return;
     setIsSavingAssignment(true);
     setActionMessage("");
@@ -848,6 +885,7 @@ function DentalSalesTab({
         accessToken,
         selectedProfileId,
         salespersonUserId || null,
+        externalConnectorId || null,
       );
       setActionMessage(result.message);
       setVisitForm((form) => ({ ...form, salespersonUserId }));
@@ -862,7 +900,7 @@ function DentalSalesTab({
 
   async function saveVisit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedProfileId || !visitForm.salespersonUserId) return;
+    if (!selectedProfileId || !visitForm.salespersonUserId || !visitForm.title.trim()) return;
     setIsSavingVisit(true);
     setActionMessage("");
     try {
@@ -870,14 +908,18 @@ function DentalSalesTab({
         visitedAt: new Date(visitForm.visitedAt).toISOString(),
         salespersonUserId: visitForm.salespersonUserId,
         detailStatus: visitForm.detailStatus,
-        note: visitForm.note,
+        note: dentalSalesVisitNote(visitForm.title, visitForm.note),
       });
       setActionMessage(result.message);
       setVisitForm((form) => ({
         ...form,
+        title: "",
         visitedAt: localDateTimeValue(new Date()),
         note: "",
       }));
+      setVisitAttachmentNames([]);
+      setVisitAttachmentError("");
+      setIsVisitFormOpen(false);
       setVisitPage(1);
       await Promise.all([loadDetail(1), loadList()]);
     } catch (error) {
@@ -899,11 +941,51 @@ function DentalSalesTab({
     setBusinessFileName(file.name);
   }
 
+  function selectVisitAttachments(files: File[]) {
+    setVisitAttachmentError("");
+    setVisitAttachmentNames([]);
+    if (!files.length) return;
+    for (const file of files) {
+      const validationError = dentalSalesBusinessFileError(file);
+      if (validationError) {
+        setVisitAttachmentError(`${file.name}: ${validationError}`);
+        return;
+      }
+    }
+    setVisitAttachmentNames(files.map((file) => file.name));
+  }
+
+  function openVisitModal() {
+    const profileDetailStatus = detail?.profile.detailStatus ?? null;
+    setVisitForm((form) => ({
+      ...form,
+      title: "",
+      note: "",
+      visitedAt: localDateTimeValue(new Date()),
+      salespersonUserId:
+        form.salespersonUserId || detail?.profile.assignedSalesperson?.id || "",
+      detailStatus: isDentalSalesVisitDetailStatus(profileDetailStatus)
+        ? profileDetailStatus
+        : form.detailStatus,
+    }));
+    setVisitAttachmentNames([]);
+    setVisitAttachmentError("");
+    setIsVisitFormOpen(true);
+  }
+
+  function closeVisitModal() {
+    setVisitAttachmentNames([]);
+    setVisitAttachmentError("");
+    setIsVisitFormOpen(false);
+  }
+
   function closeDetail() {
     setIsAssignmentEditing(false);
     setIsVisitFormOpen(false);
     setBusinessFileName("");
     setBusinessFileError("");
+    setVisitAttachmentNames([]);
+    setVisitAttachmentError("");
     onSelectProfile(null);
   }
 
@@ -915,7 +997,10 @@ function DentalSalesTab({
     setIsVisitFormOpen(false);
     setBusinessFileName("");
     setBusinessFileError("");
+    setVisitAttachmentNames([]);
+    setVisitAttachmentError("");
     setVisitForm({
+      title: "",
       visitedAt: localDateTimeValue(new Date()),
       salespersonUserId: "",
       detailStatus: "INTEREST",
@@ -937,18 +1022,25 @@ function DentalSalesTab({
         isSavingAssignment={isSavingAssignment}
         isSavingVisit={isSavingVisit}
         isVisitFormOpen={isVisitFormOpen}
-        onAssignmentEdit={() => setIsAssignmentEditing((isEditing) => !isEditing)}
-        onAssignmentSave={(salespersonId) => void saveAssignment(salespersonId)}
+        onAssignmentCancel={() => setIsAssignmentEditing(false)}
+        onAssignmentEdit={() => setIsAssignmentEditing(true)}
+        onAssignmentSave={(salespersonId, externalConnectorId) =>
+          void saveAssignment(salespersonId, externalConnectorId)
+        }
         onBack={closeDetail}
         onBusinessFileSelect={selectBusinessFile}
         onDetailRetry={() => void loadDetail()}
-        onVisitFormToggle={() => setIsVisitFormOpen((isOpen) => !isOpen)}
+        onVisitAttachmentSelect={selectVisitAttachments}
+        onVisitModalClose={closeVisitModal}
+        onVisitModalOpen={openVisitModal}
         onVisitSubmit={saveVisit}
         onVisitFormChange={(patch) =>
           setVisitForm((form) => ({ ...form, ...patch }))
         }
         onVisitPageChange={setVisitPage}
         visitForm={visitForm}
+        visitAttachmentError={visitAttachmentError}
+        visitAttachmentNames={visitAttachmentNames}
         visitPage={visitPage}
       />
     );
@@ -1195,6 +1287,7 @@ function DentalSalesTab({
 }
 
 type DentalSalesVisitForm = {
+  title: string;
   visitedAt: string;
   salespersonUserId: string;
   detailStatus: DentalSalesVisitDetailStatus;
@@ -1212,15 +1305,20 @@ function DentalSalesDetailPage({
   isSavingAssignment,
   isSavingVisit,
   isVisitFormOpen,
+  onAssignmentCancel,
   onAssignmentEdit,
   onAssignmentSave,
   onBack,
   onBusinessFileSelect,
   onDetailRetry,
+  onVisitAttachmentSelect,
   onVisitFormChange,
-  onVisitFormToggle,
+  onVisitModalClose,
+  onVisitModalOpen,
   onVisitPageChange,
   onVisitSubmit,
+  visitAttachmentError,
+  visitAttachmentNames,
   visitForm,
   visitPage,
 }: {
@@ -1234,18 +1332,64 @@ function DentalSalesDetailPage({
   isSavingAssignment: boolean;
   isSavingVisit: boolean;
   isVisitFormOpen: boolean;
+  onAssignmentCancel: () => void;
   onAssignmentEdit: () => void;
-  onAssignmentSave: (salespersonId: string) => void;
+  onAssignmentSave: (
+    salespersonId: string,
+    externalConnectorId: string,
+  ) => void;
   onBack: () => void;
   onBusinessFileSelect: (file: File | undefined) => void;
   onDetailRetry: () => void;
+  onVisitAttachmentSelect: (files: File[]) => void;
   onVisitFormChange: (patch: Partial<DentalSalesVisitForm>) => void;
-  onVisitFormToggle: () => void;
+  onVisitModalClose: () => void;
+  onVisitModalOpen: () => void;
   onVisitPageChange: (page: number) => void;
   onVisitSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  visitAttachmentError: string;
+  visitAttachmentNames: string[];
   visitForm: DentalSalesVisitForm;
   visitPage: number;
 }) {
+  const registerButtonRef = useRef<HTMLButtonElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const [assignmentDraftSalespersonId, setAssignmentDraftSalespersonId] = useState("");
+  const [assignmentDraftExternalConnectorId, setAssignmentDraftExternalConnectorId] =
+    useState("");
+
+  useEffect(() => {
+    if (!isVisitFormOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const triggerButton = registerButtonRef.current;
+    document.body.style.overflow = "hidden";
+    const focusTimer = window.setTimeout(() => titleInputRef.current?.focus(), 0);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.body.style.overflow = previousOverflow;
+      triggerButton?.focus();
+    };
+  }, [isVisitFormOpen]);
+
+  function keepModalFocus(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Tab") return;
+    const focusableElements = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        'input:not([disabled]), textarea:not([disabled]), button:not([disabled])',
+      ),
+    );
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements.at(-1);
+    if (!firstElement || !lastElement) return;
+    if (event.shiftKey && document.activeElement === firstElement) {
+      event.preventDefault();
+      lastElement.focus();
+    } else if (!event.shiftKey && document.activeElement === lastElement) {
+      event.preventDefault();
+      firstElement.focus();
+    }
+  }
+
   if (isDetailLoading && !detail) {
     return (
       <section className="admin-sales-detail-state" aria-live="polite">
@@ -1320,74 +1464,16 @@ function DentalSalesDetailPage({
           <div className="admin-sales-detail-card-heading">
             <h2>영업 기록</h2>
             <button
+              ref={registerButtonRef}
               className="admin-sales-register-button"
               type="button"
-              aria-expanded={isVisitFormOpen}
-              onClick={onVisitFormToggle}
+              aria-haspopup="dialog"
+              onClick={onVisitModalOpen}
             >
               <span aria-hidden="true">＋</span>
               등록
             </button>
           </div>
-
-          {isVisitFormOpen ? (
-            <form className="admin-sales-detail-visit-form" onSubmit={onVisitSubmit}>
-              <label>
-                <span>방문 일시</span>
-                <input
-                  type="datetime-local"
-                  required
-                  value={visitForm.visitedAt}
-                  onChange={(event) => onVisitFormChange({ visitedAt: event.target.value })}
-                />
-              </label>
-              <label>
-                <span>담당 영업자</span>
-                <select
-                  required
-                  value={visitForm.salespersonUserId}
-                  onChange={(event) =>
-                    onVisitFormChange({ salespersonUserId: event.target.value })
-                  }
-                >
-                  <option value="">선택</option>
-                  {detail.salespeople.map((person) => (
-                    <option key={person.id} value={person.id}>{person.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>상세 상태</span>
-                <select
-                  value={visitForm.detailStatus}
-                  onChange={(event) =>
-                    onVisitFormChange({
-                      detailStatus: event.target.value as DentalSalesVisitDetailStatus,
-                    })
-                  }
-                >
-                  {dentalSalesVisitDetailOptions.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="admin-sales-detail-visit-note">
-                <span>메모 (선택)</span>
-                <textarea
-                  maxLength={2000}
-                  value={visitForm.note}
-                  placeholder="방문 내용이나 후속 조치를 기록해 주세요."
-                  onChange={(event) => onVisitFormChange({ note: event.target.value })}
-                />
-              </label>
-              <button
-                type="submit"
-                disabled={isSavingVisit || !visitForm.salespersonUserId}
-              >
-                {isSavingVisit ? "저장 중" : "방문 기록 저장"}
-              </button>
-            </form>
-          ) : null}
 
           {actionMessage ? (
             <p className="admin-sales-detail-action-message" role="status">
@@ -1397,21 +1483,28 @@ function DentalSalesDetailPage({
 
           {detail.visits.length ? (
             <ol className="admin-sales-detail-timeline">
-              {detail.visits.map((visit) => (
-                <li key={visit.id}>
-                  <div className="admin-sales-timeline-marker" aria-hidden="true" />
-                  <article>
-                    <header>
-                      <div>
-                        <strong>{dentalSalesVisitTitle(visit.detailStatus, profile.salesCode)}</strong>
-                        <time>{formatAdminDetailDateTime(visit.visitedAt)}</time>
-                      </div>
-                      <span>{visit.salesperson.name} 작성</span>
-                    </header>
-                    <p>{visit.note || "기록된 메모가 없습니다."}</p>
-                  </article>
-                </li>
-              ))}
+              {detail.visits.map((visit) => {
+                const presentation = dentalSalesVisitPresentation({
+                  detailStatus: visit.detailStatus,
+                  note: visit.note,
+                  salesCode: profile.salesCode,
+                });
+                return (
+                  <li key={visit.id}>
+                    <div className="admin-sales-timeline-marker" aria-hidden="true" />
+                    <article>
+                      <header>
+                        <div>
+                          <strong>{presentation.title}</strong>
+                          <time>{formatAdminDetailDateTime(visit.visitedAt)}</time>
+                        </div>
+                        <span>{visit.salesperson.name} 작성</span>
+                      </header>
+                      <p>{presentation.memo || "기록된 메모가 없습니다."}</p>
+                    </article>
+                  </li>
+                );
+              })}
             </ol>
           ) : (
             <p className="admin-sales-detail-empty">아직 등록된 영업 기록이 없습니다.</p>
@@ -1459,55 +1552,121 @@ function DentalSalesDetailPage({
           <DetailCard
             title="담당자 정보"
             action={
-              <button
-                className="admin-sales-assignee-edit"
-                type="button"
-                aria-expanded={isAssignmentEditing}
-                onClick={onAssignmentEdit}
-              >
-                <Image src="/Type=edit.svg" alt="" width={18} height={18} />
-                수정
-              </button>
+              detail.canEditAssignment && !isAssignmentEditing ? (
+                <button
+                  className="admin-sales-assignee-edit"
+                  type="button"
+                  aria-expanded="false"
+                  onClick={() => {
+                    setAssignmentDraftSalespersonId(assignedSalesperson?.id ?? "");
+                    setAssignmentDraftExternalConnectorId(
+                      profile.externalConnector?.id ?? "",
+                    );
+                    onAssignmentEdit();
+                  }}
+                >
+                  <Image src="/Type=edit.svg" alt="" width={18} height={18} />
+                  수정
+                </button>
+              ) : null
             }
           >
-            {isAssignmentEditing ? (
-              <label className="admin-sales-assignee-select">
-                <span>담당 영업자</span>
-                <select
-                  aria-label="담당 영업자 변경"
-                  value={assignedSalesperson?.id ?? ""}
-                  disabled={isSavingAssignment}
-                  onChange={(event) => onAssignmentSave(event.target.value)}
-                >
-                  <option value="">미지정</option>
-                  {detail.salespeople.map((person) => (
-                    <option key={person.id} value={person.id}>{person.name}</option>
-                  ))}
-                </select>
-              </label>
-            ) : (
-              <div className="admin-sales-assignee-profile">
-                <span aria-hidden="true">{assignedSalesperson?.name.slice(0, 1) ?? "?"}</span>
-                <div>
-                  <strong>
-                    {assignedSalesperson
-                      ? `${assignedSalesperson.name}${
-                          assignedSalesperson.teamName
-                            ? ` (${assignedSalesperson.teamName})`
-                            : ""
-                        }`
-                      : "담당자 미지정"}
-                  </strong>
-                  <p>주 담당 영업 대표자</p>
+            {isAssignmentEditing && detail.canEditAssignment ? (
+              <form
+                className="admin-sales-assignee-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  onAssignmentSave(
+                    assignmentDraftSalespersonId,
+                    assignmentDraftExternalConnectorId,
+                  );
+                }}
+              >
+                <label className="admin-sales-assignee-field">
+                  <span>담당자 선택</span>
+                  <span className="admin-sales-assignee-select-wrap">
+                    <select
+                      value={assignmentDraftSalespersonId}
+                      disabled={isSavingAssignment}
+                      onChange={(event) =>
+                        setAssignmentDraftSalespersonId(event.target.value)
+                      }
+                    >
+                      <option value="">선택 안함</option>
+                      {detail.salespeople.map((person) => (
+                        <option key={person.id} value={person.id}>{person.name}</option>
+                      ))}
+                    </select>
+                  </span>
+                </label>
+
+                <div className="admin-sales-assignee-divider" />
+
+                <label className="admin-sales-assignee-field">
+                  <span>외부 연결자 선택</span>
+                  <span className="admin-sales-assignee-select-wrap">
+                    <select
+                      aria-label="외부 연결자 선택"
+                      value={assignmentDraftExternalConnectorId}
+                      disabled={isSavingAssignment}
+                      onChange={(event) =>
+                        setAssignmentDraftExternalConnectorId(event.target.value)
+                      }
+                    >
+                      <option value="">선택 안함</option>
+                      {(detail.externalConnectors ?? []).map((person) => (
+                        <option key={person.id} value={person.id}>{person.name}</option>
+                      ))}
+                    </select>
+                  </span>
+                </label>
+
+                <div className="admin-sales-assignee-actions">
+                  <button
+                    type="button"
+                    disabled={isSavingAssignment}
+                    onClick={() => {
+                      setAssignmentDraftSalespersonId(assignedSalesperson?.id ?? "");
+                      setAssignmentDraftExternalConnectorId(
+                        profile.externalConnector?.id ?? "",
+                      );
+                      onAssignmentCancel();
+                    }}
+                  >
+                    취소
+                  </button>
+                  <button type="submit" disabled={isSavingAssignment}>
+                    {isSavingAssignment ? "저장 중" : "저장"}
+                  </button>
                 </div>
-              </div>
+              </form>
+            ) : (
+              <>
+                <div className="admin-sales-assignee-profile">
+                  <span aria-hidden="true">
+                    {assignedSalesperson?.name.slice(0, 1) ?? "?"}
+                  </span>
+                  <div>
+                    <strong>
+                      {assignedSalesperson
+                        ? `${assignedSalesperson.name}${
+                            assignedSalesperson.teamName
+                              ? ` (${assignedSalesperson.teamName})`
+                              : ""
+                          }`
+                        : "담당자 미지정"}
+                    </strong>
+                    <p>주 담당 영업 대표자</p>
+                  </div>
+                </div>
+                <dl className="admin-sales-detail-info-list admin-sales-detail-info-list--compact">
+                  <DetailInfoRow
+                    label="외부 연결자"
+                    value={profile.externalConnector?.name || "선택 안함"}
+                  />
+                </dl>
+              </>
             )}
-            <dl className="admin-sales-detail-info-list admin-sales-detail-info-list--compact">
-              <DetailInfoRow
-                label="외부 연결자"
-                value={profile.externalConnectorName || "선택 안함"}
-              />
-            </dl>
           </DetailCard>
 
           <DetailCard title="사업자 등록증 첨부">
@@ -1579,6 +1738,116 @@ function DentalSalesDetailPage({
           </DetailCard>
         </aside>
       </div>
+
+      {isVisitFormOpen ? (
+        <div className="admin-sales-visit-modal-layer">
+          <button
+            className="admin-sales-visit-modal-backdrop"
+            type="button"
+            aria-label="영업 기록 등록 창 닫기"
+            onClick={onVisitModalClose}
+          />
+          <div
+            className="admin-sales-visit-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-sales-visit-modal-title"
+            onKeyDown={keepModalFocus}
+          >
+            <form className="admin-sales-visit-modal-form" onSubmit={onVisitSubmit}>
+              <h2 id="admin-sales-visit-modal-title">영업 기록 등록하기</h2>
+
+              <label className="admin-sales-visit-modal-field">
+                <span>
+                  제목 <i aria-hidden="true">*</i>
+                </span>
+                <input
+                  ref={titleInputRef}
+                  type="text"
+                  required
+                  maxLength={100}
+                  value={visitForm.title}
+                  placeholder="방문 내용을 요약하는 제목을 입력해 주세요."
+                  onChange={(event) => onVisitFormChange({ title: event.target.value })}
+                />
+              </label>
+
+              <label className="admin-sales-visit-modal-field">
+                <span>메모</span>
+                <textarea
+                  maxLength={1800}
+                  value={visitForm.note}
+                  placeholder="영업 과정과 결과, 다음 일정 및 특이사항을 상세히 기록해 주세요."
+                  onChange={(event) => onVisitFormChange({ note: event.target.value })}
+                />
+              </label>
+
+              <div className="admin-sales-visit-modal-field">
+                <span>첨부파일 및 사진</span>
+                <input
+                  id="admin-sales-visit-attachments"
+                  className="admin-sales-visit-modal-file-input"
+                  type="file"
+                  multiple
+                  accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                  onChange={(event) => {
+                    onVisitAttachmentSelect(Array.from(event.target.files ?? []));
+                    event.currentTarget.value = "";
+                  }}
+                />
+                <label
+                  className="admin-sales-visit-modal-dropzone"
+                  htmlFor="admin-sales-visit-attachments"
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    onVisitAttachmentSelect(Array.from(event.dataTransfer.files));
+                  }}
+                >
+                  <Image src="/Type=Upload.svg" alt="" width={24} height={24} />
+                  <strong>클릭하거나 파일을 드래그하여 업로드하세요.</strong>
+                  <small>PDF, JPG, PNG 파일 최대 10MB까지 가능</small>
+                </label>
+                {visitAttachmentNames.length ? (
+                  <p className="admin-sales-visit-attachment-names">
+                    선택됨: {visitAttachmentNames.join(", ")}
+                  </p>
+                ) : null}
+                {visitAttachmentError ? (
+                  <p className="admin-sales-visit-attachment-error" role="alert">
+                    {visitAttachmentError}
+                  </p>
+                ) : null}
+                {visitAttachmentNames.length ? (
+                  <p className="admin-sales-visit-attachment-notice">
+                    첨부파일은 현재 서버에 저장되지 않습니다.
+                  </p>
+                ) : null}
+              </div>
+
+              {!visitForm.salespersonUserId ? (
+                <p className="admin-sales-visit-modal-assignee" role="alert">
+                  방문 기록을 저장하려면 먼저 담당 영업자를 지정해 주세요.
+                </p>
+              ) : null}
+
+              <footer className="admin-sales-visit-modal-actions">
+                <button type="button" onClick={onVisitModalClose}>닫기</button>
+                <button
+                  type="submit"
+                  disabled={
+                    isSavingVisit ||
+                    !visitForm.salespersonUserId ||
+                    !visitForm.title.trim()
+                  }
+                >
+                  {isSavingVisit ? "저장 중" : "방문 기록 저장"}
+                </button>
+              </footer>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -1998,6 +2267,7 @@ function ClinicsTab({ data }: { data: AdminConsolePayload }) {
 
 function UsersTab({
   data,
+  externalConnectorName,
   inviteEmail,
   inviteName,
   inviteRole,
@@ -2005,10 +2275,13 @@ function UsersTab({
   onInviteEmailChange,
   onInviteNameChange,
   onInviteRoleChange,
+  onExternalConnectorCreate,
+  onExternalConnectorNameChange,
   onPasswordReset,
   onUnlock,
 }: {
   data: AdminConsolePayload;
+  externalConnectorName: string;
   inviteEmail: string;
   inviteName: string;
   inviteRole: AdminAccountRole;
@@ -2016,11 +2289,13 @@ function UsersTab({
   onInviteEmailChange: (value: string) => void;
   onInviteNameChange: (value: string) => void;
   onInviteRoleChange: (value: AdminAccountRole) => void;
+  onExternalConnectorCreate: () => void;
+  onExternalConnectorNameChange: (value: string) => void;
   onPasswordReset: (userId: string) => void;
   onUnlock: (userId: string) => void;
 }) {
   return (
-    <Panel title="사용자 및 권한 관리">
+    <Panel title="어드민 계정 관리">
       <form
         className="admin-inline-form"
         onSubmit={(event) => {
@@ -2054,6 +2329,7 @@ function UsersTab({
           >
             <option value="admin">admin</option>
             <option value="super_admin">super admin</option>
+            <option value="sales">영업 계정</option>
           </select>
         </label>
         <button type="submit">초대 메일 발송</button>
@@ -2089,6 +2365,9 @@ function UsersTab({
                     {user.roles.join(", ") || "-"}
                     {user.isSuperAdmin ? (
                       <span className="admin-inline-chip">super admin</span>
+                    ) : null}
+                    {user.adminAccountType === "sales" ? (
+                      <span className="admin-inline-chip">영업 계정</span>
                     ) : null}
                   </td>
                   <td>
@@ -2137,6 +2416,49 @@ function UsersTab({
           </tbody>
         </table>
       </div>
+
+      <section className="admin-external-connector-section">
+        <h3>외부 연결자</h3>
+        <form
+          className="admin-inline-form admin-external-connector-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onExternalConnectorCreate();
+          }}
+        >
+          <label>
+            <span>이름</span>
+            <input
+              required
+              maxLength={100}
+              value={externalConnectorName}
+              onChange={(event) => onExternalConnectorNameChange(event.target.value)}
+            />
+          </label>
+          <button type="submit">외부 연결자 추가</button>
+        </form>
+        <div className="admin-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>이름</th>
+                <th>추가일</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.externalConnectors.map((connector) => (
+                <tr key={connector.id}>
+                  <td><strong>{connector.name}</strong></td>
+                  <td>{formatDate(connector.createdAt)}</td>
+                </tr>
+              ))}
+              {data.externalConnectors.length === 0 ? (
+                <EmptyRow colSpan={2} label="추가된 외부 연결자가 없습니다." />
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </Panel>
   );
 }

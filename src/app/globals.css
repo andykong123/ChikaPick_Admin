@@ -393,6 +393,24 @@ textarea:focus-visible {
   min-height: 38px;
 }
 
+.admin-external-connector-section {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.admin-external-connector-section h3 {
+  margin: 0 0 14px;
+  color: var(--text-primary);
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.admin-external-connector-form {
+  grid-template-columns: minmax(180px, 320px) auto;
+  justify-content: start;
+}
+
 .admin-login-submit:disabled {
   cursor: not-allowed;
   opacity: 0.62;
@@ -1788,74 +1806,213 @@ td span {
   background: #002fa0;
 }
 
-.admin-sales-detail-visit-form {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin: 20px 0 0;
-  border: 1px solid var(--chika-secondary-1);
-  border-radius: 10px;
-  background: var(--chika-secondary-0);
-  padding: 16px;
+.admin-sales-visit-modal-layer {
+  position: fixed;
+  z-index: 130;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
 }
 
-.admin-sales-detail-visit-form label {
+.admin-sales-visit-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 11, 38, 0.42);
+  cursor: default;
+}
+
+.admin-sales-visit-modal {
+  position: relative;
+  z-index: 1;
+  width: min(752px, calc(100vw - 40px));
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  border: 1px solid #d4d6da;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 20px 48px rgba(0, 11, 38, 0.2);
+}
+
+.admin-sales-visit-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+}
+
+.admin-sales-visit-modal-form h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.admin-sales-visit-modal-field {
+  position: relative;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: var(--text-tertiary);
-  font-size: 12px;
-  font-weight: 600;
 }
 
-.admin-sales-detail-visit-form input,
-.admin-sales-detail-visit-form select,
-.admin-sales-detail-visit-form textarea {
+.admin-sales-visit-modal-field > span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.admin-sales-visit-modal-field > span i {
+  color: #e11900;
+  font-style: normal;
+}
+
+.admin-sales-visit-modal-field > input[type="text"],
+.admin-sales-visit-modal-field textarea {
   width: 100%;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid #d4d6da;
+  border-radius: 6px;
   background: var(--surface);
   color: var(--text-primary);
   outline: 0;
   font: inherit;
+  font-size: 14px;
 }
 
-.admin-sales-detail-visit-form input,
-.admin-sales-detail-visit-form select {
-  height: 36px;
-  padding: 0 10px;
+.admin-sales-visit-modal-field > input[type="text"] {
+  height: 37px;
+  padding: 0 12px;
 }
 
-.admin-sales-detail-visit-note,
-.admin-sales-detail-visit-form > button {
-  grid-column: 1 / -1;
-}
-
-.admin-sales-detail-visit-form textarea {
-  min-height: 76px;
+.admin-sales-visit-modal-field textarea {
+  height: 100px;
   resize: vertical;
-  padding: 9px 10px;
+  padding: 10px 12px;
+  line-height: 1.5;
 }
 
-.admin-sales-detail-visit-form input:focus,
-.admin-sales-detail-visit-form select:focus,
-.admin-sales-detail-visit-form textarea:focus {
+.admin-sales-visit-modal-field > input[type="text"]::placeholder,
+.admin-sales-visit-modal-field textarea::placeholder {
+  color: var(--text-quaternary);
+}
+
+.admin-sales-visit-modal-field > input[type="text"]:focus,
+.admin-sales-visit-modal-field textarea:focus {
   border-color: var(--chika-secondary-6);
   box-shadow: 0 0 0 2px rgba(2, 61, 199, 0.1);
 }
 
-.admin-sales-detail-visit-form > button {
-  min-height: 36px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--chika-secondary-6);
-  color: var(--surface);
-  cursor: pointer;
-  font-weight: 700;
+.admin-sales-visit-modal-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
 }
 
-.admin-sales-detail-visit-form > button:disabled {
+.admin-sales-visit-modal-dropzone {
+  height: 119px;
+  border: 1px dashed #a7abb3;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.admin-sales-visit-modal-dropzone img {
+  margin-bottom: 2px;
+}
+
+.admin-sales-visit-modal-dropzone strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.admin-sales-visit-modal-dropzone small {
+  color: var(--text-quaternary);
+  font-size: 12px;
+}
+
+.admin-sales-visit-modal-file-input:focus-visible + .admin-sales-visit-modal-dropzone,
+.admin-sales-visit-modal-dropzone:hover {
+  border-color: var(--chika-secondary-6);
+  background: var(--chika-secondary-0);
+}
+
+.admin-sales-visit-attachment-names,
+.admin-sales-visit-attachment-error,
+.admin-sales-visit-attachment-notice,
+.admin-sales-visit-modal-assignee {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.admin-sales-visit-attachment-names {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.admin-sales-visit-attachment-error,
+.admin-sales-visit-modal-assignee {
+  color: #c33221;
+}
+
+.admin-sales-visit-attachment-notice {
+  color: var(--text-quaternary);
+}
+
+.admin-sales-visit-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.admin-sales-visit-modal-actions button {
+  height: 36px;
+  border: 1px solid #d4d6da;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-sales-visit-modal-actions button:last-child {
+  width: 118px;
+  border-color: var(--chika-secondary-6);
+  background: var(--chika-secondary-6);
+  color: var(--surface);
+}
+
+.admin-sales-visit-modal-actions button:first-child {
+  width: 60px;
+  padding: 0;
+}
+
+.admin-sales-visit-modal-actions button:hover,
+.admin-sales-visit-modal-actions button:focus-visible {
+  border-color: var(--chika-secondary-6);
+}
+
+.admin-sales-visit-modal-actions button:last-child:hover,
+.admin-sales-visit-modal-actions button:last-child:focus-visible {
+  background: #002fa0;
+}
+
+.admin-sales-visit-modal-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
@@ -2112,23 +2269,120 @@ td span {
   font-size: 12px;
 }
 
-.admin-sales-assignee-select {
+.admin-sales-assignee-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-sales-assignee-field {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: var(--text-quaternary);
-  font-size: 12px;
-  font-weight: 600;
 }
 
-.admin-sales-assignee-select select {
+.admin-sales-assignee-field > span:first-child {
+  color: #6b7280;
+  font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 14px;
+}
+
+.admin-sales-assignee-select-wrap {
+  position: relative;
   width: 100%;
-  height: 36px;
+  height: 32px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--surface);
+  display: flex;
+  align-items: center;
+}
+
+.admin-sales-assignee-select-wrap::after {
+  position: absolute;
+  top: 9px;
+  right: 13px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid #9ca3af;
+  border-bottom: 2px solid #9ca3af;
+  content: "";
+  pointer-events: none;
+  transform: rotate(45deg);
+}
+
+.admin-sales-assignee-select-wrap:focus-within {
+  border-color: var(--chika-secondary-6);
+  box-shadow: 0 0 0 2px rgba(2, 61, 199, 0.1);
+}
+
+.admin-sales-assignee-select-wrap select {
+  width: 100%;
+  height: 30px;
+  border: 0;
+  appearance: none;
+  outline: 0;
+  background: transparent;
   color: var(--text-primary);
-  padding: 0 10px;
+  cursor: pointer;
+  padding: 0 34px 0 12px;
+  font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.admin-sales-assignee-select-wrap select:disabled {
+  cursor: wait;
+}
+
+.admin-sales-assignee-divider {
+  width: 100%;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.admin-sales-assignee-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.admin-sales-assignee-actions button {
+  width: 80px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.admin-sales-assignee-actions button:last-child {
+  border-color: var(--chika-secondary-6);
+  background: var(--chika-secondary-6);
+  color: var(--surface);
+}
+
+.admin-sales-assignee-actions button:hover,
+.admin-sales-assignee-actions button:focus-visible {
+  border-color: var(--chika-secondary-6);
+}
+
+.admin-sales-assignee-actions button:last-child:hover,
+.admin-sales-assignee-actions button:last-child:focus-visible {
+  background: #002fa0;
+}
+
+.admin-sales-assignee-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .admin-sales-detail-info-list--compact {
@@ -2471,13 +2725,22 @@ td span {
     padding: 16px;
   }
 
-  .admin-sales-detail-visit-form {
-    grid-template-columns: 1fr;
+  .admin-sales-visit-modal-layer {
+    padding: 12px;
   }
 
-  .admin-sales-detail-visit-note,
-  .admin-sales-detail-visit-form > button {
-    grid-column: 1;
+  .admin-sales-visit-modal {
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+  }
+
+  .admin-sales-visit-modal-form {
+    gap: 20px;
+    padding: 20px;
+  }
+
+  .admin-sales-visit-modal-actions button {
+    flex: 1;
   }
 
   .admin-sales-detail-page-header h1 {

@@ -65,15 +65,16 @@ export interface DentalSalesListPayload {
 }
 
 export interface DentalSalesDetailPayload {
+  canEditAssignment: boolean;
   profile: DentalSalesRow & {
     address: string;
     assignedSalesperson: DentalSalesperson | null;
+    externalConnector: DentalSalesperson | null;
     claimedAt: string | null;
     signedAt: string | null;
     representativeName?: string | null;
     businessRegistrationNumber?: string | null;
     medicalInstitutionType?: string | null;
-    externalConnectorName?: string | null;
     isAppVisible?: boolean;
     businessLicense?: {
       fileName: string;
@@ -87,6 +88,7 @@ export interface DentalSalesDetailPayload {
   visits: DentalSalesVisit[];
   visitPagination: DentalSalesPagination;
   salespeople: DentalSalesperson[];
+  externalConnectors: DentalSalesperson[];
 }
 
 export const emptyDentalSalesFilters: DentalSalesFilters = {
@@ -121,11 +123,6 @@ export const dentalSalesDetailOptions: Array<{
   { value: "ACTIVE", label: "사용중" },
 ];
 
-export const dentalSalesVisitDetailOptions = dentalSalesDetailOptions.filter(
-  (option): option is { value: DentalSalesVisitDetailStatus; label: string } =>
-    ["INTEREST", "CODE_SHARED", "REJECTED", "ON_HOLD"].includes(option.value),
-);
-
 export function dentalSalesStatusLabel(status: DentalSalesHospitalStatus) {
   return dentalSalesStatusOptions.find((option) => option.value === status)?.label ?? status;
 }
@@ -149,6 +146,42 @@ export function dentalSalesVisitTitle(
     case "ON_HOLD":
       return "후속 논의 보류";
   }
+}
+
+const dentalSalesVisitTitlePrefix = "[영업 기록 제목] ";
+
+export function dentalSalesVisitNote(title: string, memo: string) {
+  const cleanTitle = title.trim();
+  const cleanMemo = memo.trim();
+  return `${dentalSalesVisitTitlePrefix}${cleanTitle}${cleanMemo ? `\n${cleanMemo}` : ""}`;
+}
+
+export function dentalSalesVisitPresentation({
+  detailStatus,
+  note,
+  salesCode,
+}: {
+  detailStatus: DentalSalesVisitDetailStatus;
+  note: string | null;
+  salesCode: string;
+}) {
+  if (note?.startsWith(dentalSalesVisitTitlePrefix)) {
+    const [titleLine, ...memoLines] = note.split("\n");
+    return {
+      title: titleLine.slice(dentalSalesVisitTitlePrefix.length).trim(),
+      memo: memoLines.join("\n").trim(),
+    };
+  }
+  return {
+    title: dentalSalesVisitTitle(detailStatus, salesCode),
+    memo: note?.trim() ?? "",
+  };
+}
+
+export function isDentalSalesVisitDetailStatus(
+  status: DentalSalesDetailStatus | null,
+): status is DentalSalesVisitDetailStatus {
+  return status !== null && ["INTEREST", "CODE_SHARED", "REJECTED", "ON_HOLD"].includes(status);
 }
 
 export function dentalSalesRegionLabel(city: string, district: string) {
