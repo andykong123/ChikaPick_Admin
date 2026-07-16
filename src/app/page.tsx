@@ -36,6 +36,7 @@ import {
 import {
   adminAccountDirectoryRoleLabel,
   adminAccountDirectoryStatusLabel,
+  adminInviteDisplayName,
   defaultAdminAccountDirectoryFilters,
   formatAdminAccountDirectoryDate,
   type AdminAccountDirectoryFilters,
@@ -973,9 +974,8 @@ function AdminAccountsTab({
   const [openActionId, setOpenActionId] = useState<string | null>(null);
   const [actionMenuPosition, setActionMenuPosition] = useState({ left: 0, top: 0 });
   const [actionUserId, setActionUserId] = useState<string | null>(null);
-  const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<AdminAccountRole>("admin");
+  const [inviteRole, setInviteRole] = useState<AdminAccountRole>("super_admin");
   const [connectorName, setConnectorName] = useState("");
   const [dialogError, setDialogError] = useState("");
   const [isDialogSubmitting, setIsDialogSubmitting] = useState(false);
@@ -1058,19 +1058,21 @@ function AdminAccountsTab({
 
   async function submitInvite(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const fullName = inviteName.trim();
     const email = inviteEmail.trim();
-    if (!fullName || !email) {
-      setDialogError("이름과 이메일을 입력해 주세요.");
+    if (!email) {
+      setDialogError("이메일을 입력해 주세요.");
       return;
     }
     setDialogError("");
     setIsDialogSubmitting(true);
-    const succeeded = await onInvite({ fullName, email, role: inviteRole });
+    const succeeded = await onInvite({
+      fullName: adminInviteDisplayName(email),
+      email,
+      role: inviteRole,
+    });
     if (succeeded) {
-      setInviteName("");
       setInviteEmail("");
-      setInviteRole("admin");
+      setInviteRole("super_admin");
       onDialogChange(null);
       await loadAccounts();
     }
@@ -1403,66 +1405,68 @@ function AdminAccountsTab({
             onClick={closeDialog}
           />
           <section
-            className="admin-account-dialog"
+            className={`admin-account-dialog${
+              dialog === "invite" ? " admin-account-dialog--invite" : ""
+            }`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="admin-account-dialog-title"
           >
             <header>
               <h2 id="admin-account-dialog-title">
-                {dialog === "invite" ? "어드민 계정 초대" : "외부 연결자 등록"}
+                {dialog === "invite" ? "계정 생성" : "외부 연결자 등록"}
               </h2>
-              <button type="button" aria-label="닫기" onClick={closeDialog}>
-                ×
-              </button>
+              {dialog === "connector" ? (
+                <button type="button" aria-label="닫기" onClick={closeDialog}>
+                  ×
+                </button>
+              ) : null}
             </header>
             {dialog === "invite" ? (
-              <form onSubmit={submitInvite}>
-                <label>
-                  <span>사용자 이름</span>
-                  <input
-                    autoFocus
-                    value={inviteName}
-                    maxLength={100}
-                    onChange={(event) => {
-                      setInviteName(event.target.value);
-                      setDialogError("");
-                    }}
-                  />
-                </label>
-                <label>
-                  <span>이메일</span>
-                  <input
-                    type="email"
-                    value={inviteEmail}
-                    onChange={(event) => {
-                      setInviteEmail(event.target.value);
-                      setDialogError("");
-                    }}
-                  />
-                </label>
-                <label>
-                  <span>역할</span>
-                  <select
-                    value={inviteRole}
-                    onChange={(event) =>
-                      setInviteRole(event.target.value as AdminAccountRole)
-                    }
-                  >
-                    <option value="super_admin">최고 관리자</option>
-                    <option value="sales">영업 담당자</option>
-                    <option value="admin">운영 관리자</option>
-                  </select>
-                </label>
-                {dialogError ? <p role="alert">{dialogError}</p> : null}
-                <div>
+              <form className="admin-account-invite-form" onSubmit={submitInvite}>
+                <div className="admin-account-dialog-body">
+                  <label className="admin-account-invite-email">
+                    <span>
+                      이메일 <b aria-hidden="true">*</b>
+                    </span>
+                    <input
+                      autoFocus
+                      required
+                      type="email"
+                      autoComplete="email"
+                      placeholder="your@gmail.com"
+                      value={inviteEmail}
+                      onChange={(event) => {
+                        setInviteEmail(event.target.value);
+                        setDialogError("");
+                      }}
+                    />
+                  </label>
+                  <label className="admin-account-invite-role">
+                    <span>역할</span>
+                    <span className="admin-account-role-select">
+                      <select
+                        value={inviteRole}
+                        onChange={(event) =>
+                          setInviteRole(event.target.value as AdminAccountRole)
+                        }
+                      >
+                        <option value="super_admin">최고 관리자</option>
+                        <option value="sales">영업 담당자</option>
+                        <option value="admin">운영 관리자</option>
+                      </select>
+                    </span>
+                  </label>
+                  {dialogError ? <p role="alert">{dialogError}</p> : null}
+                </div>
+                <footer className="admin-account-dialog-footer">
                   <button type="button" disabled={isDialogSubmitting} onClick={closeDialog}>
                     취소
                   </button>
                   <button type="submit" disabled={isDialogSubmitting}>
                     {isDialogSubmitting ? "발송 중" : "초대 메일 발송"}
                   </button>
-                </div>
+                </footer>
               </form>
             ) : (
               <form onSubmit={submitConnector}>
@@ -1479,7 +1483,7 @@ function AdminAccountsTab({
                   />
                 </label>
                 {dialogError ? <p role="alert">{dialogError}</p> : null}
-                <div>
+                <div className="admin-account-dialog-actions">
                   <button type="button" disabled={isDialogSubmitting} onClick={closeDialog}>
                     취소
                   </button>

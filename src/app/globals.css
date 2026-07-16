@@ -1628,14 +1628,14 @@ td span {
   line-height: 17px;
 }
 
-.admin-account-dialog form > div {
+.admin-account-dialog-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
   margin-top: 4px;
 }
 
-.admin-account-dialog form > div button {
+.admin-account-dialog-actions button {
   min-width: 72px;
   height: 36px;
   border: 1px solid var(--border);
@@ -1648,13 +1648,163 @@ td span {
   font-weight: 600;
 }
 
-.admin-account-dialog form > div button:last-child {
+.admin-account-dialog-actions button:last-child {
   border-color: #001371;
   background: #001371;
   color: var(--surface);
 }
 
-.admin-account-dialog form > div button:disabled {
+.admin-account-dialog-actions button:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.admin-account-dialog--invite {
+  width: min(420px, calc(100vw - 48px));
+  min-height: 389px;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
+  box-shadow:
+    inset 0 0 0 1px #d4d6da,
+    0 8px 12px rgba(0, 0, 0, 0.1);
+}
+
+.admin-account-dialog--invite > header {
+  min-height: 78px;
+  justify-content: flex-start;
+  border-bottom: 1px solid #d4d6da;
+  padding: 24px;
+}
+
+.admin-account-dialog--invite h2 {
+  color: #171b2b;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 30px;
+  letter-spacing: -0.44px;
+}
+
+.admin-account-dialog .admin-account-invite-form {
+  gap: 0;
+  margin-top: 0;
+}
+
+.admin-account-dialog-body {
+  min-height: 221px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+}
+
+.admin-account-dialog .admin-account-dialog-body label {
+  gap: 7px;
+}
+
+.admin-account-dialog .admin-account-dialog-body label > span:first-child {
+  color: #3b4358;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 15px;
+}
+
+.admin-account-dialog .admin-account-dialog-body .admin-account-invite-email > span {
+  color: #171b2b;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: -0.28px;
+}
+
+.admin-account-invite-email b {
+  color: #ff7b03;
+  font: inherit;
+}
+
+.admin-account-dialog .admin-account-dialog-body input,
+.admin-account-dialog .admin-account-dialog-body select {
+  height: 52px;
+  border-color: #b8bbc2;
+  border-radius: 12px;
+  padding: 0 16px;
+  color: #171b2b;
+  font-size: 16px;
+  line-height: 22px;
+}
+
+.admin-account-dialog .admin-account-dialog-body input::placeholder {
+  color: #d4d6da;
+  opacity: 1;
+}
+
+.admin-account-role-select {
+  position: relative;
+  display: block;
+}
+
+.admin-account-role-select::after {
+  position: absolute;
+  top: 20px;
+  right: 19px;
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid #3b4358;
+  border-bottom: 1.5px solid #3b4358;
+  content: "";
+  pointer-events: none;
+  transform: rotate(45deg);
+}
+
+.admin-account-dialog .admin-account-role-select select {
+  appearance: none;
+  padding-right: 44px;
+}
+
+.admin-account-dialog .admin-account-dialog-body > p {
+  margin: -14px 0 0;
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.admin-account-dialog-footer {
+  min-height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid #d4d6da;
+  padding: 24px;
+}
+
+.admin-account-dialog-footer button {
+  height: 42px;
+  border: 1px solid #d4d6da;
+  border-radius: 8px;
+  background: var(--surface);
+  color: #011b5a;
+  cursor: pointer;
+  padding: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+  letter-spacing: -0.32px;
+  white-space: nowrap;
+}
+
+.admin-account-dialog-footer button:first-child {
+  width: 60px;
+}
+
+.admin-account-dialog-footer button:last-child {
+  width: 121px;
+  border-color: #001371;
+  background: #001371;
+  color: var(--surface);
+}
+
+.admin-account-dialog-footer button:disabled {
   cursor: wait;
   opacity: 0.5;
 }
@@ -5128,6 +5278,11 @@ td span {
   .admin-account-dialog {
     width: calc(100vw - 24px);
     padding: 22px;
+  }
+
+  .admin-account-dialog--invite {
+    width: min(420px, calc(100vw - 24px));
+    padding: 0;
   }
 
   .admin-performance-metrics {
