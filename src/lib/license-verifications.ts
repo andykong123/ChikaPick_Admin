@@ -55,3 +55,8 @@ export function licenseRequestTimeLabel(value: string) {
 export function licenseMembershipRoleLabel(role: "owner" | "doctor") {
   return role === "owner" ? "원장" : "치과의사";
 }
+
+export function normalizeLicenseRejectionReason(value: string) {
+  const reason = value.trim();
+  return reason || null;
+}

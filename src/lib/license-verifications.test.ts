@@ -5,6 +5,7 @@ import type { LicenseVerificationRequest } from "./admin-api.ts";
 import {
   licenseMembershipRoleLabel,
   licenseRequestTimeLabel,
+  normalizeLicenseRejectionReason,
   pendingLicenseVerificationRequests,
   summarizeLicenseVerifications,
 } from "./license-verifications.ts";
@@ -60,4 +61,12 @@ test("license review labels match the Korean admin design", () => {
   );
   assert.equal(licenseMembershipRoleLabel("owner"), "원장");
   assert.equal(licenseMembershipRoleLabel("doctor"), "치과의사");
+});
+
+test("license rejection reasons are required and normalized before submission", () => {
+  assert.equal(normalizeLicenseRejectionReason("   "), null);
+  assert.equal(
+    normalizeLicenseRejectionReason("  면허번호를 식별할 수 없습니다.  "),
+    "면허번호를 식별할 수 없습니다.",
+  );
 });

@@ -78,6 +78,7 @@ import {
 import {
   licenseMembershipRoleLabel,
   licenseRequestTimeLabel,
+  normalizeLicenseRejectionReason,
   pendingLicenseVerificationRequests,
   summarizeLicenseVerifications,
 } from "@/lib/license-verifications";
@@ -700,9 +701,9 @@ export default function AdminHome() {
             <LicenseReviewTab
               data={consoleData}
               isLoading={isLoadingConsole}
-              onDecision={(userId, approved) =>
+              onDecision={(userId, approved, note) =>
                 runAction((token) =>
-                  updateLicenseVerification(token, userId, approved, ""),
+                  updateLicenseVerification(token, userId, approved, note),
                 )
               }
             />
@@ -3224,9 +3225,23 @@ function LicenseReviewTab({
 }: {
   data: AdminConsolePayload;
   isLoading: boolean;
-  onDecision: (userId: string, approved: boolean) => Promise<boolean>;
+  onDecision: (userId: string, approved: boolean, note: string) => Promise<boolean>;
 }) {
-  const [processingUserId, setProcessingUserId] = useState<string | null>(null);
+  const [processingDecision, setProcessingDecision] = useState<{
+    approved: boolean;
+    userId: string;
+  } | null>(null);
+  const [rejectionTarget, setRejectionTarget] = useState<{
+    displayName: string;
+    userId: string;
+  } | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectionError, setRejectionError] = useState("");
+  const [isApprovalCompleteOpen, setIsApprovalCompleteOpen] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  const lastTriggerRef = useRef<HTMLButtonElement>(null);
+  const approvalConfirmRef = useRef<HTMLButtonElement>(null);
+  const rejectionTextareaRef = useRef<HTMLTextAreaElement>(null);
   const summary = summarizeLicenseVerifications(data.licenseVerificationRequests);
   const pendingRequests = pendingLicenseVerificationRequests(
     data.licenseVerificationRequests,
@@ -3238,17 +3253,108 @@ function LicenseReviewTab({
     { label: "미요청 수", value: summary.unrequested },
   ];
 
-  async function decide(userId: string, approved: boolean) {
-    setProcessingUserId(userId);
+  useEffect(() => {
+    if (!rejectionTarget && !isApprovalCompleteOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusTimer = window.setTimeout(() => {
+      if (isApprovalCompleteOpen) approvalConfirmRef.current?.focus();
+      else rejectionTextareaRef.current?.focus();
+    }, 0);
+    const trigger = lastTriggerRef.current;
+    const section = sectionRef.current;
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.body.style.overflow = previousOverflow;
+      if (trigger?.isConnected) trigger.focus();
+      else section?.focus();
+    };
+  }, [isApprovalCompleteOpen, rejectionTarget]);
+
+  async function approve(userId: string, trigger: HTMLButtonElement) {
+    lastTriggerRef.current = trigger;
+    setProcessingDecision({ approved: true, userId });
     try {
-      await onDecision(userId, approved);
+      const approved = await onDecision(userId, true, "");
+      if (approved) setIsApprovalCompleteOpen(true);
     } finally {
-      setProcessingUserId(null);
+      setProcessingDecision(null);
+    }
+  }
+
+  function openRejection(
+    userId: string,
+    displayName: string,
+    trigger: HTMLButtonElement,
+  ) {
+    lastTriggerRef.current = trigger;
+    setRejectionReason("");
+    setRejectionError("");
+    setRejectionTarget({ displayName, userId });
+  }
+
+  function closeRejection() {
+    if (processingDecision) return;
+    setRejectionTarget(null);
+    setRejectionReason("");
+    setRejectionError("");
+  }
+
+  async function reject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!rejectionTarget) return;
+    const reason = normalizeLicenseRejectionReason(rejectionReason);
+    if (!reason) {
+      setRejectionError("반려 사유를 입력해 주세요.");
+      rejectionTextareaRef.current?.focus();
+      return;
+    }
+    setRejectionError("");
+    setProcessingDecision({ approved: false, userId: rejectionTarget.userId });
+    try {
+      const rejected = await onDecision(rejectionTarget.userId, false, reason);
+      if (rejected) {
+        setRejectionTarget(null);
+        setRejectionReason("");
+      }
+    } finally {
+      setProcessingDecision(null);
+    }
+  }
+
+  function keepDecisionModalFocus(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      if (processingDecision) return;
+      event.preventDefault();
+      if (isApprovalCompleteOpen) setIsApprovalCompleteOpen(false);
+      else closeRejection();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusableElements = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        'textarea:not([disabled]), button:not([disabled])',
+      ),
+    );
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements.at(-1);
+    if (!firstElement || !lastElement) return;
+    if (event.shiftKey && document.activeElement === firstElement) {
+      event.preventDefault();
+      lastElement.focus();
+    } else if (!event.shiftKey && document.activeElement === lastElement) {
+      event.preventDefault();
+      firstElement.focus();
     }
   }
 
   return (
-    <section className="admin-license-review" aria-busy={isLoading}>
+    <section
+      ref={sectionRef}
+      className="admin-license-review"
+      aria-busy={isLoading}
+      tabIndex={-1}
+    >
       <div className="admin-license-summary" aria-label="면허 인증 현황">
         {metrics.map((metric) => (
           <article
@@ -3268,11 +3374,12 @@ function LicenseReviewTab({
         {pendingRequests.map((item) => {
           const submission = item.latestSubmission;
           if (!submission) return null;
-          const isProcessing = processingUserId === item.userId;
+          const isProcessing = processingDecision?.userId === item.userId;
+          const displayName = item.displayName ?? "이름 없음";
           return (
             <article className="admin-license-request-card" key={item.userId}>
               <header>
-                <h2>{item.displayName ?? "이름 없음"}</h2>
+                <h2>{displayName}</h2>
                 <p title={item.email ?? undefined}>{item.email ?? item.userId}</p>
               </header>
               <dl>
@@ -3309,17 +3416,19 @@ function LicenseReviewTab({
               <footer>
                 <button
                   type="button"
-                  disabled={isLoading || processingUserId !== null}
-                  onClick={() => void decide(item.userId, false)}
+                  disabled={isLoading || processingDecision !== null}
+                  onClick={(event) =>
+                    openRejection(item.userId, displayName, event.currentTarget)
+                  }
                 >
-                  {isProcessing ? "처리 중" : "반려"}
+                  {isProcessing && !processingDecision.approved ? "처리 중" : "반려"}
                 </button>
                 <button
                   type="button"
-                  disabled={isLoading || processingUserId !== null}
-                  onClick={() => void decide(item.userId, true)}
+                  disabled={isLoading || processingDecision !== null}
+                  onClick={(event) => void approve(item.userId, event.currentTarget)}
                 >
-                  {isProcessing ? "처리 중" : "승인"}
+                  {isProcessing && processingDecision.approved ? "처리 중" : "승인"}
                 </button>
               </footer>
             </article>
@@ -3332,6 +3441,101 @@ function LicenseReviewTab({
           <p className="admin-license-empty">면허 인증 요청을 불러오는 중입니다.</p>
         ) : null}
       </div>
+
+      {rejectionTarget ? (
+        <div className="admin-license-decision-layer">
+          <button
+            className="admin-license-decision-backdrop"
+            type="button"
+            aria-label="면허 인증 반려 창 닫기"
+            disabled={processingDecision !== null}
+            onClick={closeRejection}
+          />
+          <div
+            className="admin-license-decision-modal admin-license-decision-modal--reject"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-license-reject-title"
+            onKeyDown={keepDecisionModalFocus}
+          >
+            <h2 id="admin-license-reject-title">반려</h2>
+            <form onSubmit={reject}>
+              <label>
+                <span className="admin-visually-hidden">
+                  {rejectionTarget.displayName} 치과의사 면허 인증 반려 사유
+                </span>
+                <textarea
+                  ref={rejectionTextareaRef}
+                  id="admin-license-reject-description"
+                  value={rejectionReason}
+                  aria-invalid={rejectionError ? "true" : undefined}
+                  aria-describedby={
+                    rejectionError ? "admin-license-reject-error" : undefined
+                  }
+                  disabled={processingDecision !== null}
+                  maxLength={1000}
+                  placeholder="반려 사유를 입력해 주세요. 입력한 사유는 신청자에게 전달됩니다."
+                  onChange={(event) => {
+                    setRejectionReason(event.target.value);
+                    if (rejectionError) setRejectionError("");
+                  }}
+                />
+              </label>
+              {rejectionError ? (
+                <p id="admin-license-reject-error" role="alert">
+                  {rejectionError}
+                </p>
+              ) : null}
+              <footer>
+                <button
+                  type="button"
+                  disabled={processingDecision !== null}
+                  onClick={closeRejection}
+                >
+                  취소
+                </button>
+                <button type="submit" disabled={processingDecision !== null}>
+                  {processingDecision ? "처리 중" : "반려"}
+                </button>
+              </footer>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {isApprovalCompleteOpen ? (
+        <div className="admin-license-decision-layer">
+          <button
+            className="admin-license-decision-backdrop"
+            type="button"
+            aria-label="면허 인증 승인 완료 창 닫기"
+            onClick={() => setIsApprovalCompleteOpen(false)}
+          />
+          <div
+            className="admin-license-decision-modal admin-license-decision-modal--approved"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-license-approved-title"
+            aria-describedby="admin-license-approved-description"
+            onKeyDown={keepDecisionModalFocus}
+          >
+            <Image src="/Type=Checkmark.svg" alt="" width={64} height={64} />
+            <h2 id="admin-license-approved-title">승인 완료</h2>
+            <p id="admin-license-approved-description">
+              치과의사 면허 인증이 승인되었습니다.
+              <br />
+              치과 면허증은 소속 치과 관리 정보에서 조회 가능합니다.
+            </p>
+            <button
+              ref={approvalConfirmRef}
+              type="button"
+              onClick={() => setIsApprovalCompleteOpen(false)}
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

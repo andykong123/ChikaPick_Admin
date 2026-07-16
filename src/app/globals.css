@@ -1441,6 +1441,180 @@ td span {
   line-height: 20px;
 }
 
+.admin-license-decision-layer {
+  position: fixed;
+  z-index: 160;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.admin-license-decision-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 11, 38, 0.34);
+  cursor: default;
+}
+
+.admin-license-decision-modal {
+  position: relative;
+  z-index: 1;
+  width: min(400px, calc(100vw - 40px));
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow:
+    0 0 20px rgba(0, 11, 38, 0.07),
+    0 0 10px 2px rgba(0, 11, 38, 0.03);
+  font-family: "Pretendard", ui-sans-serif, system-ui, sans-serif;
+}
+
+.admin-license-decision-modal h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 30px;
+  letter-spacing: -0.44px;
+  text-align: center;
+}
+
+.admin-license-decision-modal--approved {
+  min-height: 312px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  padding: 42px 24px 24px;
+}
+
+.admin-license-decision-modal--approved > img {
+  flex: 0 0 auto;
+}
+
+.admin-license-decision-modal--approved h2 {
+  margin-top: 22px;
+}
+
+.admin-license-decision-modal--approved p {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 22px;
+  text-align: center;
+}
+
+.admin-license-decision-modal--approved > button {
+  width: 100%;
+  height: 44px;
+  margin-top: 34px;
+  border: 0;
+  border-radius: 14px;
+  background: #011b5a;
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 22px;
+  letter-spacing: -0.32px;
+}
+
+.admin-license-decision-modal--reject {
+  padding: 32px;
+}
+
+.admin-license-decision-modal--reject form {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-license-decision-modal--reject label {
+  display: block;
+}
+
+.admin-license-decision-modal--reject textarea {
+  width: 100%;
+  height: 88px;
+  border: 1px solid #b8bbc2;
+  border-radius: 10px;
+  background: #fff;
+  outline: none;
+  resize: none;
+  padding: 12px 16px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: -0.28px;
+}
+
+.admin-license-decision-modal--reject textarea::placeholder {
+  color: var(--text-quaternary);
+  opacity: 1;
+}
+
+.admin-license-decision-modal--reject textarea:focus {
+  border-color: #3366e5;
+  box-shadow: 0 0 0 2px rgba(51, 102, 229, 0.1);
+}
+
+.admin-license-decision-modal--reject textarea[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.admin-license-decision-modal--reject form > p {
+  margin: -8px 0 0;
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.admin-license-decision-modal--reject footer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(96px, 1fr));
+  gap: 12px;
+}
+
+.admin-license-decision-modal--reject footer button {
+  height: 44px;
+  border: 1px solid #d4d6da;
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 0 20px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 22px;
+  letter-spacing: -0.32px;
+}
+
+.admin-license-decision-modal--reject footer button:last-child {
+  border-color: #f90003;
+  background: #f90003;
+  color: #fff;
+}
+
+.admin-license-decision-modal button:hover:not(:disabled),
+.admin-license-decision-modal button:focus-visible:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+.admin-license-decision-modal button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.admin-license-decision-backdrop:disabled {
+  cursor: wait;
+}
+
 .admin-partner-clinics-filter {
   height: 62px;
   border: 1px solid var(--border);
@@ -4039,6 +4213,18 @@ td span {
 }
 
 @media (max-width: 760px) {
+  .admin-license-decision-layer {
+    padding: 12px;
+  }
+
+  .admin-license-decision-modal {
+    width: min(400px, calc(100vw - 24px));
+  }
+
+  .admin-license-decision-modal--reject {
+    padding: 24px;
+  }
+
   .admin-sales-hospital-review-layer {
     align-items: flex-start;
     padding: 12px;
