@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   assignAdminDentalSalesperson,
+  createAdminMembershipPartner,
   createAdminExternalConnector,
   createAdminDentalSalesVisit,
   deleteAdminExternalConnector,
@@ -164,6 +165,58 @@ test("membership management API sends server filters and row mutations", async (
     recommendedOrder: 2,
   });
   assert.equal(calls[2]?.init?.method, "DELETE");
+});
+
+test("membership partner registration sends the complete form as multipart data", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(JSON.stringify({ ok: true, message: "created" }), {
+      status: 201,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    await createAdminMembershipPartner("access-token", {
+      attachmentFile: null,
+      attachmentLabel: "소개서",
+      benefitItems: ["첫 달 10% 할인"],
+      cardImage: null,
+      category: "lab",
+      contentType: "section",
+      description: "정밀 기공 파트너",
+      detailDescription: "디지털 워크플로우",
+      detailImage: null,
+      detailTitle: "서울기공연구소",
+      inquiryButtonLabel: "상담 신청",
+      inquiryMethod: "external_link",
+      inquiryValue: "https://example.com",
+      intro: "업체 소개",
+      isPreferred: true,
+      isVisible: true,
+      name: "서울기공연구소",
+      recommendedOrder: 1,
+      richContent: "상세 본문",
+      serviceTags: ["CAD/CAM"],
+      strengths: ["3D 스캐너 보유"],
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(calls[0]?.input, "https://api.example.com/api/v1/admin/memberships");
+  assert.equal(calls[0]?.init?.method, "POST");
+  assert.equal(
+    (calls[0]?.init?.headers as Record<string, string>)["Content-Type"],
+    undefined,
+  );
+  const body = calls[0]?.init?.body as FormData;
+  assert.equal(body.get("name"), "서울기공연구소");
+  assert.equal(body.get("isPreferred"), "true");
+  assert.deepEqual(JSON.parse(String(body.get("strengths"))), ["3D 스캐너 보유"]);
 });
 
 test("fetchAdminSecretFeedback requests the anonymous feedback directory", async () => {

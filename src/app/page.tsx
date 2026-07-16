@@ -2,12 +2,13 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 
 import {
   approveManualHospitalSubmission,
   assignAdminDentalSalesperson,
+  createAdminMembershipPartner,
   createAdminExternalConnector,
   createAdminDentalSalesVisit,
   deleteAdminMembershipPartner,
@@ -125,10 +126,14 @@ import {
   membershipCategoryLabel,
   membershipPageNumbers,
   membershipSortLabel,
+  validateMembershipRegistration,
+  type AdminMembershipCreateInput,
   type AdminMembershipFilters,
   type AdminMembershipManagementPayload,
   type AdminMembershipPartner,
   type MembershipCategory,
+  type MembershipContentType,
+  type MembershipInquiryMethod,
 } from "@/lib/membership-management";
 import {
   formatExternalConnectorDate,
@@ -267,6 +272,8 @@ export default function AdminHome() {
   const [inviteRole, setInviteRole] = useState<AdminAccountRole>("admin");
   const [adminAccountDialog, setAdminAccountDialog] = useState<"invite" | null>(null);
   const [isPartnerAccountSearchView, setIsPartnerAccountSearchView] = useState(false);
+  const [isMembershipRegistrationView, setIsMembershipRegistrationView] =
+    useState(false);
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const lastAutoLoadedAccessTokenRef = useRef<string | null>(null);
@@ -621,6 +628,7 @@ export default function AdminHome() {
                 onClick={() => {
                   clearAdminDetail();
                   setIsPartnerAccountSearchView(false);
+                  setIsMembershipRegistrationView(false);
                   setActivePrimaryTab(tab.id);
                   if (tab.id === "admin-accounts" || tab.id === "external-connectors") {
                     setActiveTab("users");
@@ -649,6 +657,7 @@ export default function AdminHome() {
                 onClick={() => {
                   clearAdminDetail();
                   setIsPartnerAccountSearchView(false);
+                  setIsMembershipRegistrationView(false);
                   setActivePrimaryTab(null);
                   setActiveTab(tab.id);
                 }}
@@ -695,7 +704,7 @@ export default function AdminHome() {
           </div>
         </header>
 
-        {!isAdminDetailView ? (
+        {!isAdminDetailView && !isMembershipRegistrationView ? (
           <div
             className={`admin-workspace-heading${
               activePrimaryTab === "dental-sales" ||
@@ -861,7 +870,7 @@ export default function AdminHome() {
             activePrimaryTab === "memberships"
               ? " admin-content--memberships"
               : ""
-          }${
+          }${isMembershipRegistrationView ? " admin-content--membership-registration" : ""}${
             activePrimaryTab === "admin-accounts"
               ? " admin-content--admin-accounts"
               : ""
@@ -919,7 +928,11 @@ export default function AdminHome() {
               <PartnerAccountsTab accessToken={session?.access_token ?? ""} />
             )
           ) : activePrimaryTab === "memberships" ? (
-            <MembershipManagementTab accessToken={session?.access_token ?? ""} />
+            <MembershipManagementTab
+              accessToken={session?.access_token ?? ""}
+              isRegistrationView={isMembershipRegistrationView}
+              onRegistrationViewChange={setIsMembershipRegistrationView}
+            />
           ) : activePrimaryTab === "admin-accounts" ? (
             <AdminAccountsTab
               accessToken={session?.access_token ?? ""}
@@ -1063,7 +1076,15 @@ export default function AdminHome() {
   );
 }
 
-function MembershipManagementTab({ accessToken }: { accessToken: string }) {
+function MembershipManagementTab({
+  accessToken,
+  isRegistrationView,
+  onRegistrationViewChange,
+}: {
+  accessToken: string;
+  isRegistrationView: boolean;
+  onRegistrationViewChange: (isOpen: boolean) => void;
+}) {
   const [filters, setFilters] = useState<AdminMembershipFilters>(
     defaultAdminMembershipFilters,
   );
@@ -1187,6 +1208,20 @@ function MembershipManagementTab({ accessToken }: { accessToken: string }) {
   const allRowsSelected =
     data.items.length > 0 && data.items.every((item) => selectedIds.has(item.id));
 
+  if (isRegistrationView) {
+    return (
+      <MembershipRegistrationView
+        accessToken={accessToken}
+        onCancel={() => onRegistrationViewChange(false)}
+        onSaved={async (message) => {
+          setNotice(message);
+          await loadMemberships();
+          onRegistrationViewChange(false);
+        }}
+      />
+    );
+  }
+
   return (
     <section className="admin-membership-management" aria-label="치카픽 멤버십 관리">
       <div className="admin-membership-toolbar">
@@ -1208,6 +1243,14 @@ function MembershipManagementTab({ accessToken }: { accessToken: string }) {
         </div>
 
         <div className="admin-membership-search-controls">
+          <button
+            type="button"
+            className="admin-membership-create-button"
+            onClick={() => onRegistrationViewChange(true)}
+          >
+            <span aria-hidden="true">＋</span>
+            업체 등록
+          </button>
           <label className="admin-membership-search">
             <span className="admin-membership-search-icon" aria-hidden="true" />
             <input
@@ -1486,6 +1529,561 @@ function MembershipManagementTab({ accessToken }: { accessToken: string }) {
         </div>
       ) : null}
     </section>
+  );
+}
+
+function MembershipRegistrationView({
+  accessToken,
+  onCancel,
+  onSaved,
+}: {
+  accessToken: string;
+  onCancel: () => void;
+  onSaved: (message: string) => Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState<MembershipCategory>("lab");
+  const [recommendedOrder, setRecommendedOrder] = useState("1");
+  const [description, setDescription] = useState("");
+  const [cardImage, setCardImage] = useState<File | null>(null);
+  const [isPreferred, setIsPreferred] = useState(true);
+  const [isVisible, setIsVisible] = useState(true);
+  const [detailTitle, setDetailTitle] = useState("");
+  const [detailDescription, setDetailDescription] = useState("");
+  const [detailImage, setDetailImage] = useState<File | null>(null);
+  const [inquiryButtonLabel, setInquiryButtonLabel] = useState(
+    "상세 보기 및 혜택 신청",
+  );
+  const [inquiryMethod, setInquiryMethod] =
+    useState<MembershipInquiryMethod>("external_link");
+  const [inquiryValue, setInquiryValue] = useState("");
+  const [intro, setIntro] = useState("");
+  const [serviceTags, setServiceTags] = useState<string[]>([]);
+  const [tagDraft, setTagDraft] = useState("");
+  const [isAddingTag, setIsAddingTag] = useState(false);
+  const [strengths, setStrengths] = useState<string[]>([""]);
+  const [benefitItems, setBenefitItems] = useState<string[]>([""]);
+  const [contentType, setContentType] = useState<MembershipContentType>("section");
+  const [richContent, setRichContent] = useState("");
+  const [attachmentLabel, setAttachmentLabel] = useState("");
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState<{
+    index: number;
+    list: "strengths" | "benefits";
+  } | null>(null);
+  const [error, setError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  function addTag() {
+    const normalized = tagDraft.trim();
+    if (!normalized || serviceTags.includes(normalized)) return;
+    setServiceTags((current) => [...current, normalized]);
+    setTagDraft("");
+    setIsAddingTag(false);
+  }
+
+  function updateListItem(
+    list: "strengths" | "benefits",
+    index: number,
+    value: string,
+  ) {
+    const setter = list === "strengths" ? setStrengths : setBenefitItems;
+    setter((current) => current.map((item, itemIndex) => (itemIndex === index ? value : item)));
+  }
+
+  function removeListItem(list: "strengths" | "benefits", index: number) {
+    const setter = list === "strengths" ? setStrengths : setBenefitItems;
+    setter((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  function moveListItem(
+    list: "strengths" | "benefits",
+    fromIndex: number,
+    toIndex: number,
+  ) {
+    if (fromIndex === toIndex) return;
+    const setter = list === "strengths" ? setStrengths : setBenefitItems;
+    setter((current) => {
+      const next = [...current];
+      const [moved] = next.splice(fromIndex, 1);
+      if (moved === undefined) return current;
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  }
+
+  async function submitRegistration(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const input: AdminMembershipCreateInput = {
+      attachmentFile,
+      attachmentLabel: attachmentLabel.trim(),
+      benefitItems: benefitItems.map((item) => item.trim()).filter(Boolean),
+      cardImage,
+      category,
+      contentType,
+      description: description.trim(),
+      detailDescription: detailDescription.trim(),
+      detailImage,
+      detailTitle: detailTitle.trim(),
+      inquiryButtonLabel: inquiryButtonLabel.trim(),
+      inquiryMethod,
+      inquiryValue: inquiryValue.trim(),
+      intro: intro.trim(),
+      isPreferred,
+      isVisible,
+      name: name.trim(),
+      recommendedOrder: Number(recommendedOrder),
+      richContent: richContent.trim(),
+      serviceTags,
+      strengths: strengths.map((item) => item.trim()).filter(Boolean),
+    };
+    const validationError = validateMembershipRegistration(input);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setIsSaving(true);
+    setError("");
+    try {
+      const result = await createAdminMembershipPartner(accessToken, input);
+      await onSaved(result.message);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "멤버십 업체를 등록하지 못했습니다.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <section className="admin-membership-registration" aria-label="제휴 업체 등록">
+      <header className="admin-membership-registration-heading">
+        <nav aria-label="현재 위치">
+          <button type="button" onClick={onCancel}>멤버십 관리</button>
+          <span aria-hidden="true">›</span>
+          <strong>업체 등록</strong>
+        </nav>
+        <h1>제휴 업체 등록</h1>
+      </header>
+
+      <form onSubmit={submitRegistration}>
+        <div className="admin-membership-registration-grid">
+          <div className="admin-membership-registration-column">
+            <MembershipFormCard title="카드 기본 정보">
+              <MembershipFormField label="업체명" required>
+                <input
+                  value={name}
+                  maxLength={80}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="업체명을 입력해 주세요."
+                />
+              </MembershipFormField>
+              <div className="admin-membership-form-row">
+                <MembershipFormField label="카테고리" required>
+                  <select
+                    value={category}
+                    onChange={(event) => setCategory(event.target.value as MembershipCategory)}
+                  >
+                    {membershipCategories.slice(1).map((item) => (
+                      <option key={item.code} value={item.code}>{item.label}</option>
+                    ))}
+                  </select>
+                </MembershipFormField>
+                <MembershipFormField label="추천순 노출 가중치" required>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10000}
+                    value={recommendedOrder}
+                    onChange={(event) => setRecommendedOrder(event.target.value)}
+                  />
+                </MembershipFormField>
+              </div>
+              <MembershipFormField label="한 줄 소개" required>
+                <input
+                  value={description}
+                  maxLength={200}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="멤버십 목록 카드에 노출될 간단한 소개를 적어주세요."
+                />
+              </MembershipFormField>
+              <MembershipFileField
+                label="대표 썸네일 이미지"
+                file={cardImage}
+                accept="image/jpeg,image/png,image/gif"
+                hint="JPG, PNG, GIF (최대 2MB)"
+                onChange={setCardImage}
+              />
+              <div className="admin-membership-form-toggles">
+                <MembershipToggleField
+                  checked={isPreferred}
+                  label="치카픽 회원 우대 여부"
+                  onChange={setIsPreferred}
+                />
+                <MembershipToggleField
+                  checked={isVisible}
+                  label="노출 여부"
+                  onChange={setIsVisible}
+                />
+              </div>
+            </MembershipFormCard>
+
+            <MembershipFormCard title="상세 상단 정보">
+              <MembershipFormField label="상세 페이지 제목" required>
+                <input
+                  value={detailTitle}
+                  maxLength={120}
+                  onChange={(event) => setDetailTitle(event.target.value)}
+                  placeholder="상세화면 최상단에 노출될 헤드라인 타이틀"
+                />
+              </MembershipFormField>
+              <MembershipFormField label="상세 페이지 부제목">
+                <input
+                  value={detailDescription}
+                  maxLength={200}
+                  onChange={(event) => setDetailDescription(event.target.value)}
+                  placeholder="보조 타이틀 문구를 입력하세요."
+                />
+              </MembershipFormField>
+              <MembershipFileField
+                label="상세 페이지 대표 이미지"
+                file={detailImage}
+                accept="image/jpeg,image/png,image/gif"
+                hint="권장 사이즈: 1200 × 630px (최대 10MB)"
+                large
+                onChange={setDetailImage}
+              />
+              <div className="admin-membership-form-row">
+                <MembershipFormField label="문의 버튼명" required>
+                  <input
+                    value={inquiryButtonLabel}
+                    maxLength={60}
+                    onChange={(event) => setInquiryButtonLabel(event.target.value)}
+                  />
+                </MembershipFormField>
+                <fieldset className="admin-membership-inquiry-method">
+                  <legend>문의 연결 방식</legend>
+                  <div>
+                    {([
+                      ["external_link", "외부 링크"],
+                      ["phone", "전화번호"],
+                      ["kakao", "카카오 채널"],
+                    ] as const).map(([value, label]) => (
+                      <label key={value}>
+                        <input
+                          type="radio"
+                          name="membership-inquiry-method"
+                          checked={inquiryMethod === value}
+                          onChange={() => setInquiryMethod(value)}
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              </div>
+              <MembershipFormField label="문의 연결 값 (URL / 전화번호 등)" required>
+                <input
+                  value={inquiryValue}
+                  maxLength={500}
+                  onChange={(event) => setInquiryValue(event.target.value)}
+                  placeholder="https:// 또는 숫자만 입력"
+                />
+              </MembershipFormField>
+            </MembershipFormCard>
+          </div>
+
+          <div className="admin-membership-registration-column">
+            <MembershipFormCard title="상세 섹션형 콘텐츠">
+              <MembershipFormField label="소개 및 안내글">
+                <textarea
+                  value={intro}
+                  maxLength={5000}
+                  onChange={(event) => setIntro(event.target.value)}
+                  placeholder="제휴 업체를 소개하는 본문 내용을 적어주세요. (줄바꿈 가능)"
+                />
+              </MembershipFormField>
+              <div className="admin-membership-tags-field">
+                <span>주요 서비스 또는 태그</span>
+                <div>
+                  {serviceTags.map((tag) => (
+                    <span className="admin-membership-tag" key={tag}>
+                      {tag}
+                      <button
+                        type="button"
+                        aria-label={`${tag} 삭제`}
+                        onClick={() => setServiceTags((current) => current.filter((item) => item !== tag))}
+                      >×</button>
+                    </span>
+                  ))}
+                  {isAddingTag ? (
+                    <span className="admin-membership-tag-entry">
+                      <input
+                        autoFocus
+                        value={tagDraft}
+                        maxLength={60}
+                        aria-label="태그 입력"
+                        onChange={(event) => setTagDraft(event.target.value)}
+                        onBlur={addTag}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            addTag();
+                          }
+                          if (event.key === "Escape") setIsAddingTag(false);
+                        }}
+                      />
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="admin-membership-tag-add"
+                      onClick={() => setIsAddingTag(true)}
+                    >＋ 추가</button>
+                  )}
+                </div>
+              </div>
+              <MembershipListField
+                label="업체 특장점 / 보유 장비 (리스트 항목)"
+                list="strengths"
+                items={strengths}
+                dragging={dragging}
+                onAdd={() => setStrengths((current) => [...current, ""])}
+                onDrag={setDragging}
+                onMove={moveListItem}
+                onRemove={removeListItem}
+                onUpdate={updateListItem}
+              />
+              <MembershipListField
+                label="치카픽 회원 우대 혜택 (리스트 항목)"
+                list="benefits"
+                items={benefitItems}
+                dragging={dragging}
+                onAdd={() => setBenefitItems((current) => [...current, ""])}
+                onDrag={setDragging}
+                onMove={moveListItem}
+                onRemove={removeListItem}
+                onUpdate={updateListItem}
+              />
+            </MembershipFormCard>
+
+            <MembershipFormCard title="확장 콘텐츠">
+              <div className="admin-membership-content-type">
+                <span>상세 콘텐츠 유형 선택</span>
+                <div role="tablist" aria-label="상세 콘텐츠 유형">
+                  {([
+                    ["section", "섹션형"],
+                    ["editor", "자유 본문형 (에디터)"],
+                    ["download", "첨부파일 다운로드형"],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      type="button"
+                      role="tab"
+                      key={value}
+                      aria-selected={contentType === value}
+                      onClick={() => setContentType(value)}
+                    >{label}</button>
+                  ))}
+                </div>
+              </div>
+              <MembershipFormField label="자유 본문 편집 영역">
+                <div className="admin-membership-rich-editor">
+                  <div className="admin-membership-rich-toolbar" aria-hidden="true">
+                    <b>✎</b><b>▧</b><b>⌁</b><i />
+                    <span>Pretendard Regular</span><b>⌄</b>
+                  </div>
+                  <textarea
+                    value={richContent}
+                    maxLength={20000}
+                    onChange={(event) => setRichContent(event.target.value)}
+                    placeholder="본문을 자유롭게 작성하고 이미지를 배치할 수 있는 위지위그(WYSIWYG) 에디터 영역입니다."
+                  />
+                </div>
+              </MembershipFormField>
+              <MembershipFormField label="첨부파일 명칭">
+                <input
+                  value={attachmentLabel}
+                  maxLength={150}
+                  onChange={(event) => setAttachmentLabel(event.target.value)}
+                  placeholder="예: [브로셔] 서울기공연구소_소개서.pdf"
+                />
+              </MembershipFormField>
+              <MembershipFileField
+                label="첨부파일 업로드 (PDF, PPTX 등)"
+                file={attachmentFile}
+                accept="image/jpeg,image/png,image/gif,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                hint="JPG, PNG, GIF, PDF, PPT, PPTX (최대 10MB)"
+                onChange={setAttachmentFile}
+              />
+            </MembershipFormCard>
+          </div>
+        </div>
+
+        {error ? <p className="admin-membership-registration-error" role="alert">{error}</p> : null}
+        <div className="admin-membership-registration-actions">
+          <button type="button" onClick={onCancel} disabled={isSaving}>취소</button>
+          <button type="submit" disabled={isSaving}>{isSaving ? "저장 중..." : "저장하기"}</button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function MembershipFormCard({
+  children,
+  title,
+}: {
+  children: ReactNode;
+  title: string;
+}) {
+  return (
+    <section className="admin-membership-form-card">
+      <h2>{title}</h2>
+      <div>{children}</div>
+    </section>
+  );
+}
+
+function MembershipFormField({
+  children,
+  label,
+  required = false,
+}: {
+  children: ReactNode;
+  label: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="admin-membership-form-field">
+      <span>{label}{required ? <b aria-hidden="true"> *</b> : null}</span>
+      {children}
+    </label>
+  );
+}
+
+function MembershipFileField({
+  accept,
+  file,
+  hint,
+  label,
+  large = false,
+  onChange,
+}: {
+  accept: string;
+  file: File | null;
+  hint: string;
+  label: string;
+  large?: boolean;
+  onChange: (file: File | null) => void;
+}) {
+  return (
+    <div className="admin-membership-file-field">
+      <span>{label}</span>
+      <label className={large ? "admin-membership-upload-zone is-large" : "admin-membership-upload-zone"}>
+        <input
+          type="file"
+          accept={accept}
+          onChange={(event) => onChange(event.target.files?.[0] ?? null)}
+        />
+        <Image src="/Type=Upload.svg" alt="" width={24} height={24} />
+        <strong>{file ? file.name : "클릭하거나 파일을 드래그하여 업로드하세요."}</strong>
+        <small>{hint}</small>
+      </label>
+    </div>
+  );
+}
+
+function MembershipToggleField({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="admin-membership-toggle-field">
+      <span>{label}</span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <i aria-hidden="true" />
+    </label>
+  );
+}
+
+function MembershipListField({
+  dragging,
+  items,
+  label,
+  list,
+  onAdd,
+  onDrag,
+  onMove,
+  onRemove,
+  onUpdate,
+}: {
+  dragging: { index: number; list: "strengths" | "benefits" } | null;
+  items: string[];
+  label: string;
+  list: "strengths" | "benefits";
+  onAdd: () => void;
+  onDrag: (value: { index: number; list: "strengths" | "benefits" } | null) => void;
+  onMove: (list: "strengths" | "benefits", fromIndex: number, toIndex: number) => void;
+  onRemove: (list: "strengths" | "benefits", index: number) => void;
+  onUpdate: (list: "strengths" | "benefits", index: number, value: string) => void;
+}) {
+  return (
+    <div className="admin-membership-list-field">
+      <div>
+        <span>{label}</span>
+        <button type="button" onClick={onAdd}>+ 항목 추가</button>
+      </div>
+      <ul>
+        {items.map((item, index) => (
+          <li
+            key={`${list}-${index}`}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={() => {
+              if (dragging?.list === list) onMove(list, dragging.index, index);
+              onDrag(null);
+            }}
+          >
+            <button
+              type="button"
+              className="admin-membership-grip"
+              draggable
+              aria-label={`${index + 1}번 항목 순서 변경`}
+              onDragStart={() => onDrag({ index, list })}
+              onDragEnd={() => onDrag(null)}
+            >
+              <Image src="/Type=Grip.svg" alt="" width={24} height={24} />
+            </button>
+            <input
+              value={item}
+              maxLength={200}
+              aria-label={`${label} ${index + 1}`}
+              onChange={(event) => onUpdate(list, index, event.target.value)}
+            />
+            <button
+              type="button"
+              className="admin-membership-list-delete"
+              aria-label={`${index + 1}번 항목 삭제`}
+              onClick={() => onRemove(list, index)}
+            >
+              <Image src="/Type=Delete.svg" alt="" width={24} height={24} />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

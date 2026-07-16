@@ -397,6 +397,38 @@ export async function fetchAdminMembershipManagement(
   );
 }
 
+export async function createAdminMembershipPartner(
+  accessToken: string,
+  input: AdminMembershipCreateInput,
+) {
+  const body = new FormData();
+  body.set("name", input.name);
+  body.set("category", input.category);
+  body.set("recommendedOrder", String(input.recommendedOrder));
+  body.set("description", input.description);
+  body.set("isPreferred", String(input.isPreferred));
+  body.set("isVisible", String(input.isVisible));
+  body.set("detailTitle", input.detailTitle);
+  body.set("detailDescription", input.detailDescription);
+  body.set("inquiryButtonLabel", input.inquiryButtonLabel);
+  body.set("inquiryMethod", input.inquiryMethod);
+  body.set("inquiryValue", input.inquiryValue);
+  body.set("intro", input.intro);
+  body.set("serviceTags", JSON.stringify(input.serviceTags));
+  body.set("strengths", JSON.stringify(input.strengths));
+  body.set("benefitItems", JSON.stringify(input.benefitItems));
+  body.set("contentType", input.contentType);
+  body.set("richContent", input.richContent);
+  body.set("attachmentLabel", input.attachmentLabel);
+  if (input.cardImage) body.set("cardImage", input.cardImage);
+  if (input.detailImage) body.set("detailImage", input.detailImage);
+  if (input.attachmentFile) body.set("attachmentFile", input.attachmentFile);
+  return adminFetch<AdminActionResult>("/api/v1/admin/memberships", accessToken, {
+    method: "POST",
+    body,
+  });
+}
+
 export async function updateAdminMembershipPartner(
   accessToken: string,
   partnerId: string,
@@ -618,13 +650,14 @@ async function adminFetch<T>(
   accessToken: string,
   init: RequestInit = {},
 ): Promise<T> {
+  const headers = {
+    ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+    Authorization: `Bearer ${accessToken}`,
+    ...Object.fromEntries(new Headers(init.headers).entries()),
+  };
   const response = await fetch(`${apiBaseUrl()}${path}`, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-      ...(init.headers ?? {}),
-    },
+    headers,
   });
   const payload = (await response.json().catch(() => ({}))) as unknown;
 
@@ -675,6 +708,7 @@ import type {
   SalesPerformancePayload,
 } from "./sales-performance";
 import type {
+  AdminMembershipCreateInput,
   AdminMembershipFilters,
   AdminMembershipManagementPayload,
   MembershipCategory,
