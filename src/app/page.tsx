@@ -15,6 +15,7 @@ import {
   fetchAdminDentalSalesDetail,
   fetchAdminPartnerClinicDetail,
   fetchAdminPartnerClinics,
+  fetchAdminSalesPerformance,
   inviteAdminAccount,
   rejectManualHospitalSubmission,
   revokeInvite,
@@ -76,6 +77,15 @@ import {
   type AdminPartnerClinicsPayload,
 } from "@/lib/partner-clinics";
 import {
+  canAccessSalesPerformance,
+  defaultSalesPerformanceFilters,
+  formatSalesPerformanceDate,
+  salesPerformanceDetailLabel,
+  salesPerformanceMonthOptions,
+  type SalesPerformanceFilters,
+  type SalesPerformancePayload,
+} from "@/lib/sales-performance";
+import {
   licenseMembershipRoleLabel,
   licenseRequestTimeLabel,
   normalizeLicenseRejectionReason,
@@ -123,9 +133,9 @@ const primaryTabs = [
   { id: "secret-feedback", label: "시크릿 피드백", icon: "/Type=Opinion.svg" },
   { id: "chikapick-accounts", label: "치카픽 계정 조회", icon: "/Type=Family.svg" },
   { id: "partner-accounts", label: "파트너스 계정 조회", icon: "/Type=Family.svg" },
-  { id: "sales-performance", label: "영업 성과 관리", icon: "/Type=Price.svg" },
   { id: "memberships", label: "멤버십 관리", icon: "/Type=Ticket.svg" },
   { id: "terms-management", label: "약관 관리", icon: "/Type=Diary.svg" },
+  { id: "sales-performance", label: "영업 성과 관리", icon: "/Type=Price.svg" },
   { id: "admin-accounts", label: "어드민 계정 관리", icon: "/Type=Mypage.svg" },
   { id: "external-connectors", label: "외부 연결자 관리", icon: "/Type=Share.svg" },
   { id: "audit-log", label: "감사 로그", icon: "/Type=Log.svg" },
@@ -189,6 +199,13 @@ export default function AdminHome() {
   const isPartnerClinicDetailView =
     activePrimaryTab === "partner-clinics" && selectedPartnerClinicId !== null;
   const isAdminDetailView = isDentalSalesDetailView || isPartnerClinicDetailView;
+  const isSuperAdmin = canAccessSalesPerformance(
+    consoleData.users,
+    session?.user.id,
+  );
+  const visiblePrimaryTabs = primaryTabs.filter(
+    (tab) => tab.id !== "sales-performance" || isSuperAdmin,
+  );
 
   const applyDetailSelection = useCallback(
     (selection: AdminDetailHistorySelection | null) => {
@@ -518,7 +535,7 @@ export default function AdminHome() {
         </div>
         <nav className="admin-navigation">
           <div className="admin-navigation-primary">
-            {primaryTabs.map((tab) => (
+            {visiblePrimaryTabs.map((tab) => (
               <button
                 type="button"
                 key={tab.id}
@@ -605,6 +622,7 @@ export default function AdminHome() {
             className={`admin-workspace-heading${
               activePrimaryTab === "dental-sales" ||
               activePrimaryTab === "partner-clinics" ||
+              activePrimaryTab === "sales-performance" ||
               activePrimaryTab === "license-review"
                 ? " admin-workspace-heading--sales"
                 : ""
@@ -617,6 +635,8 @@ export default function AdminHome() {
                     ? "치과 영업 관리"
                     : activePrimaryTab === "partner-clinics"
                       ? "파트너 치과 관리"
+                    : activePrimaryTab === "sales-performance"
+                      ? "영업 성과 관리"
                     : activePrimaryTab === "license-review"
                       ? "치과 의사 면허 인증"
                     : activePrimaryTab === "admin-accounts"
@@ -632,6 +652,8 @@ export default function AdminHome() {
                   ? "전국 치과를 지역별로 조회하고 초대 코드를 확인 할 수 있으며 영업 현황을 관리합니다."
                   : activePrimaryTab === "partner-clinics"
                     ? "가입 완료한 파트너 치과의 운영 상태를 모니터링하고 필요한 지원을 빠르게 진행할 수 있습니다."
+                  : activePrimaryTab === "sales-performance"
+                    ? "월 기준으로 영업 성과를 확인할 수 있습니다."
                   : activePrimaryTab === "license-review"
                     ? "제출된 치과의사 면허증의 식별 가능 여부와 성명, 면허번호, 보건복지부 발급 여부를 확인한 후 승인 또는 반려해 주세요."
                   : activePrimaryTab === "admin-accounts"
@@ -643,6 +665,7 @@ export default function AdminHome() {
             </div>
             {activePrimaryTab !== "dental-sales" &&
             activePrimaryTab !== "partner-clinics" &&
+            activePrimaryTab !== "sales-performance" &&
             activePrimaryTab !== "license-review" ? (
               <div className="admin-topbar-actions">
                 <button type="button" onClick={() => loadConsole(session)}>
@@ -658,7 +681,8 @@ export default function AdminHome() {
 
         {message &&
         activePrimaryTab !== "dental-sales" &&
-        activePrimaryTab !== "partner-clinics" ? (
+        activePrimaryTab !== "partner-clinics" &&
+        activePrimaryTab !== "sales-performance" ? (
           <p className="admin-message">{message}</p>
         ) : null}
 
@@ -668,6 +692,10 @@ export default function AdminHome() {
           }${
             activePrimaryTab === "partner-clinics"
               ? " admin-content--partner-clinics"
+              : ""
+          }${
+            activePrimaryTab === "sales-performance"
+              ? " admin-content--sales-performance"
               : ""
           }${
             activePrimaryTab === "license-review"
@@ -696,6 +724,11 @@ export default function AdminHome() {
                   ? openAdminDetail({ tab: "partner-clinics", id: clinicId })
                   : closeAdminDetail("partner-clinics")
               }
+            />
+          ) : activePrimaryTab === "sales-performance" ? (
+            <SalesPerformanceTab
+              accessToken={session?.access_token ?? ""}
+              isSuperAdmin={isSuperAdmin}
             />
           ) : activePrimaryTab === "license-review" ? (
             <LicenseReviewTab
@@ -806,6 +839,279 @@ export default function AdminHome() {
         </div>
       </section>
     </main>
+  );
+}
+
+function SalesPerformanceTab({
+  accessToken,
+  isSuperAdmin,
+}: {
+  accessToken: string;
+  isSuperAdmin: boolean;
+}) {
+  const [draftFilters, setDraftFilters] = useState<SalesPerformanceFilters>(() =>
+    defaultSalesPerformanceFilters(),
+  );
+  const [appliedFilters, setAppliedFilters] = useState<SalesPerformanceFilters>(
+    () => defaultSalesPerformanceFilters(),
+  );
+  const [currentPage, setCurrentPage] = useState(1);
+  const [data, setData] = useState<SalesPerformancePayload | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const monthOptions = useMemo(() => salesPerformanceMonthOptions(), []);
+
+  const loadPerformance = useCallback(async () => {
+    if (!isSuperAdmin || !accessToken) return;
+    setIsLoading(true);
+    setErrorMessage("");
+    try {
+      setData(
+        await fetchAdminSalesPerformance(
+          accessToken,
+          appliedFilters,
+          currentPage,
+        ),
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "영업 성과를 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, appliedFilters, currentPage, isSuperAdmin]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => void loadPerformance(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadPerformance]);
+
+  if (!isSuperAdmin) {
+    return (
+      <section className="admin-performance-permission" role="alert">
+        <h2>권한 없음</h2>
+        <p>영업 성과 관리는 Super Admin만 접근할 수 있습니다.</p>
+      </section>
+    );
+  }
+
+  const pageNumbers = dentalSalesPageNumbers(
+    currentPage,
+    data?.pagination.totalPages ?? 1,
+  );
+
+  function updateFilter<Key extends keyof SalesPerformanceFilters>(
+    key: Key,
+    value: SalesPerformanceFilters[Key],
+  ) {
+    setDraftFilters((filters) => ({ ...filters, [key]: value }));
+  }
+
+  function resetFilters() {
+    const reset = defaultSalesPerformanceFilters();
+    setDraftFilters(reset);
+    setAppliedFilters(reset);
+    setCurrentPage(1);
+  }
+
+  return (
+    <section className="admin-performance" aria-busy={isLoading}>
+      <form
+        className="admin-sales-filters admin-performance-filters"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setAppliedFilters({ ...draftFilters });
+          setCurrentPage(1);
+        }}
+      >
+        <SalesFilterSelect
+          label="연/월"
+          value={draftFilters.month}
+          options={monthOptions}
+          onChange={(value) => updateFilter("month", value)}
+        />
+        <SalesFilterSelect
+          label="담당자"
+          value={draftFilters.salespersonId}
+          options={[
+            { value: "", label: "전체" },
+            ...(data?.filterOptions.salespeople.map((person) => ({
+              value: person.id,
+              label: person.name,
+            })) ?? []),
+          ]}
+          onChange={(value) => updateFilter("salespersonId", value)}
+        />
+        <SalesFilterSelect
+          label="외부 연결자"
+          value={draftFilters.externalConnectorId}
+          options={[
+            { value: "", label: "전체" },
+            ...(data?.filterOptions.externalConnectors.map((person) => ({
+              value: person.id,
+              label: person.name,
+            })) ?? []),
+          ]}
+          onChange={(value) => updateFilter("externalConnectorId", value)}
+        />
+        <label className="admin-sales-filter-field">
+          <span>상태</span>
+          <span className="admin-sales-select-wrap admin-performance-fixed-filter">
+            <select value="SIGNED" disabled aria-label="상태">
+              <option value="SIGNED">가입완료</option>
+            </select>
+          </span>
+        </label>
+        <SalesFilterSelect
+          label="상세 상태"
+          value={draftFilters.detailStatus}
+          options={[
+            { value: "ACTIVE", label: "사용중" },
+            { value: "INFORMATION_MISSING", label: "정보 미입력" },
+          ]}
+          onChange={(value) =>
+            updateFilter(
+              "detailStatus",
+              value as SalesPerformanceFilters["detailStatus"],
+            )
+          }
+        />
+        <button className="admin-sales-reset" type="button" onClick={resetFilters}>
+          초기화
+        </button>
+        <button className="admin-sales-submit" type="submit" disabled={isLoading}>
+          검색
+        </button>
+      </form>
+
+      <div className="admin-performance-metrics" aria-label="영업 성과 요약">
+        <PerformanceMetricCard
+          label="담당자만 등록 수"
+          value={data?.metrics.salespersonOnly ?? 0}
+        />
+        <PerformanceMetricCard
+          label="외부 연결자만 등록 수"
+          value={data?.metrics.externalConnectorOnly ?? 0}
+        />
+        <PerformanceMetricCard
+          label="둘 다 지정된 수"
+          value={data?.metrics.bothAssigned ?? 0}
+        />
+      </div>
+
+      {errorMessage ? (
+        <div className="admin-sales-feedback admin-sales-feedback--error" role="alert">
+          <span>{errorMessage}</span>
+          <button type="button" onClick={() => void loadPerformance()}>
+            다시 시도
+          </button>
+        </div>
+      ) : null}
+
+      <div className="admin-performance-table-card">
+        <header>총 {data?.pagination.totalItems ?? 0}건</header>
+        <div className="admin-sales-table-scroll admin-performance-table-scroll">
+          <table className="admin-sales-table admin-performance-table">
+            <colgroup>
+              <col style={{ width: "16%" }} />
+              <col style={{ width: "18%" }} />
+              <col style={{ width: "22%" }} />
+              <col style={{ width: "13%" }} />
+              <col style={{ width: "14%" }} />
+              <col style={{ width: "17%" }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>담당자</th>
+                <th>외부 연결자</th>
+                <th>병원명</th>
+                <th>상태</th>
+                <th>상세 상태</th>
+                <th>최종 상태 변경일</th>
+              </tr>
+            </thead>
+            <tbody>
+              {!isLoading && !errorMessage
+                ? data?.items.map((row) => (
+                    <tr key={row.id}>
+                      <td>{row.salesperson?.name ?? "-"}</td>
+                      <td>{row.externalConnector?.name ?? "-"}</td>
+                      <td className="admin-sales-clinic-name">{row.clinicName}</td>
+                      <td>가입완료</td>
+                      <td>{salesPerformanceDetailLabel(row.detailStatus)}</td>
+                      <td className="admin-performance-date">
+                        {formatSalesPerformanceDate(row.lastStatusChangedAt)}
+                      </td>
+                    </tr>
+                  ))
+                : null}
+              {isLoading ? (
+                <tr>
+                  <td className="admin-sales-empty" colSpan={6}>
+                    영업 성과를 불러오는 중입니다.
+                  </td>
+                </tr>
+              ) : null}
+              {!isLoading && !errorMessage && (data?.items.length ?? 0) === 0 ? (
+                <tr>
+                  <td className="admin-sales-empty" colSpan={6}>
+                    조건에 맞는 영업 성과가 없습니다.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <nav className="admin-sales-pagination" aria-label="영업 성과 목록 페이지">
+        <button
+          type="button"
+          aria-label="이전 페이지"
+          disabled={currentPage <= 1 || isLoading}
+          onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+        >
+          ‹
+        </button>
+        {pageNumbers.map((page) => (
+          <button
+            type="button"
+            key={page}
+            className={currentPage === page ? "admin-sales-page-active" : undefined}
+            aria-current={currentPage === page ? "page" : undefined}
+            onClick={() => setCurrentPage(page)}
+          >
+            {page}
+          </button>
+        ))}
+        <button
+          type="button"
+          aria-label="다음 페이지"
+          disabled={
+            currentPage >= (data?.pagination.totalPages ?? 1) || isLoading
+          }
+          onClick={() =>
+            setCurrentPage((page) =>
+              Math.min(data?.pagination.totalPages ?? 1, page + 1),
+            )
+          }
+        >
+          ›
+        </button>
+      </nav>
+    </section>
+  );
+}
+
+function PerformanceMetricCard({ label, value }: { label: string; value: number }) {
+  return (
+    <article>
+      <span>{label}</span>
+      <strong>{value.toLocaleString("ko-KR")}</strong>
+    </article>
   );
 }
 

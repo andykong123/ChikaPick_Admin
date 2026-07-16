@@ -147,6 +147,7 @@ Current Admin API calls:
 - `GET /api/v1/admin/dental-sales/:profileId`
 - `PATCH /api/v1/admin/dental-sales/:profileId`
 - `POST /api/v1/admin/dental-sales/:profileId/visits`
+- `GET /api/v1/admin/sales-performance`
 - `GET /api/v1/admin/partner-clinics`
 - `GET /api/v1/admin/partner-clinics/:clinicId`
 - `POST /api/v1/auth/session/register`
@@ -159,6 +160,7 @@ Do not expose plaintext invite codes in Admin. The invite tab should inspect inv
 ## Current Admin Surfaces
 
 - 치과 영업 관리: live nationwide HIRA clinic sales directory from `ChikaPick_API`, with server-owned filters/pagination, regional owner-code copying, status/detail display, an accessible hover/focus status glossary beside the page title, and a responsive full-page detail view. The detail view provides a super-admin-only inline editor whose salesperson list comes from active sales accounts and whose external-connector list comes from the non-login contacts added in 어드민 계정 관리; both assignments are persisted by the API. At 100% hospital-information completion, `등록 정보 검토하기` opens an accessible, responsive, read-only popup ported from the Partners hospital-information page and backed by that clinic's live five-section completion payload. Visit creation/history remains immutable and timestamped. The visit-registration modal stores the custom title inside the existing immutable note contract; selected visit attachments and the business-registration upload control currently perform browser-side JPG/PNG/PDF and 10MB validation only because no Admin upload endpoint exists yet. `NOT_VISITED`, `VISITING`, and `SIGNED` are backend lifecycle states; signed rows show `INFORMATION_MISSING` until all five Partners hospital-information sections are complete, then `ACTIVE`.
+- 영업 성과 관리: Super Admin-only monthly `SIGNED` clinic report. The navigation item is hidden from other admins and the API independently returns 403. Month inclusion uses either tracked status timestamp in Korea time, the displayed date is the later timestamp, filters come from active sales accounts and external connectors, and unassigned parties render as `-`. The three summary cards count salesperson-only, external-only, and both-assigned rows after filtering; detail status defaults to `ACTIVE` (`사용중`).
 - 파트너 치과 관리: live partner-only clinic directory with server-owned free-text search and 10-row pagination. Rows show representative name, active doctor/staff counts, latest active Partners-device heartbeat, and the clinic registration timestamp. `상세보기` opens a responsive full-page operational dashboard backed by live aggregate metrics; `Type=Hospital.svg` is used in the summary card, and the existing accessible read-only hospital-information review remains available from the completion card. Browser Back/Forward restores the default list/detail state, matching 치과 영업 관리 detail navigation. Editing remains in Partners.
 - 수동 병원 가입 심사: pending owner manual hospital submissions, short-lived business-license file links, approve/reject.
 - 소속 신청 승인: pending doctor/staff clinic memberships, approve/reject.

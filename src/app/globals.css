@@ -1203,6 +1203,45 @@ td span {
   padding-top: 25px;
 }
 
+.admin-content--sales-performance {
+  max-width: none;
+  gap: 20px;
+  padding-top: 25px;
+}
+
+.admin-performance {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.admin-performance-permission {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 32px;
+  text-align: center;
+}
+
+.admin-performance-permission h2,
+.admin-performance-permission p {
+  margin: 0;
+}
+
+.admin-performance-permission h2 {
+  font-size: 20px;
+  line-height: 28px;
+}
+
+.admin-performance-permission p {
+  margin-top: 8px;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
 .admin-content--sales-detail {
   max-width: none;
   padding-top: 24px;
@@ -2439,6 +2478,94 @@ td span {
   gap: 12px;
   align-items: end;
   padding: 12px 20px;
+}
+
+.admin-performance-filters {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) 54px 42px;
+}
+
+.admin-performance-fixed-filter::after {
+  display: none;
+}
+
+.admin-performance-fixed-filter select:disabled {
+  color: #161616;
+  cursor: default;
+  opacity: 1;
+  padding-right: 12px;
+}
+
+.admin-performance-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-performance-metrics article {
+  min-height: 74px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 12px;
+}
+
+.admin-performance-metrics span,
+.admin-performance-metrics strong {
+  margin: 0;
+  font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
+}
+
+.admin-performance-metrics span {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.admin-performance-metrics strong {
+  color: var(--text-primary);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
+.admin-performance-table-card {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.admin-performance-table-card > header {
+  height: 40px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  color: #161616;
+  font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.admin-sales-table-scroll.admin-performance-table-scroll {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+}
+
+.admin-sales-table.admin-performance-table {
+  min-width: 760px;
+}
+
+.admin-performance-date {
+  color: var(--text-primary) !important;
+  font-weight: 700 !important;
 }
 
 .admin-sales-filter-field {
@@ -4213,6 +4340,10 @@ td span {
 }
 
 @media (max-width: 760px) {
+  .admin-performance-metrics {
+    grid-template-columns: 1fr;
+  }
+
   .admin-license-decision-layer {
     padding: 12px;
   }

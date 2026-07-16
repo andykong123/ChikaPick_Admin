@@ -300,6 +300,30 @@ export async function fetchAdminDentalSales(
   );
 }
 
+export async function fetchAdminSalesPerformance(
+  accessToken: string,
+  filters: SalesPerformanceFilters,
+  page: number,
+  pageSize = 10,
+) {
+  const params = new URLSearchParams({
+    month: filters.month,
+    detailStatus: filters.detailStatus,
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  if (filters.salespersonId.trim()) {
+    params.set("salespersonId", filters.salespersonId.trim());
+  }
+  if (filters.externalConnectorId.trim()) {
+    params.set("externalConnectorId", filters.externalConnectorId.trim());
+  }
+  return adminFetch<SalesPerformancePayload>(
+    `/api/v1/admin/sales-performance?${params.toString()}`,
+    accessToken,
+  );
+}
+
 export async function fetchAdminDentalSalesDetail(
   accessToken: string,
   profileId: string,
@@ -412,3 +436,7 @@ import type {
   AdminPartnerClinicDetailPayload,
   AdminPartnerClinicsPayload,
 } from "./partner-clinics";
+import type {
+  SalesPerformanceFilters,
+  SalesPerformancePayload,
+} from "./sales-performance";

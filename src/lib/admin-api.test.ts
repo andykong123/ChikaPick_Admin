@@ -9,6 +9,7 @@ import {
   fetchAdminDentalSalesDetail,
   fetchAdminPartnerClinicDetail,
   fetchAdminPartnerClinics,
+  fetchAdminSalesPerformance,
   inviteAdminAccount,
   sendAdminPasswordReset,
   unlockAdminAccount,
@@ -201,6 +202,51 @@ test("fetchAdminDentalSalesDetail requests the selected profile and visit page",
     calls[0]?.input,
     "https://api.example.com/api/v1/admin/dental-sales/sales%2F1?visitPage=2",
   );
+});
+
+test("fetchAdminSalesPerformance sends the Super Admin report filters", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(
+      JSON.stringify({
+        items: [],
+        metrics: {
+          salespersonOnly: 0,
+          externalConnectorOnly: 0,
+          bothAssigned: 0,
+        },
+        pagination: { page: 2, pageSize: 10, totalItems: 0, totalPages: 1 },
+        filterOptions: { salespeople: [], externalConnectors: [] },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+
+  try {
+    await fetchAdminSalesPerformance(
+      "access-token",
+      {
+        month: "2026-06",
+        salespersonId: " sales-1 ",
+        externalConnectorId: "connector-1",
+        detailStatus: "ACTIVE",
+      },
+      2,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const url = new URL(calls[0]?.input.toString() ?? "");
+  assert.equal(url.pathname, "/api/v1/admin/sales-performance");
+  assert.equal(url.searchParams.get("month"), "2026-06");
+  assert.equal(url.searchParams.get("salespersonId"), "sales-1");
+  assert.equal(url.searchParams.get("externalConnectorId"), "connector-1");
+  assert.equal(url.searchParams.get("detailStatus"), "ACTIVE");
+  assert.equal(url.searchParams.get("page"), "2");
 });
 
 test("fetchAdminPartnerClinics sends the Figma search and pagination query", async () => {
