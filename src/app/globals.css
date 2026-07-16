@@ -1215,6 +1215,232 @@ td span {
   padding-top: 25px;
 }
 
+.admin-content--license-review {
+  max-width: none;
+  gap: 20px;
+  padding-top: 24px;
+}
+
+.admin-license-review {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.admin-license-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-license-summary article {
+  min-width: 0;
+  height: 90px;
+  border: 1px solid #b8bbc2;
+  border-radius: 12px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+}
+
+.admin-license-summary p {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.admin-license-summary p span {
+  border-radius: 100px;
+  background: var(--chika-primary-5);
+  color: #fff;
+  padding: 2px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 11px;
+}
+
+.admin-license-summary strong {
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 32px;
+  letter-spacing: -0.48px;
+}
+
+.admin-license-summary article.is-pending strong {
+  color: #d96505;
+}
+
+.admin-license-request-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px 16px;
+}
+
+.admin-license-request-card {
+  min-width: 0;
+  min-height: 234px;
+  border: 1px solid #d4d6da;
+  border-radius: 12px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+}
+
+.admin-license-request-card header {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-license-request-card h2,
+.admin-license-request-card header p {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-license-request-card h2 {
+  flex: 0 1 auto;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 22px;
+  letter-spacing: -0.32px;
+}
+
+.admin-license-request-card header p {
+  flex: 1 1 auto;
+  color: var(--text-quaternary);
+  font-family: "Inter", "Pretendard", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: normal;
+  text-align: right;
+}
+
+.admin-license-request-card dl {
+  min-width: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-license-request-card dl > div {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-license-request-card dt,
+.admin-license-request-card dd {
+  min-width: 0;
+  margin: 0;
+  font-family: "Inter", "Pretendard", sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: normal;
+  white-space: nowrap;
+}
+
+.admin-license-request-card dt {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+}
+
+.admin-license-request-card dd {
+  overflow: hidden;
+  color: var(--text-primary);
+  text-align: right;
+  text-overflow: ellipsis;
+}
+
+.admin-license-file a,
+.admin-license-file span {
+  display: block;
+  overflow: hidden;
+  color: #3366e5;
+  font-weight: 600;
+  text-decoration: none;
+  text-overflow: ellipsis;
+}
+
+.admin-license-file a:hover,
+.admin-license-file a:focus-visible {
+  text-decoration: underline;
+}
+
+.admin-license-request-card footer {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(88px, 1fr));
+  gap: 8px;
+}
+
+.admin-license-request-card footer button {
+  height: 36px;
+  border: 1px solid #d4d6da;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  letter-spacing: -0.28px;
+}
+
+.admin-license-request-card footer button:last-child {
+  border-color: #e6ecf9;
+  background: #e6ecf9;
+  color: #023dc7;
+}
+
+.admin-license-request-card footer button:hover:not(:disabled),
+.admin-license-request-card footer button:focus-visible:not(:disabled) {
+  border-color: #3366e5;
+}
+
+.admin-license-request-card footer button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.admin-license-empty {
+  grid-column: 1 / -1;
+  min-height: 234px;
+  margin: 0;
+  border: 1px dashed #d4d6da;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-quaternary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 20px;
+}
+
 .admin-partner-clinics-filter {
   height: 62px;
   border: 1px solid var(--border);
@@ -1390,6 +1616,643 @@ td span {
 .admin-partner-clinics-action-cell .admin-sales-detail-button:disabled {
   cursor: wait;
   opacity: 0.55;
+}
+
+.admin-content--partner-detail {
+  max-width: none;
+  gap: 24px;
+  padding: 24px 44px 48px;
+  background: var(--surface);
+}
+
+.admin-partner-detail-page {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
+}
+
+.admin-partner-detail-summary-card,
+.admin-partner-detail-metric-grid > article,
+.admin-partner-detail-section-card {
+  border: 1px solid #d4d6da;
+  background: var(--surface);
+}
+
+.admin-partner-detail-summary-card {
+  min-height: 254px;
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.admin-partner-detail-summary-card > header {
+  height: 45px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.admin-partner-detail-summary-card > header h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 24px;
+}
+
+.admin-partner-detail-hospital-icon {
+  filter: brightness(0) saturate(100%) invert(37%) sepia(91%) saturate(2354%)
+    hue-rotate(213deg) brightness(94%) contrast(96%);
+}
+
+.admin-partner-detail-summary-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 1.35fr) minmax(220px, 1fr) minmax(220px, 1fr);
+  gap: 32px;
+  padding-top: 20px;
+}
+
+.admin-partner-detail-summary-grid dl {
+  min-width: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-partner-detail-summary-grid dl > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.admin-partner-detail-summary-grid dt,
+.admin-partner-detail-summary-grid dd {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-partner-detail-summary-grid dt {
+  color: #999da8;
+}
+
+.admin-partner-detail-summary-grid dd {
+  color: var(--text-secondary);
+}
+
+.admin-partner-detail-summary-grid dd.is-strong {
+  font-weight: 700;
+}
+
+.admin-partner-detail-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px 20px;
+}
+
+.admin-partner-detail-metric-grid > article {
+  min-width: 0;
+  height: 100px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+}
+
+.admin-partner-detail-metric-grid p {
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-partner-detail-metric-grid article > div {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.admin-partner-detail-metric-grid strong {
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 29px;
+}
+
+.admin-partner-detail-metric-grid span {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.admin-partner-detail-two-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+
+.admin-partner-detail-section-card {
+  min-width: 0;
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.admin-partner-detail-two-column--compact .admin-partner-detail-section-card {
+  min-height: 147px;
+}
+
+.admin-partner-detail-section-heading {
+  min-height: 21px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-partner-detail-section-heading h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 19px;
+}
+
+.admin-partner-detail-section-heading > span {
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 13px;
+  white-space: nowrap;
+}
+
+.admin-partner-detail-section-heading > span.is-blue {
+  background: #e6ecf9;
+  color: #023dc7;
+}
+
+.admin-partner-detail-section-heading > span.is-green {
+  background: #e6f7ef;
+  color: #059669;
+}
+
+.admin-partner-detail-status-grid {
+  min-width: 0;
+  min-height: 62px;
+  margin-top: 16px;
+  border-radius: 6px;
+  background: #f5f6f8;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px;
+}
+
+.admin-partner-detail-status-grid > div,
+.admin-partner-detail-reservation-grid > div,
+.admin-partner-detail-instant-grid > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-partner-detail-status-grid span,
+.admin-partner-detail-reservation-grid span,
+.admin-partner-detail-instant-grid span {
+  overflow: hidden;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-partner-detail-status-grid strong,
+.admin-partner-detail-reservation-grid strong,
+.admin-partner-detail-instant-grid strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 19px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-partner-detail-reservations,
+.admin-partner-detail-instant {
+  min-height: 343px;
+}
+
+.admin-partner-detail-reservation-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-partner-detail-reservation-grid > div,
+.admin-partner-detail-instant-grid > div {
+  min-height: 50px;
+}
+
+.admin-partner-detail-reservation-grid strong,
+.admin-partner-detail-instant-grid strong {
+  font-size: 14px;
+}
+
+.admin-partner-detail-reservation-grid strong.is-blue {
+  color: #2563eb;
+}
+
+.admin-partner-detail-reservation-grid strong.is-red {
+  color: #dc2626;
+}
+
+.admin-partner-detail-reservation-grid strong.is-orange {
+  color: #f59e0b;
+}
+
+.admin-partner-detail-ratio {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-partner-detail-ratio > strong,
+.admin-partner-detail-trend > strong {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 15px;
+}
+
+.admin-partner-detail-ratio > span {
+  width: 100%;
+  height: 24px;
+  overflow: hidden;
+  border-radius: 4px;
+  display: flex;
+}
+
+.admin-partner-detail-ratio > span i {
+  min-width: 0;
+  display: block;
+}
+
+.admin-partner-detail-ratio .is-confirmed {
+  background: #2563eb;
+}
+
+.admin-partner-detail-ratio .is-cancelled {
+  background: #ef4444;
+}
+
+.admin-partner-detail-ratio .is-progress {
+  background: #f59e0b;
+}
+
+.admin-partner-detail-ratio > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-partner-detail-ratio em {
+  position: relative;
+  background: transparent !important;
+  color: #64748b;
+  padding-left: 12px;
+  font-size: 10px;
+  font-style: normal;
+  line-height: 13px;
+}
+
+.admin-partner-detail-ratio em::before {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: currentColor;
+  content: "";
+}
+
+.admin-partner-detail-ratio em.is-confirmed {
+  color: #2563eb;
+}
+
+.admin-partner-detail-ratio em.is-cancelled {
+  color: #ef4444;
+}
+
+.admin-partner-detail-ratio em.is-progress {
+  color: #f59e0b;
+}
+
+.admin-partner-detail-instant-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.admin-partner-detail-trend {
+  min-height: 85px;
+  margin-top: 16px;
+  border-radius: 6px;
+  background: #f5f6f8;
+  padding: 12px;
+}
+
+.admin-partner-detail-trend > div {
+  height: 52px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: 16px;
+}
+
+.admin-partner-detail-trend span {
+  min-width: 40px;
+  height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.admin-partner-detail-trend i {
+  width: 12px;
+  max-height: 40px;
+  border-radius: 2px 2px 0 0;
+  background: #cbd5e1;
+}
+
+.admin-partner-detail-trend i.is-current {
+  background: #3b82f6;
+}
+
+.admin-partner-detail-trend small {
+  color: #64748b;
+  font-size: 10px;
+  line-height: 12px;
+}
+
+.admin-partner-detail-completion,
+.admin-partner-detail-feedback {
+  min-height: 315px;
+}
+
+.admin-partner-detail-completion > header h2,
+.admin-partner-detail-completion > header p {
+  margin: 0;
+}
+
+.admin-partner-detail-completion > header h2 {
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 18px;
+}
+
+.admin-partner-detail-completion > header p {
+  margin-top: 8px;
+  color: #666;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.admin-partner-detail-completion dl {
+  margin: 18px 0 0;
+}
+
+.admin-partner-detail-completion dl > div,
+.admin-partner-detail-completion-progress {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px;
+}
+
+.admin-partner-detail-completion dt,
+.admin-partner-detail-completion dd,
+.admin-partner-detail-completion-progress > span,
+.admin-partner-detail-completion-progress > strong {
+  margin: 0;
+  color: var(--text-quaternary);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.admin-partner-detail-completion dd,
+.admin-partner-detail-completion-progress > strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.admin-partner-detail-completion-progress {
+  margin-top: 18px;
+}
+
+.admin-partner-detail-completion-progress > div {
+  grid-column: 1 / -1;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--chika-base-2);
+}
+
+.admin-partner-detail-completion-progress > div i {
+  height: 100%;
+  display: block;
+  background: var(--chika-secondary-6);
+}
+
+.admin-partner-detail-completion > button {
+  width: 100%;
+  height: 36px;
+  margin-top: 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-partner-detail-completion > button:hover,
+.admin-partner-detail-completion > button:focus-visible {
+  border-color: var(--chika-secondary-4);
+  color: var(--chika-secondary-6);
+}
+
+.admin-partner-detail-visibility {
+  min-height: 61px;
+  margin-top: 18px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 18px;
+}
+
+.admin-partner-detail-visibility > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.admin-partner-detail-visibility strong {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.admin-partner-detail-visibility small {
+  color: #999;
+  font-size: 10px;
+  line-height: 12px;
+}
+
+.admin-partner-detail-visibility > button {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border: 0;
+  border-radius: 11px;
+  background: #c7cbd2;
+  flex: 0 0 auto;
+  padding: 0;
+}
+
+.admin-partner-detail-visibility > button i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--surface);
+  transition: left 120ms ease;
+}
+
+.admin-partner-detail-visibility > button.is-active {
+  background: var(--chika-secondary-6);
+}
+
+.admin-partner-detail-visibility > button.is-active i {
+  left: 21px;
+}
+
+.admin-partner-detail-feedback .admin-partner-detail-section-heading {
+  min-height: 23px;
+}
+
+.admin-partner-detail-feedback-table {
+  margin-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.admin-partner-detail-feedback-table > div {
+  min-height: 41px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: center;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.admin-partner-detail-feedback-table > div.is-header {
+  min-height: 35px;
+  border-radius: 6px 6px 0 0;
+  background: #f7f7f7;
+  color: #666;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-partner-detail-feedback-table > div > span {
+  color: var(--text-primary);
+}
+
+.admin-partner-detail-feedback-table strong {
+  color: #666;
+  font-weight: 600;
+}
+
+.admin-partner-detail-feedback-table strong.is-very_satisfied {
+  color: #023dc7;
+}
+
+.admin-partner-detail-feedback-table strong.is-satisfied {
+  color: #218c21;
+}
+
+.admin-partner-detail-feedback-table strong.is-dissatisfied,
+.admin-partner-detail-feedback-table strong.is-very_dissatisfied {
+  color: #c33221;
+}
+
+.admin-partner-detail-feedback-table > p {
+  margin: 0;
+  color: var(--text-quaternary);
+  padding: 48px 12px;
+  font-size: 13px;
+  text-align: center;
+}
+
+.admin-partner-detail-notes {
+  min-height: 180px;
+}
+
+.admin-partner-detail-notes > div {
+  margin-top: 16px;
+  border-radius: 6px;
+  background: #f5f6f8;
+  padding: 12px;
+}
+
+.admin-partner-detail-notes > div strong,
+.admin-partner-detail-notes > div p {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.admin-partner-detail-notes > div p {
+  margin-top: 4px;
+  color: var(--text-quaternary);
+  font-size: 12px;
 }
 
 .admin-sales-filters {
@@ -3098,7 +3961,9 @@ td span {
   }
 
   .admin-metric-grid,
-  .admin-card-grid {
+  .admin-card-grid,
+  .admin-license-summary,
+  .admin-license-request-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -3109,6 +3974,14 @@ td span {
 
   .admin-sales-detail-columns {
     grid-template-columns: minmax(0, 1fr) 340px;
+  }
+
+  .admin-partner-detail-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-partner-detail-summary-grid dl:last-child {
+    grid-column: 1 / -1;
   }
 }
 
@@ -3147,6 +4020,14 @@ td span {
   }
 
   .admin-sales-detail-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-partner-detail-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-partner-detail-two-column {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -3294,6 +4175,32 @@ td span {
     font-size: 24px;
   }
 
+  .admin-partner-detail-summary-card {
+    min-height: 0;
+    padding: 20px;
+  }
+
+  .admin-partner-detail-summary-grid,
+  .admin-partner-detail-metric-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-partner-detail-summary-grid dl:last-child {
+    grid-column: auto;
+  }
+
+  .admin-partner-detail-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-partner-detail-reservation-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-partner-detail-section-card {
+    padding: 20px;
+  }
+
   .admin-sales-detail-back {
     width: fit-content;
     margin: 0 0 8px;
@@ -3373,7 +4280,9 @@ td span {
 
   .admin-metric-grid,
   .admin-two-column,
-  .admin-card-grid {
+  .admin-card-grid,
+  .admin-license-summary,
+  .admin-license-request-grid {
     grid-template-columns: 1fr;
   }
 

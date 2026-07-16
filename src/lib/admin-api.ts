@@ -47,6 +47,8 @@ export interface LicenseVerificationRequest {
   email: string | null;
   displayName: string | null;
   jobTitle: string | null;
+  clinicName: string;
+  membershipRole: "owner" | "doctor";
   licenseVerified: boolean;
   updatedAt: string | null;
   latestSubmission: LicenseVerificationSubmission | null;

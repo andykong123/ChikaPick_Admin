@@ -28,6 +28,13 @@ import {
 } from "@/lib/admin-api";
 import { shouldAutoLoadAdminConsole } from "@/lib/admin-auth-session";
 import {
+  adminDetailFromHistoryState,
+  pushAdminDetailHistory,
+  replaceAdminDetailHistory,
+  requestAdminDetailBack,
+  type AdminDetailHistorySelection,
+} from "@/lib/admin-detail-history";
+import {
   adminAccountStatusLabel,
   reservationSourceLabel,
   statusLabel,
@@ -60,10 +67,20 @@ import {
 } from "@/lib/dental-sales";
 import {
   partnerClinicActivityLabel,
+  partnerClinicDateLabel,
+  partnerClinicDurationLabel,
+  partnerClinicRatingLabel,
   partnerClinicRegistrationLabel,
+  partnerClinicResponseRate,
   type AdminPartnerClinicDetailPayload,
   type AdminPartnerClinicsPayload,
 } from "@/lib/partner-clinics";
+import {
+  licenseMembershipRoleLabel,
+  licenseRequestTimeLabel,
+  pendingLicenseVerificationRequests,
+  summarizeLicenseVerifications,
+} from "@/lib/license-verifications";
 import { signInWithAdminPassword } from "@/lib/password-auth";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
@@ -101,7 +118,7 @@ const primaryTabs = [
   { id: "dental-sales", label: "치과 영업 관리", icon: "/Type=Graph.svg" },
   { id: "partner-clinics", label: "파트너 치과 관리", icon: "/Type=Hospital.svg" },
   { id: "hospital-review", label: "병원 가입 심사", icon: "/Type=Accept.svg", badge: 9 },
-  { id: "license-review", label: "의사 면허 인증", icon: "/Type=Accept.svg", badge: 9 },
+  { id: "license-review", label: "치과의사 면허 인증", icon: "/Type=Accept.svg" },
   { id: "secret-feedback", label: "시크릿 피드백", icon: "/Type=Opinion.svg" },
   { id: "chikapick-accounts", label: "치카픽 계정 조회", icon: "/Type=Family.svg" },
   { id: "partner-accounts", label: "파트너스 계정 조회", icon: "/Type=Family.svg" },
@@ -147,6 +164,9 @@ export default function AdminHome() {
   const [selectedDentalSalesProfileId, setSelectedDentalSalesProfileId] = useState<
     string | null
   >(null);
+  const [selectedPartnerClinicId, setSelectedPartnerClinicId] = useState<string | null>(
+    null,
+  );
   const [consoleData, setConsoleData] = useState<AdminConsolePayload>(emptyConsole);
   const [isLoadingConsole, setIsLoadingConsole] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
@@ -165,6 +185,49 @@ export default function AdminHome() {
   const lastActivityAtRef = useRef(0);
   const isDentalSalesDetailView =
     activePrimaryTab === "dental-sales" && selectedDentalSalesProfileId !== null;
+  const isPartnerClinicDetailView =
+    activePrimaryTab === "partner-clinics" && selectedPartnerClinicId !== null;
+  const isAdminDetailView = isDentalSalesDetailView || isPartnerClinicDetailView;
+
+  const applyDetailSelection = useCallback(
+    (selection: AdminDetailHistorySelection | null) => {
+      if (selection?.tab === "dental-sales") {
+        setActivePrimaryTab("dental-sales");
+        setSelectedDentalSalesProfileId(selection.id);
+        setSelectedPartnerClinicId(null);
+      } else if (selection?.tab === "partner-clinics") {
+        setActivePrimaryTab("partner-clinics");
+        setSelectedPartnerClinicId(selection.id);
+        setSelectedDentalSalesProfileId(null);
+      } else {
+        setSelectedDentalSalesProfileId(null);
+        setSelectedPartnerClinicId(null);
+      }
+    },
+    [],
+  );
+
+  const openAdminDetail = useCallback(
+    (selection: AdminDetailHistorySelection) => {
+      pushAdminDetailHistory(window.history, window.location.href, selection);
+      applyDetailSelection(selection);
+    },
+    [applyDetailSelection],
+  );
+
+  const closeAdminDetail = useCallback(
+    (tab: AdminDetailHistorySelection["tab"]) => {
+      if (!requestAdminDetailBack(window.history, tab)) {
+        applyDetailSelection(null);
+      }
+    },
+    [applyDetailSelection],
+  );
+
+  const clearAdminDetail = useCallback(() => {
+    replaceAdminDetailHistory(window.history, window.location.href, null);
+    applyDetailSelection(null);
+  }, [applyDetailSelection]);
 
   const loadConsole = useCallback(
     async (currentSession: Session | null) => {
@@ -241,6 +304,15 @@ export default function AdminHome() {
       },
     });
   }, [session, supabase]);
+
+  useEffect(() => {
+    const syncFromHistory = () => {
+      applyDetailSelection(adminDetailFromHistoryState(window.history.state));
+    };
+    syncFromHistory();
+    window.addEventListener("popstate", syncFromHistory);
+    return () => window.removeEventListener("popstate", syncFromHistory);
+  }, [applyDetailSelection]);
 
   useEffect(() => {
     if (!session) return;
@@ -452,11 +524,11 @@ export default function AdminHome() {
                 className={activePrimaryTab === tab.id ? "admin-nav-active" : undefined}
                 aria-current={activePrimaryTab === tab.id ? "page" : undefined}
                 onClick={() => {
+                  clearAdminDetail();
                   setActivePrimaryTab(tab.id);
                   if (tab.id === "admin-accounts" || tab.id === "external-connectors") {
                     setActiveTab("users");
                   }
-                  if (tab.id !== "dental-sales") setSelectedDentalSalesProfileId(null);
                 }}
               >
                 <span className="admin-nav-icon" style={maskIcon(tab.icon)} />
@@ -480,9 +552,9 @@ export default function AdminHome() {
                   activePrimaryTab === null && activeTab === tab.id ? "page" : undefined
                 }
                 onClick={() => {
+                  clearAdminDetail();
                   setActivePrimaryTab(null);
                   setActiveTab(tab.id);
-                  setSelectedDentalSalesProfileId(null);
                 }}
               >
                 <span className="admin-nav-icon" style={maskIcon(tab.icon)} />
@@ -495,12 +567,19 @@ export default function AdminHome() {
 
       <section className="admin-main">
         <header
-          className={`admin-topbar${isDentalSalesDetailView ? " admin-topbar--detail" : ""}`}
+          className={`admin-topbar${isAdminDetailView ? " admin-topbar--detail" : ""}`}
         >
-          {isDentalSalesDetailView ? (
+          {isAdminDetailView ? (
             <nav className="admin-detail-breadcrumb" aria-label="현재 위치">
-              <button type="button" onClick={() => setSelectedDentalSalesProfileId(null)}>
-                치과 영업 관리
+              <button
+                type="button"
+                onClick={() =>
+                  closeAdminDetail(
+                    isDentalSalesDetailView ? "dental-sales" : "partner-clinics",
+                  )
+                }
+              >
+                {isDentalSalesDetailView ? "치과 영업 관리" : "파트너 치과 관리"}
               </button>
               <span aria-hidden="true">›</span>
               <strong>상세보기</strong>
@@ -520,10 +599,12 @@ export default function AdminHome() {
           </div>
         </header>
 
-        {!isDentalSalesDetailView ? (
+        {!isAdminDetailView ? (
           <div
             className={`admin-workspace-heading${
-              activePrimaryTab === "dental-sales" || activePrimaryTab === "partner-clinics"
+              activePrimaryTab === "dental-sales" ||
+              activePrimaryTab === "partner-clinics" ||
+              activePrimaryTab === "license-review"
                 ? " admin-workspace-heading--sales"
                 : ""
             }`}
@@ -535,6 +616,8 @@ export default function AdminHome() {
                     ? "치과 영업 관리"
                     : activePrimaryTab === "partner-clinics"
                       ? "파트너 치과 관리"
+                    : activePrimaryTab === "license-review"
+                      ? "치과 의사 면허 인증"
                     : activePrimaryTab === "admin-accounts"
                       ? "어드민 계정 관리"
                     : activePrimaryTab === "external-connectors"
@@ -548,6 +631,8 @@ export default function AdminHome() {
                   ? "전국 치과를 지역별로 조회하고 초대 코드를 확인 할 수 있으며 영업 현황을 관리합니다."
                   : activePrimaryTab === "partner-clinics"
                     ? "가입 완료한 파트너 치과의 운영 상태를 모니터링하고 필요한 지원을 빠르게 진행할 수 있습니다."
+                  : activePrimaryTab === "license-review"
+                    ? "제출된 치과의사 면허증의 식별 가능 여부와 성명, 면허번호, 보건복지부 발급 여부를 확인한 후 승인 또는 반려해 주세요."
                   : activePrimaryTab === "admin-accounts"
                     ? "어드민 및 영업 계정을 관리하고 외부 연결자를 추가합니다."
                   : activePrimaryTab === "external-connectors"
@@ -556,7 +641,8 @@ export default function AdminHome() {
               </p>
             </div>
             {activePrimaryTab !== "dental-sales" &&
-            activePrimaryTab !== "partner-clinics" ? (
+            activePrimaryTab !== "partner-clinics" &&
+            activePrimaryTab !== "license-review" ? (
               <div className="admin-topbar-actions">
                 <button type="button" onClick={() => loadConsole(session)}>
                   {isLoadingConsole ? "새로고침 중" : "새로고침"}
@@ -582,16 +668,44 @@ export default function AdminHome() {
             activePrimaryTab === "partner-clinics"
               ? " admin-content--partner-clinics"
               : ""
-          }${isDentalSalesDetailView ? " admin-content--sales-detail" : ""}`}
+          }${
+            activePrimaryTab === "license-review"
+              ? " admin-content--license-review"
+              : ""
+          }${isDentalSalesDetailView ? " admin-content--sales-detail" : ""}${
+            isPartnerClinicDetailView ? " admin-content--partner-detail" : ""
+          }`}
         >
           {activePrimaryTab === "dental-sales" ? (
             <DentalSalesTab
               accessToken={session?.access_token ?? ""}
               selectedProfileId={selectedDentalSalesProfileId}
-              onSelectProfile={setSelectedDentalSalesProfileId}
+              onSelectProfile={(profileId) =>
+                profileId
+                  ? openAdminDetail({ tab: "dental-sales", id: profileId })
+                  : closeAdminDetail("dental-sales")
+              }
             />
           ) : activePrimaryTab === "partner-clinics" ? (
-            <PartnerClinicsTab accessToken={session?.access_token ?? ""} />
+            <PartnerClinicsTab
+              accessToken={session?.access_token ?? ""}
+              selectedClinicId={selectedPartnerClinicId}
+              onSelectClinic={(clinicId) =>
+                clinicId
+                  ? openAdminDetail({ tab: "partner-clinics", id: clinicId })
+                  : closeAdminDetail("partner-clinics")
+              }
+            />
+          ) : activePrimaryTab === "license-review" ? (
+            <LicenseReviewTab
+              data={consoleData}
+              isLoading={isLoadingConsole}
+              onDecision={(userId, approved) =>
+                runAction((token) =>
+                  updateLicenseVerification(token, userId, approved, ""),
+                )
+              }
+            />
           ) : activeTab === "overview" ? (
             <OverviewTab data={consoleData} />
           ) : activeTab === "manual" ? (
@@ -749,18 +863,25 @@ function DentalSalesInfoTooltip() {
   );
 }
 
-function PartnerClinicsTab({ accessToken }: { accessToken: string }) {
+function PartnerClinicsTab({
+  accessToken,
+  onSelectClinic,
+  selectedClinicId,
+}: {
+  accessToken: string;
+  onSelectClinic: (clinicId: string | null) => void;
+  selectedClinicId: string | null;
+}) {
   const [draftQuery, setDraftQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [listData, setListData] = useState<AdminPartnerClinicsPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-  const [selectedClinicId, setSelectedClinicId] = useState<string | null>(null);
   const [detail, setDetail] = useState<AdminPartnerClinicDetailPayload | null>(null);
+  const [detailClinicId, setDetailClinicId] = useState<string | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
-  const detailTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const detailCloseButtonRef = useRef<HTMLButtonElement>(null);
 
   const loadClinics = useCallback(async () => {
     if (!accessToken) return;
@@ -789,40 +910,13 @@ function PartnerClinicsTab({ accessToken }: { accessToken: string }) {
     return () => window.clearTimeout(timeoutId);
   }, [loadClinics]);
 
-  useEffect(() => {
-    if (!detail) return;
-    const previousOverflow = document.body.style.overflow;
-    const triggerButton = detailTriggerRef.current;
-    document.body.style.overflow = "hidden";
-    const focusTimer = window.setTimeout(
-      () => detailCloseButtonRef.current?.focus(),
-      0,
-    );
-    return () => {
-      window.clearTimeout(focusTimer);
-      document.body.style.overflow = previousOverflow;
-      triggerButton?.focus();
-    };
-  }, [detail]);
-
-  useEffect(() => {
-    if (!detail) return;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setDetail(null);
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [detail]);
-
-  async function openDetail(
-    clinicId: string,
-    triggerButton: HTMLButtonElement,
-  ) {
-    detailTriggerRef.current = triggerButton;
-    setSelectedClinicId(clinicId);
+  const loadDetail = useCallback(async () => {
+    if (!accessToken || !selectedClinicId) return;
+    setIsDetailLoading(true);
     setDetailError("");
     try {
-      setDetail(await fetchAdminPartnerClinicDetail(accessToken, clinicId));
+      setDetail(await fetchAdminPartnerClinicDetail(accessToken, selectedClinicId));
+      setDetailClinicId(selectedClinicId);
     } catch (error) {
       setDetailError(
         error instanceof Error
@@ -830,34 +924,33 @@ function PartnerClinicsTab({ accessToken }: { accessToken: string }) {
           : "파트너 치과 상세 정보를 불러오지 못했습니다.",
       );
     } finally {
-      setSelectedClinicId(null);
+      setIsDetailLoading(false);
     }
-  }
+  }, [accessToken, selectedClinicId]);
 
-  function keepModalFocus(event: React.KeyboardEvent<HTMLDivElement>) {
-    if (event.key !== "Tab") return;
-    const focusableElements = Array.from(
-      event.currentTarget.querySelectorAll<HTMLElement>(
-        'input:not([disabled]), textarea:not([disabled]), button:not([disabled])',
-      ),
-    );
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
-    if (!firstElement || !lastElement) return;
-    if (event.shiftKey && document.activeElement === firstElement) {
-      event.preventDefault();
-      lastElement.focus();
-    } else if (!event.shiftKey && document.activeElement === lastElement) {
-      event.preventDefault();
-      firstElement.focus();
-    }
-  }
+  useEffect(() => {
+    if (!selectedClinicId) return;
+    const timeoutId = window.setTimeout(() => void loadDetail(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadDetail, selectedClinicId]);
 
   const pagination = listData?.pagination;
   const pageNumbers = dentalSalesPageNumbers(
     pagination?.page ?? currentPage,
     pagination?.totalPages ?? 1,
   );
+
+  if (selectedClinicId) {
+    return (
+      <PartnerClinicDetailPage
+        detail={detailClinicId === selectedClinicId ? detail : null}
+        detailError={detailError}
+        isDetailLoading={isDetailLoading}
+        onBack={() => onSelectClinic(null)}
+        onRetry={() => void loadDetail()}
+      />
+    );
+  }
 
   return (
     <>
@@ -944,10 +1037,9 @@ function PartnerClinicsTab({ accessToken }: { accessToken: string }) {
                   <button
                     className="admin-sales-detail-button"
                     type="button"
-                    disabled={selectedClinicId !== null}
-                    onClick={(event) => void openDetail(clinic.id, event.currentTarget)}
+                    onClick={() => onSelectClinic(clinic.id)}
                   >
-                    {selectedClinicId === clinic.id ? "불러오는 중" : "상세보기"}
+                    상세보기
                   </button>
                 </td>
               </tr>
@@ -1007,16 +1099,528 @@ function PartnerClinicsTab({ accessToken }: { accessToken: string }) {
         </nav>
       ) : null}
 
-      {detail ? (
+    </>
+  );
+}
+
+function PartnerClinicDetailPage({
+  detail,
+  detailError,
+  isDetailLoading,
+  onBack,
+  onRetry,
+}: {
+  detail: AdminPartnerClinicDetailPayload | null;
+  detailError: string;
+  isDetailLoading: boolean;
+  onBack: () => void;
+  onRetry: () => void;
+}) {
+  const [isHospitalReviewOpen, setIsHospitalReviewOpen] = useState(false);
+  const reviewButtonRef = useRef<HTMLButtonElement>(null);
+  const reviewCloseButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isHospitalReviewOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const reviewButton = reviewButtonRef.current;
+    document.body.style.overflow = "hidden";
+    const focusTimer = window.setTimeout(
+      () => reviewCloseButtonRef.current?.focus(),
+      0,
+    );
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.body.style.overflow = previousOverflow;
+      reviewButton?.focus();
+    };
+  }, [isHospitalReviewOpen]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      if (isHospitalReviewOpen) setIsHospitalReviewOpen(false);
+      else onBack();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isHospitalReviewOpen, onBack]);
+
+  function keepModalFocus(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "Tab") return;
+    const focusableElements = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>(
+        'input:not([disabled]), textarea:not([disabled]), button:not([disabled])',
+      ),
+    );
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements.at(-1);
+    if (!firstElement || !lastElement) return;
+    if (event.shiftKey && document.activeElement === firstElement) {
+      event.preventDefault();
+      lastElement.focus();
+    } else if (!event.shiftKey && document.activeElement === lastElement) {
+      event.preventDefault();
+      firstElement.focus();
+    }
+  }
+
+  if (isDetailLoading && !detail) {
+    return (
+      <section className="admin-sales-detail-state" aria-live="polite">
+        <p>파트너 치과 상세 정보를 불러오는 중입니다.</p>
+      </section>
+    );
+  }
+
+  if (detailError && !detail) {
+    return (
+      <section className="admin-sales-detail-state" role="alert">
+        <p>{detailError}</p>
+        <div>
+          <button type="button" onClick={onBack}>목록으로</button>
+          <button type="button" onClick={onRetry}>다시 시도</button>
+        </div>
+      </section>
+    );
+  }
+
+  if (!detail) return null;
+
+  const { clinic, hospitalInformation, metrics } = detail;
+  const consultationDuration = partnerClinicDurationLabel(
+    metrics.consultations.averageResponseMinutes,
+  );
+  const resultDuration = partnerClinicDurationLabel(
+    metrics.resultRecords.averageResponseMinutes,
+  );
+  const reservationDuration = partnerClinicDurationLabel(
+    metrics.reservations.averageConfirmationMinutes,
+  );
+  const completion = hospitalInformation.completion;
+  const reservationTotal = Math.max(metrics.reservations.requests, 1);
+  const trendMaximum = Math.max(
+    1,
+    ...metrics.instantBookings.monthlyTrend.map((item) => item.count),
+  );
+
+  return (
+    <article className="admin-partner-detail-page">
+      <section className="admin-partner-detail-summary-card">
+        <header>
+          <Image
+            className="admin-partner-detail-hospital-icon"
+            src="/Type=Hospital.svg"
+            alt=""
+            width={24}
+            height={24}
+          />
+          <h1>{clinic.name}</h1>
+        </header>
+        <div className="admin-partner-detail-summary-grid">
+          <dl>
+            <PartnerClinicSummaryRow label="대표 주소" value={clinic.address ?? "-"} />
+            <PartnerClinicSummaryRow label="연락처" value={clinic.phone ?? "-"} />
+            <PartnerClinicSummaryRow
+              label="대표자명"
+              value={clinic.representativeName ?? "-"}
+            />
+          </dl>
+          <dl>
+            <PartnerClinicSummaryRow
+              label="소속 계정 수"
+              value={`${formatPartnerMetric(clinic.memberCount)} 명`}
+              strong
+            />
+            <PartnerClinicSummaryRow
+              label="소속 직원 수"
+              value={`${formatPartnerMetric(clinic.staffCount)} 명`}
+              strong
+            />
+            <PartnerClinicSummaryRow label="담당 운영자" value="미지정" strong />
+          </dl>
+          <dl>
+            <PartnerClinicSummaryRow
+              label="최근 활동일"
+              value={partnerClinicDateLabel(clinic.lastActiveAt)}
+            />
+            <PartnerClinicSummaryRow
+              label="등록 일시"
+              value={partnerClinicRegistrationLabel(clinic.createdAt)}
+            />
+          </dl>
+        </div>
+      </section>
+
+      <section className="admin-partner-detail-metric-grid" aria-label="파트너 치과 주요 지표">
+        <PartnerClinicMetricCard
+          label="누적 전문의 소견 요청 수"
+          value={metrics.consultations.requests}
+          unit="건"
+        />
+        <PartnerClinicMetricCard
+          label="누적 전문의 소견 답변 수"
+          value={metrics.consultations.responses}
+          unit={`건 (답변율 ${partnerClinicResponseRate(
+            metrics.consultations.requests,
+            metrics.consultations.responses,
+          )})`}
+        />
+        <PartnerClinicMetricCard
+          label="전문의 소견 평균 답변 속도"
+          value={consultationDuration.value}
+          unit={consultationDuration.unit}
+        />
+        <PartnerClinicMetricCard
+          label="누적 병원 결과 기록 답변 수"
+          value={metrics.resultRecords.responses}
+          unit="건"
+        />
+        <PartnerClinicMetricCard
+          label="병원 결과 기록 평균 답변 속도"
+          value={resultDuration.value}
+          unit={resultDuration.unit}
+        />
+        <PartnerClinicMetricCard
+          label="누적 예약 요청 수"
+          value={metrics.reservations.requests}
+          unit="건"
+        />
+        <PartnerClinicMetricCard
+          label="예약 확정 평균 처리 속도"
+          value={reservationDuration.value}
+          unit={reservationDuration.unit}
+        />
+        <PartnerClinicMetricCard
+          label="즉시 예약 등록 월간 사용 횟수"
+          value={metrics.instantBookings.monthlySlotRegistrations}
+          unit="회"
+        />
+        <PartnerClinicMetricCard
+          label="즉시 예약으로 예약된 건수"
+          value={metrics.instantBookings.totalBookings}
+          unit="건"
+        />
+      </section>
+
+      <div className="admin-partner-detail-two-column admin-partner-detail-two-column--compact">
+        <section className="admin-partner-detail-section-card">
+          <PartnerClinicSectionHeading title="전문의 소견 현황" badge="실시간 업데이트" />
+          <div className="admin-partner-detail-status-grid">
+            <PartnerClinicStatusValue
+              label="누적 요청 / 답변"
+              value={`${formatPartnerMetric(metrics.consultations.requests)} / ${formatPartnerMetric(metrics.consultations.responses)} 건`}
+            />
+            <PartnerClinicStatusValue
+              label="미답변"
+              value={`${formatPartnerMetric(metrics.consultations.unanswered)} 건`}
+            />
+            <PartnerClinicStatusValue
+              label="평균 속도"
+              value={`${consultationDuration.value}${consultationDuration.unit ? ` ${consultationDuration.unit}` : ""}`}
+            />
+            <PartnerClinicStatusValue
+              label="최근 30일"
+              value={`${formatPartnerMetric(metrics.consultations.recent30Days)} 건`}
+            />
+          </div>
+        </section>
+
+        <section className="admin-partner-detail-section-card">
+          <PartnerClinicSectionHeading title="병원 결과 기록 현황" badge="기록 동기화" />
+          <div className="admin-partner-detail-status-grid">
+            <PartnerClinicStatusValue
+              label="누적 요청 / 답변"
+              value={`${formatPartnerMetric(metrics.resultRecords.requests)} / ${formatPartnerMetric(metrics.resultRecords.responses)} 건`}
+            />
+            <PartnerClinicStatusValue
+              label="미답변"
+              value={`${formatPartnerMetric(metrics.resultRecords.unanswered)} 건`}
+            />
+            <PartnerClinicStatusValue
+              label="평균 속도"
+              value={`${resultDuration.value}${resultDuration.unit ? ` ${resultDuration.unit}` : ""}`}
+            />
+            <PartnerClinicStatusValue
+              label="최근 30일"
+              value={`${formatPartnerMetric(metrics.resultRecords.recent30Days)} 건`}
+            />
+          </div>
+        </section>
+      </div>
+
+      <div className="admin-partner-detail-two-column">
+        <section className="admin-partner-detail-section-card admin-partner-detail-reservations">
+          <PartnerClinicSectionHeading title="예약 관리 현황" badge="실시간 예약 연동" />
+          <div className="admin-partner-detail-reservation-grid">
+            <PartnerClinicStatusValue
+              label="누적 요청"
+              value={`${formatPartnerMetric(metrics.reservations.requests)}건`}
+            />
+            <PartnerClinicStatusValue
+              label="예약 확정"
+              value={`${formatPartnerMetric(metrics.reservations.confirmed)}건`}
+              tone="blue"
+            />
+            <PartnerClinicStatusValue
+              label="예약 취소"
+              value={`${formatPartnerMetric(metrics.reservations.cancelled)}건`}
+              tone="red"
+            />
+            <PartnerClinicStatusValue
+              label="진행 중"
+              value={`${formatPartnerMetric(metrics.reservations.inProgress)}건`}
+              tone="orange"
+            />
+            <PartnerClinicStatusValue
+              label="확정 처리 속도"
+              value={`${reservationDuration.value}${reservationDuration.unit}`}
+            />
+            <PartnerClinicStatusValue label="수정 처리 속도" value="-" />
+            <PartnerClinicStatusValue
+              label="최근 30일 요청"
+              value={`${formatPartnerMetric(metrics.reservations.recent30Days)}건`}
+            />
+          </div>
+          <div className="admin-partner-detail-ratio">
+            <strong>예약 상태 비율</strong>
+            <span aria-hidden="true">
+              <i
+                className="is-confirmed"
+                style={{
+                  width: `${(metrics.reservations.confirmed / reservationTotal) * 100}%`,
+                }}
+              />
+              <i
+                className="is-cancelled"
+                style={{
+                  width: `${(metrics.reservations.cancelled / reservationTotal) * 100}%`,
+                }}
+              />
+              <i
+                className="is-progress"
+                style={{
+                  width: `${(metrics.reservations.inProgress / reservationTotal) * 100}%`,
+                }}
+              />
+            </span>
+            <div>
+              <em className="is-confirmed">확정 {formatPartnerMetric(metrics.reservations.confirmed)}건</em>
+              <em className="is-cancelled">취소 {formatPartnerMetric(metrics.reservations.cancelled)}건</em>
+              <em className="is-progress">진행 중 {formatPartnerMetric(metrics.reservations.inProgress)}건</em>
+            </div>
+          </div>
+        </section>
+
+        <section className="admin-partner-detail-section-card admin-partner-detail-instant">
+          <PartnerClinicSectionHeading title="즉시 예약 관리 현황" badge="활성 상태" tone="green" />
+          <div className="admin-partner-detail-instant-grid">
+            <PartnerClinicStatusValue
+              label="이번 달 등록 횟수"
+              value={`${formatPartnerMetric(metrics.instantBookings.monthlySlotRegistrations)}회`}
+            />
+            <PartnerClinicStatusValue
+              label="누적 즉시 예약 건수"
+              value={`${formatPartnerMetric(metrics.instantBookings.totalBookings)}건`}
+            />
+            <PartnerClinicStatusValue
+              label="최근 등록일"
+              value={partnerClinicDateLabel(metrics.instantBookings.latestRegistrationAt)}
+            />
+            <PartnerClinicStatusValue
+              label="3개월 등록 추이"
+              value={metrics.instantBookings.monthlyTrend
+                .map((item) => `${Number(item.month.slice(5))}월 ${formatPartnerMetric(item.count)}`)
+                .join("  ") || "-"}
+            />
+          </div>
+          <div className="admin-partner-detail-trend">
+            <strong>최근 3개월 이용 트렌드</strong>
+            <div>
+              {metrics.instantBookings.monthlyTrend.map((item, index) => (
+                <span key={item.month}>
+                  <i
+                    className={
+                      index === metrics.instantBookings.monthlyTrend.length - 1
+                        ? "is-current"
+                        : undefined
+                    }
+                    style={{ height: `${16 + (item.count / trendMaximum) * 28}px` }}
+                  />
+                  <small>{Number(item.month.slice(5))}월</small>
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div className="admin-partner-detail-two-column">
+        <section className="admin-partner-detail-section-card admin-partner-detail-completion">
+          <header>
+            <h2>필수 정보 입력 상태</h2>
+            <p>
+              치과에서 입력한 필수 정보를 검토하고 사용자 앱 노출 상태를 확인할 수
+              있습니다.
+            </p>
+          </header>
+          <dl>
+            <div>
+              <dt>최근 정보 수정일</dt>
+              <dd>{partnerClinicDateLabel(hospitalInformation.updated_at)}</dd>
+            </div>
+          </dl>
+          <div className="admin-partner-detail-completion-progress">
+            <span>정보 관리 완료율</span>
+            <strong>{completion.percentage}%</strong>
+            <div aria-hidden="true">
+              <i style={{ width: `${completion.percentage}%` }} />
+            </div>
+          </div>
+          <button
+            ref={reviewButtonRef}
+            type="button"
+            onClick={() => setIsHospitalReviewOpen(true)}
+          >
+            등록 정보 검토하기
+          </button>
+          <div className="admin-partner-detail-visibility">
+            <span>
+              <strong>앱 노출 승인</strong>
+              <small>현재 사용자 앱의 치과 정보 노출 상태입니다</small>
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={clinic.isAppVisible}
+              aria-label="앱 노출 승인 상태"
+              className={clinic.isAppVisible ? "is-active" : undefined}
+              disabled
+            >
+              <i />
+            </button>
+          </div>
+        </section>
+
+        <section className="admin-partner-detail-section-card admin-partner-detail-feedback">
+          <PartnerClinicSectionHeading
+            title={`사용자 피드백 (누적 ${formatPartnerMetric(metrics.feedback.total)}건)`}
+            badge={`최근 30일 ${formatPartnerMetric(metrics.feedback.recent30Days)}건`}
+          />
+          <div className="admin-partner-detail-feedback-table">
+            <div className="is-header">
+              <span>작성일</span>
+              <span>만족도</span>
+            </div>
+            {metrics.feedback.items.length ? (
+              metrics.feedback.items.map((item) => (
+                <div key={item.id}>
+                  <span>{partnerClinicDateLabel(item.submittedAt).slice(2)}</span>
+                  <strong className={`is-${item.rating}`}>
+                    {partnerClinicRatingLabel(item.rating)}
+                  </strong>
+                </div>
+              ))
+            ) : (
+              <p>아직 제출된 사용자 피드백이 없습니다.</p>
+            )}
+          </div>
+        </section>
+      </div>
+
+      <section className="admin-partner-detail-section-card admin-partner-detail-notes">
+        <PartnerClinicSectionHeading title="운영 메모 및 지원 이력" />
+        <div>
+          <strong>등록된 운영 메모가 없습니다.</strong>
+          <p>운영 메모 및 지원 이력 저장 기능은 준비 중입니다.</p>
+        </div>
+      </section>
+
+      {isHospitalReviewOpen ? (
         <HospitalInformationReviewModal
-          closeButtonRef={detailCloseButtonRef}
-          information={detail.hospitalInformation}
-          onClose={() => setDetail(null)}
+          closeButtonRef={reviewCloseButtonRef}
+          information={hospitalInformation}
+          onClose={() => setIsHospitalReviewOpen(false)}
           onKeyDown={keepModalFocus}
         />
       ) : null}
-    </>
+    </article>
   );
+}
+
+function PartnerClinicSummaryRow({
+  label,
+  strong = false,
+  value,
+}: {
+  label: string;
+  strong?: boolean;
+  value: string;
+}) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd className={strong ? "is-strong" : undefined} title={value}>{value}</dd>
+    </div>
+  );
+}
+
+function PartnerClinicMetricCard({
+  label,
+  unit,
+  value,
+}: {
+  label: string;
+  unit: string;
+  value: number | string;
+}) {
+  return (
+    <article>
+      <p>{label}</p>
+      <div>
+        <strong>{typeof value === "number" ? formatPartnerMetric(value) : value}</strong>
+        {unit ? <span>{unit}</span> : null}
+      </div>
+    </article>
+  );
+}
+
+function PartnerClinicSectionHeading({
+  badge,
+  title,
+  tone = "blue",
+}: {
+  badge?: string;
+  title: string;
+  tone?: "blue" | "green";
+}) {
+  return (
+    <header className="admin-partner-detail-section-heading">
+      <h2>{title}</h2>
+      {badge ? <span className={`is-${tone}`}>{badge}</span> : null}
+    </header>
+  );
+}
+
+function PartnerClinicStatusValue({
+  label,
+  tone,
+  value,
+}: {
+  label: string;
+  tone?: "blue" | "red" | "orange";
+  value: string;
+}) {
+  return (
+    <div>
+      <span>{label}</span>
+      <strong className={tone ? `is-${tone}` : undefined}>{value}</strong>
+    </div>
+  );
+}
+
+function formatPartnerMetric(value: number) {
+  return new Intl.NumberFormat("ko-KR").format(value);
 }
 
 function DentalSalesTab({
@@ -2610,6 +3214,125 @@ function MembershipTab({
         </table>
       </div>
     </Panel>
+  );
+}
+
+function LicenseReviewTab({
+  data,
+  isLoading,
+  onDecision,
+}: {
+  data: AdminConsolePayload;
+  isLoading: boolean;
+  onDecision: (userId: string, approved: boolean) => Promise<boolean>;
+}) {
+  const [processingUserId, setProcessingUserId] = useState<string | null>(null);
+  const summary = summarizeLicenseVerifications(data.licenseVerificationRequests);
+  const pendingRequests = pendingLicenseVerificationRequests(
+    data.licenseVerificationRequests,
+  );
+  const metrics = [
+    { label: "소속 치과 의사 전체 가입자 수", value: summary.total },
+    { label: "면허 인증 완료 수", value: summary.approved },
+    { label: "승인 요청 수", value: summary.pending, isPending: true },
+    { label: "미요청 수", value: summary.unrequested },
+  ];
+
+  async function decide(userId: string, approved: boolean) {
+    setProcessingUserId(userId);
+    try {
+      await onDecision(userId, approved);
+    } finally {
+      setProcessingUserId(null);
+    }
+  }
+
+  return (
+    <section className="admin-license-review" aria-busy={isLoading}>
+      <div className="admin-license-summary" aria-label="면허 인증 현황">
+        {metrics.map((metric) => (
+          <article
+            className={metric.isPending ? "is-pending" : undefined}
+            key={metric.label}
+          >
+            <p>
+              {metric.label}
+              {metric.isPending ? <span>NEW</span> : null}
+            </p>
+            <strong>{metric.value}</strong>
+          </article>
+        ))}
+      </div>
+
+      <div className="admin-license-request-grid">
+        {pendingRequests.map((item) => {
+          const submission = item.latestSubmission;
+          if (!submission) return null;
+          const isProcessing = processingUserId === item.userId;
+          return (
+            <article className="admin-license-request-card" key={item.userId}>
+              <header>
+                <h2>{item.displayName ?? "이름 없음"}</h2>
+                <p title={item.email ?? undefined}>{item.email ?? item.userId}</p>
+              </header>
+              <dl>
+                <div>
+                  <dt>소속 치과</dt>
+                  <dd title={item.clinicName}>{item.clinicName}</dd>
+                </div>
+                <div>
+                  <dt>직책</dt>
+                  <dd>{licenseMembershipRoleLabel(item.membershipRole)}</dd>
+                </div>
+                <div>
+                  <dt>요청 시간</dt>
+                  <dd>{licenseRequestTimeLabel(submission.submittedAt)}</dd>
+                </div>
+                <div>
+                  <dt>첨부 파일</dt>
+                  <dd className="admin-license-file">
+                    {submission.signedUrl ? (
+                      <a
+                        href={submission.signedUrl}
+                        rel="noreferrer"
+                        target="_blank"
+                        title={submission.fileName}
+                      >
+                        {submission.fileName}
+                      </a>
+                    ) : (
+                      <span title={submission.fileName}>{submission.fileName}</span>
+                    )}
+                  </dd>
+                </div>
+              </dl>
+              <footer>
+                <button
+                  type="button"
+                  disabled={isLoading || processingUserId !== null}
+                  onClick={() => void decide(item.userId, false)}
+                >
+                  {isProcessing ? "처리 중" : "반려"}
+                </button>
+                <button
+                  type="button"
+                  disabled={isLoading || processingUserId !== null}
+                  onClick={() => void decide(item.userId, true)}
+                >
+                  {isProcessing ? "처리 중" : "승인"}
+                </button>
+              </footer>
+            </article>
+          );
+        })}
+        {!isLoading && pendingRequests.length === 0 ? (
+          <p className="admin-license-empty">현재 승인 요청이 없습니다.</p>
+        ) : null}
+        {isLoading && data.licenseVerificationRequests.length === 0 ? (
+          <p className="admin-license-empty">면허 인증 요청을 불러오는 중입니다.</p>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
