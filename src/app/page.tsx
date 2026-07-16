@@ -40,6 +40,8 @@ import {
   dentalSalesBusinessFileError,
   dentalSalesDetailOptions,
   dentalSalesCompletionViewState,
+  dentalSalesHospitalInformationCards,
+  dentalSalesHospitalInformationReviewState,
   dentalSalesPageNumbers,
   dentalSalesRegionLabel,
   dentalSalesStatusLabel,
@@ -50,6 +52,7 @@ import {
   isDentalSalesVisitDetailStatus,
   type DentalSalesDetailPayload,
   type DentalSalesFilters,
+  type DentalSalesHospitalInformation,
   type DentalSalesListPayload,
   type DentalSalesVisitDetailStatus,
 } from "@/lib/dental-sales";
@@ -751,6 +754,7 @@ function DentalSalesTab({
   const [isSavingAssignment, setIsSavingAssignment] = useState(false);
   const [isSavingVisit, setIsSavingVisit] = useState(false);
   const [isAssignmentEditing, setIsAssignmentEditing] = useState(false);
+  const [isHospitalReviewOpen, setIsHospitalReviewOpen] = useState(false);
   const [isVisitFormOpen, setIsVisitFormOpen] = useState(false);
   const [businessFileName, setBusinessFileName] = useState("");
   const [businessFileError, setBusinessFileError] = useState("");
@@ -823,6 +827,10 @@ function DentalSalesTab({
     if (!selectedProfileId) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        if (isHospitalReviewOpen) {
+          setIsHospitalReviewOpen(false);
+          return;
+        }
         if (isVisitFormOpen) {
           setIsVisitFormOpen(false);
           setVisitAttachmentNames([]);
@@ -841,7 +849,13 @@ function DentalSalesTab({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isAssignmentEditing, isVisitFormOpen, onSelectProfile, selectedProfileId]);
+  }, [
+    isAssignmentEditing,
+    isHospitalReviewOpen,
+    isVisitFormOpen,
+    onSelectProfile,
+    selectedProfileId,
+  ]);
 
   const pageNumbers = dentalSalesPageNumbers(
     listData?.pagination.page ?? 1,
@@ -982,6 +996,7 @@ function DentalSalesTab({
 
   function closeDetail() {
     setIsAssignmentEditing(false);
+    setIsHospitalReviewOpen(false);
     setIsVisitFormOpen(false);
     setBusinessFileName("");
     setBusinessFileError("");
@@ -995,6 +1010,7 @@ function DentalSalesTab({
     setVisitPage(1);
     setActionMessage("");
     setIsAssignmentEditing(false);
+    setIsHospitalReviewOpen(false);
     setIsVisitFormOpen(false);
     setBusinessFileName("");
     setBusinessFileError("");
@@ -1020,6 +1036,7 @@ function DentalSalesTab({
         detailError={detailError}
         isAssignmentEditing={isAssignmentEditing}
         isDetailLoading={isDetailLoading}
+        isHospitalReviewOpen={isHospitalReviewOpen}
         isSavingAssignment={isSavingAssignment}
         isSavingVisit={isSavingVisit}
         isVisitFormOpen={isVisitFormOpen}
@@ -1031,6 +1048,8 @@ function DentalSalesTab({
         onBack={closeDetail}
         onBusinessFileSelect={selectBusinessFile}
         onDetailRetry={() => void loadDetail()}
+        onHospitalReviewClose={() => setIsHospitalReviewOpen(false)}
+        onHospitalReviewOpen={() => setIsHospitalReviewOpen(true)}
         onVisitAttachmentSelect={selectVisitAttachments}
         onVisitModalClose={closeVisitModal}
         onVisitModalOpen={openVisitModal}
@@ -1303,6 +1322,7 @@ function DentalSalesDetailPage({
   detailError,
   isAssignmentEditing,
   isDetailLoading,
+  isHospitalReviewOpen,
   isSavingAssignment,
   isSavingVisit,
   isVisitFormOpen,
@@ -1312,6 +1332,8 @@ function DentalSalesDetailPage({
   onBack,
   onBusinessFileSelect,
   onDetailRetry,
+  onHospitalReviewClose,
+  onHospitalReviewOpen,
   onVisitAttachmentSelect,
   onVisitFormChange,
   onVisitModalClose,
@@ -1330,6 +1352,7 @@ function DentalSalesDetailPage({
   detailError: string;
   isAssignmentEditing: boolean;
   isDetailLoading: boolean;
+  isHospitalReviewOpen: boolean;
   isSavingAssignment: boolean;
   isSavingVisit: boolean;
   isVisitFormOpen: boolean;
@@ -1342,6 +1365,8 @@ function DentalSalesDetailPage({
   onBack: () => void;
   onBusinessFileSelect: (file: File | undefined) => void;
   onDetailRetry: () => void;
+  onHospitalReviewClose: () => void;
+  onHospitalReviewOpen: () => void;
   onVisitAttachmentSelect: (files: File[]) => void;
   onVisitFormChange: (patch: Partial<DentalSalesVisitForm>) => void;
   onVisitModalClose: () => void;
@@ -1354,6 +1379,8 @@ function DentalSalesDetailPage({
   visitPage: number;
 }) {
   const registerButtonRef = useRef<HTMLButtonElement>(null);
+  const hospitalReviewButtonRef = useRef<HTMLButtonElement>(null);
+  const hospitalReviewCloseButtonRef = useRef<HTMLButtonElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const [assignmentDraftSalespersonId, setAssignmentDraftSalespersonId] = useState("");
   const [assignmentDraftExternalConnectorId, setAssignmentDraftExternalConnectorId] =
@@ -1371,6 +1398,22 @@ function DentalSalesDetailPage({
       triggerButton?.focus();
     };
   }, [isVisitFormOpen]);
+
+  useEffect(() => {
+    if (!isHospitalReviewOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const triggerButton = hospitalReviewButtonRef.current;
+    document.body.style.overflow = "hidden";
+    const focusTimer = window.setTimeout(
+      () => hospitalReviewCloseButtonRef.current?.focus(),
+      0,
+    );
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.body.style.overflow = previousOverflow;
+      triggerButton?.focus();
+    };
+  }, [isHospitalReviewOpen]);
 
   function keepModalFocus(event: React.KeyboardEvent<HTMLDivElement>) {
     if (event.key !== "Tab") return;
@@ -1727,10 +1770,16 @@ function DentalSalesDetailPage({
             </dl>
             <div className="admin-sales-completion-review">
               <button
+                ref={hospitalReviewButtonRef}
                 className="admin-sales-review-button"
                 type="button"
-                disabled={!isComplete}
-                title={isComplete ? undefined : "필수 정보 입력 완료 후 검토할 수 있습니다."}
+                disabled={!isComplete || !detail.hospitalInformation}
+                title={
+                  isComplete && detail.hospitalInformation
+                    ? undefined
+                    : "필수 정보 입력 완료 후 검토할 수 있습니다."
+                }
+                onClick={onHospitalReviewOpen}
               >
                 등록 정보 검토하기
               </button>
@@ -1752,6 +1801,15 @@ function DentalSalesDetailPage({
           </DetailCard>
         </aside>
       </div>
+
+      {isHospitalReviewOpen && detail.hospitalInformation ? (
+        <HospitalInformationReviewModal
+          closeButtonRef={hospitalReviewCloseButtonRef}
+          information={detail.hospitalInformation}
+          onClose={onHospitalReviewClose}
+          onKeyDown={keepModalFocus}
+        />
+      ) : null}
 
       {isVisitFormOpen ? (
         <div className="admin-sales-visit-modal-layer">
@@ -1863,6 +1921,111 @@ function DentalSalesDetailPage({
         </div>
       ) : null}
     </article>
+  );
+}
+
+function HospitalInformationReviewModal({
+  closeButtonRef,
+  information,
+  onClose,
+  onKeyDown,
+}: {
+  closeButtonRef: React.RefObject<HTMLButtonElement | null>;
+  information: DentalSalesHospitalInformation;
+  onClose: () => void;
+  onKeyDown: (event: React.KeyboardEvent<HTMLDivElement>) => void;
+}) {
+  const reviewState = dentalSalesHospitalInformationReviewState(information);
+  const { completion } = information;
+
+  return (
+    <div className="admin-sales-hospital-review-layer">
+      <button
+        className="admin-sales-hospital-review-backdrop"
+        type="button"
+        aria-label="병원 정보 관리 창 닫기"
+        onClick={onClose}
+      />
+      <div
+        className="admin-sales-hospital-review-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="admin-sales-hospital-review-title"
+        onKeyDown={onKeyDown}
+      >
+        <div className="admin-sales-hospital-review-content">
+          <header className="admin-sales-hospital-review-header">
+            <h2 id="admin-sales-hospital-review-title">병원 정보 관리</h2>
+            <button
+              ref={closeButtonRef}
+              type="button"
+              aria-label="병원 정보 관리 닫기"
+              onClick={onClose}
+            >
+              <span aria-hidden="true">×</span>
+            </button>
+          </header>
+
+          <section
+            className="admin-sales-hospital-review-progress"
+            aria-label="병원 프로필 완료 현황"
+          >
+            <div className="admin-sales-hospital-review-progress-heading">
+              <h3>병원 프로필</h3>
+              <p>사용자에게 노출될 병원 정보를 등록해 주세요.</p>
+            </div>
+            <div className="admin-sales-hospital-review-progress-body">
+              <div>
+                <span aria-hidden="true">
+                  <i style={{ width: `${completion.percentage}%` }} />
+                </span>
+                <strong>{completion.percentage}%</strong>
+              </div>
+              <p>
+                {completion.total_count}개 항목 중 {completion.completed_count}개 완료 · 모든
+                필수 정보가 입력되면 치카픽 담당자에게 검수 요청이 전송되며, 승인 후 앱에
+                노출됩니다.
+              </p>
+            </div>
+          </section>
+
+          <div className="admin-sales-hospital-review-grid">
+            {dentalSalesHospitalInformationCards.map((card) => {
+              const status = reviewState.cardStatuses[card.key];
+              return (
+                <article
+                  className={`admin-sales-hospital-review-card${
+                    card.wide ? " admin-sales-hospital-review-card--wide" : ""
+                  }`}
+                  key={card.key}
+                >
+                  <header>
+                    <h3>{card.title}</h3>
+                    <span className={status === "complete" ? "is-complete" : "is-needed"}>
+                      {status === "complete" ? "완료" : "설정 필요"}
+                    </span>
+                  </header>
+                  <p>{card.description}</p>
+                  {card.key === "staff" ? (
+                    <strong className="admin-sales-hospital-review-card-metric">
+                      {reviewState.staffMetric}
+                    </strong>
+                  ) : null}
+                  <footer>
+                    <button type="button" disabled title="파트너스에서 관리할 수 있습니다.">
+                      {card.primaryAction}
+                    </button>
+                    <button type="button" disabled title="파트너스에서 관리할 수 있습니다.">
+                      {card.secondaryAction}
+                    </button>
+                  </footer>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

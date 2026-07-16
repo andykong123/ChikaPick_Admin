@@ -64,6 +64,40 @@ export interface DentalSalesListPayload {
   };
 }
 
+export interface DentalSalesHospitalInformation {
+  clinic_id: string;
+  basic_info: {
+    clinic_name: string;
+  };
+  photos: {
+    summary: {
+      representative_count: number;
+      total_count: number;
+    };
+  };
+  staff: {
+    summary: {
+      total_count: number;
+      completed_count: number;
+      incomplete_count: number;
+      percentage: number;
+    };
+  };
+  operating_hours: {
+    weekly: Partial<Record<string, object | null>>;
+  };
+  fee_schedule: {
+    has_items: boolean;
+  };
+  completion: {
+    completed_count: number;
+    total_count: number;
+    missing_count: number;
+    percentage: number;
+  };
+  updated_at: string | null;
+}
+
 export interface DentalSalesDetailPayload {
   canEditAssignment: boolean;
   profile: DentalSalesRow & {
@@ -89,7 +123,56 @@ export interface DentalSalesDetailPayload {
   visitPagination: DentalSalesPagination;
   salespeople: DentalSalesperson[];
   externalConnectors: DentalSalesperson[];
+  hospitalInformation: DentalSalesHospitalInformation | null;
 }
+
+export const dentalSalesHospitalInformationCards = [
+  {
+    key: "basicInfo",
+    title: "병원 기본 정보",
+    description:
+      "사업자등록번호로 불러온 병원 정보를 확인하고 수정해 주세요. 병원명, 주소, 대표 전화번호 등 기본 정보를 설정합니다.",
+    primaryAction: "내용 확인하기",
+    secondaryAction: "수정하기",
+    wide: false,
+  },
+  {
+    key: "photos",
+    title: "병원 사진 업로드",
+    description:
+      "환자가 병원을 미리 확인할 수 있도록 사진을 등록해 주세요.\n외관, 내부, 진료실, 주차장 안내 사진을 카테고리별로 업로드할 수 있습니다.",
+    primaryAction: "미리보기",
+    secondaryAction: "수정하기",
+    wide: false,
+  },
+  {
+    key: "staff",
+    title: "의료진 프로필 관리",
+    description:
+      "병원 소속 의료진이 직접 입력한 프로필 현황을 확인하세요. 입력 완료된 정보는 환자용 앱 의사 소개 영역에 노출됩니다.",
+    primaryAction: "미리보기",
+    secondaryAction: "진행률 보기",
+    wide: false,
+  },
+  {
+    key: "hours",
+    title: "진료시간 및 휴진",
+    description:
+      "환자에게 안내할 진료시간과 휴진 정보를 설정해 주세요.\n요일별 운영시간, 점심시간, 공휴일 및 특별 휴진일을 관리합니다.",
+    primaryAction: "미리보기",
+    secondaryAction: "수정하기",
+    wide: true,
+  },
+  {
+    key: "fees",
+    title: "비급여 진료 수가표",
+    description:
+      "비급여 진료 항목과 금액 정보를 등록해 주세요.\n항목별 병원 금액과 치카픽 제휴가를 입력해 환자에게 안내할 수 있습니다.",
+    primaryAction: "미리보기",
+    secondaryAction: "수정하기",
+    wide: true,
+  },
+] as const;
 
 export const emptyDentalSalesFilters: DentalSalesFilters = {
   city: "",
@@ -201,6 +284,27 @@ export function dentalSalesCompletionViewState({
     completionPercentage,
     isAppVisible: isAppVisible ?? isComplete,
     isComplete,
+  };
+}
+
+export function dentalSalesHospitalInformationReviewState(
+  information: DentalSalesHospitalInformation,
+) {
+  const staff = information.staff.summary;
+  return {
+    cardStatuses: {
+      basicInfo: information.basic_info.clinic_name ? "complete" : "needsSetup",
+      photos: information.photos.summary.total_count > 0 ? "complete" : "needsSetup",
+      staff:
+        staff.total_count > 0 && staff.incomplete_count === 0
+          ? "complete"
+          : "needsSetup",
+      hours: Object.values(information.operating_hours.weekly).some(Boolean)
+        ? "complete"
+        : "needsSetup",
+      fees: information.fee_schedule.has_items ? "complete" : "needsSetup",
+    } as const,
+    staffMetric: `총 의료진 ${staff.total_count}명 · 입력 완료 ${staff.completed_count}명 · 미입력 ${staff.incomplete_count}명 · 진행률 ${staff.percentage}%`,
   };
 }
 

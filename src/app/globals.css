@@ -2033,6 +2033,284 @@ td span {
   opacity: 0.5;
 }
 
+.admin-sales-hospital-review-layer {
+  position: fixed;
+  z-index: 140;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.admin-sales-hospital-review-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 11, 38, 0.42);
+  cursor: default;
+}
+
+.admin-sales-hospital-review-modal {
+  position: relative;
+  z-index: 1;
+  width: min(1088px, calc(100vw - 40px));
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--chika-bg-base);
+  box-shadow: 0 20px 48px rgba(0, 11, 38, 0.2);
+  font-family: "Pretendard", ui-sans-serif, system-ui, sans-serif;
+}
+
+.admin-sales-hospital-review-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px 32px 48px;
+}
+
+.admin-sales-hospital-review-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.admin-sales-hospital-review-header h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 32px;
+  letter-spacing: -0.48px;
+}
+
+.admin-sales-hospital-review-header > button {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.admin-sales-hospital-review-header > button:hover,
+.admin-sales-hospital-review-header > button:focus-visible {
+  background: var(--chika-base-2);
+  color: var(--text-primary);
+}
+
+.admin-sales-hospital-review-header > button span {
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.admin-sales-hospital-review-progress {
+  min-height: 154px;
+  border: 1px solid var(--chika-base-4);
+  border-radius: 12px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+}
+
+.admin-sales-hospital-review-progress-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-sales-hospital-review-progress-heading h3,
+.admin-sales-hospital-review-progress-heading p,
+.admin-sales-hospital-review-progress-body p {
+  margin: 0;
+}
+
+.admin-sales-hospital-review-progress-heading h3 {
+  color: var(--text-primary);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 26px;
+}
+
+.admin-sales-hospital-review-progress-heading p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: -0.28px;
+}
+
+.admin-sales-hospital-review-progress-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-sales-hospital-review-progress-body > div {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.admin-sales-hospital-review-progress-body > div > span {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--chika-base-2);
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.admin-sales-hospital-review-progress-body > div > span i {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--chika-secondary-6);
+  display: block;
+}
+
+.admin-sales-hospital-review-progress-body strong {
+  min-width: 32px;
+  color: var(--chika-secondary-6);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: right;
+}
+
+.admin-sales-hospital-review-progress-body p {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+.admin-sales-hospital-review-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-sales-hospital-review-card {
+  min-width: 0;
+  min-height: 186px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  grid-column: span 2;
+  padding: 20px;
+}
+
+.admin-sales-hospital-review-card--wide {
+  min-height: 154px;
+  grid-column: span 3;
+}
+
+.admin-sales-hospital-review-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-sales-hospital-review-card h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+  letter-spacing: -0.32px;
+}
+
+.admin-sales-hospital-review-card > header span {
+  min-width: 40px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.admin-sales-hospital-review-card > header span.is-complete {
+  background: var(--chika-secondary-1);
+  color: var(--chika-secondary-6);
+}
+
+.admin-sales-hospital-review-card > header span.is-needed {
+  min-width: 61px;
+  background: var(--chika-primary-5);
+  color: var(--surface);
+}
+
+.admin-sales-hospital-review-card > p {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  white-space: pre-line;
+}
+
+.admin-sales-hospital-review-card--wide > p {
+  flex: 0 0 auto;
+}
+
+.admin-sales-hospital-review-card-metric {
+  color: var(--chika-secondary-6);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.admin-sales-hospital-review-card > footer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: auto;
+}
+
+.admin-sales-hospital-review-card > footer button {
+  min-width: 88px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  letter-spacing: -0.28px;
+  opacity: 1;
+}
+
+.admin-sales-hospital-review-card > footer button:last-child {
+  border-color: transparent;
+  background: var(--chika-secondary-1);
+  color: var(--chika-secondary-6);
+}
+
 .admin-sales-detail-action-message {
   margin: 16px 0 0;
   border-radius: 8px;
@@ -2651,6 +2929,16 @@ td span {
 }
 
 @media (max-width: 900px) {
+  .admin-sales-hospital-review-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-sales-hospital-review-card,
+  .admin-sales-hospital-review-card--wide {
+    min-height: 0;
+    grid-column: auto;
+  }
+
   .admin-sales-info-tooltip {
     left: -138px;
     width: calc(100vw - 64px);
@@ -2686,6 +2974,46 @@ td span {
 }
 
 @media (max-width: 760px) {
+  .admin-sales-hospital-review-layer {
+    align-items: flex-start;
+    padding: 12px;
+  }
+
+  .admin-sales-hospital-review-modal {
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+  }
+
+  .admin-sales-hospital-review-content {
+    gap: 20px;
+    padding: 20px;
+  }
+
+  .admin-sales-hospital-review-header h2 {
+    font-size: 20px;
+    line-height: 28px;
+  }
+
+  .admin-sales-hospital-review-progress {
+    min-height: 0;
+    padding: 20px;
+  }
+
+  .admin-sales-hospital-review-progress-body > div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .admin-sales-hospital-review-progress-body > div > span {
+    width: 100%;
+    flex: 0 0 auto;
+  }
+
+  .admin-sales-hospital-review-card > footer {
+    grid-template-columns: 1fr;
+  }
+
   .admin-entry {
     padding: 20px;
   }

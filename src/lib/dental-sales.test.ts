@@ -5,6 +5,7 @@ import {
   dentalSalesCompletionViewState,
   dentalSalesBusinessFileError,
   dentalSalesDetailLabel,
+  dentalSalesHospitalInformationReviewState,
   dentalSalesPageNumbers,
   dentalSalesRegionLabel,
   dentalSalesStatusLabel,
@@ -55,6 +56,43 @@ test("completion view switches to the completed card at exactly 100 percent", ()
       isAppVisible: true,
       isComplete: true,
     },
+  );
+});
+
+test("hospital information review preserves the live Partners section states", () => {
+  const state = dentalSalesHospitalInformationReviewState({
+    clinic_id: "clinic-1",
+    basic_info: { clinic_name: "치카치과" },
+    photos: { summary: { representative_count: 1, total_count: 4 } },
+    staff: {
+      summary: {
+        total_count: 4,
+        completed_count: 3,
+        incomplete_count: 1,
+        percentage: 75,
+      },
+    },
+    operating_hours: { weekly: { mon: { open: "09:00", close: "18:00" } } },
+    fee_schedule: { has_items: true },
+    completion: {
+      completed_count: 5,
+      total_count: 5,
+      missing_count: 0,
+      percentage: 100,
+    },
+    updated_at: "2026-07-09T00:00:00.000Z",
+  });
+
+  assert.deepEqual(state.cardStatuses, {
+    basicInfo: "complete",
+    photos: "complete",
+    staff: "needsSetup",
+    hours: "complete",
+    fees: "complete",
+  });
+  assert.equal(
+    state.staffMetric,
+    "총 의료진 4명 · 입력 완료 3명 · 미입력 1명 · 진행률 75%",
   );
 });
 
