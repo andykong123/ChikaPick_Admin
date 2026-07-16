@@ -5,9 +5,11 @@ import {
   assignAdminDentalSalesperson,
   createAdminExternalConnector,
   createAdminDentalSalesVisit,
+  deleteAdminExternalConnector,
   fetchAdminAccountDirectory,
   fetchAdminDentalSales,
   fetchAdminDentalSalesDetail,
+  fetchAdminExternalConnectors,
   fetchAdminManualHospitalSubmissions,
   fetchAdminPartnerClinicDetail,
   fetchAdminPartnerClinics,
@@ -56,7 +58,7 @@ test("inviteAdminAccount posts super-admin invite details to the Admin API", asy
   });
 });
 
-test("createAdminExternalConnector posts a non-login contact name", async () => {
+test("createAdminExternalConnector posts a non-login contact and affiliation", async () => {
   const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
   const originalFetch = globalThis.fetch;
   process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
@@ -69,7 +71,10 @@ test("createAdminExternalConnector posts a non-login contact name", async () => 
   };
 
   try {
-    await createAdminExternalConnector("access-token", "박연결");
+    await createAdminExternalConnector("access-token", {
+      affiliation: "오스템 중랑구 담당",
+      name: "박연결",
+    });
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -78,7 +83,63 @@ test("createAdminExternalConnector posts a non-login contact name", async () => 
     calls[0]?.input,
     "https://api.example.com/api/v1/admin/external-connectors",
   );
-  assert.deepEqual(JSON.parse(calls[0]?.init?.body as string), { name: "박연결" });
+  assert.deepEqual(JSON.parse(calls[0]?.init?.body as string), {
+    affiliation: "오스템 중랑구 담당",
+    name: "박연결",
+  });
+});
+
+test("fetchAdminExternalConnectors requests server pagination", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(
+      JSON.stringify({
+        items: [],
+        pagination: { page: 2, pageSize: 10, totalItems: 0, totalPages: 1 },
+        canManage: true,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+
+  try {
+    await fetchAdminExternalConnectors("access-token", 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(
+    calls[0]?.input,
+    "https://api.example.com/api/v1/admin/external-connectors?page=2&pageSize=10",
+  );
+});
+
+test("deleteAdminExternalConnector deletes the selected contact", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(JSON.stringify({ ok: true, message: "deleted" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    await deleteAdminExternalConnector("access-token", "connector/1");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(
+    calls[0]?.input,
+    "https://api.example.com/api/v1/admin/external-connectors/connector%2F1",
+  );
+  assert.equal(calls[0]?.init?.method, "DELETE");
 });
 
 test("sendAdminPasswordReset posts the target admin id", async () => {

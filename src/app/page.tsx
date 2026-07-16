@@ -10,10 +10,12 @@ import {
   assignAdminDentalSalesperson,
   createAdminExternalConnector,
   createAdminDentalSalesVisit,
+  deleteAdminExternalConnector,
   fetchAdminAccountDirectory,
   fetchAdminConsole,
   fetchAdminDentalSales,
   fetchAdminDentalSalesDetail,
+  fetchAdminExternalConnectors,
   fetchAdminManualHospitalSubmissions,
   fetchAdminPartnerClinicDetail,
   fetchAdminPartnerClinics,
@@ -88,6 +90,10 @@ import {
   manualHospitalReviewStatusLabel,
   normalizeManualHospitalRejectionReason,
 } from "@/lib/manual-hospital-review";
+import {
+  formatExternalConnectorDate,
+  type ExternalConnectorDirectoryPayload,
+} from "@/lib/external-connectors";
 import {
   partnerClinicActivityLabel,
   partnerClinicDateLabel,
@@ -211,11 +217,7 @@ export default function AdminHome() {
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<AdminAccountRole>("admin");
-  const [externalConnectorName, setExternalConnectorName] = useState("");
-  const [adminAccountDialog, setAdminAccountDialog] = useState<
-    "invite" | "connector" | null
-  >(null);
-  const [canManageAdminAccounts, setCanManageAdminAccounts] = useState(false);
+  const [adminAccountDialog, setAdminAccountDialog] = useState<"invite" | null>(null);
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const lastAutoLoadedAccessTokenRef = useRef<string | null>(null);
@@ -324,7 +326,6 @@ export default function AdminHome() {
         autoLoadConsole(nextSession);
       } else {
         lastAutoLoadedAccessTokenRef.current = null;
-        setCanManageAdminAccounts(false);
         setConsoleData(emptyConsole);
       }
     });
@@ -343,7 +344,6 @@ export default function AdminHome() {
       onSessionInvalidated: async () => {
         await supabase.auth.signOut();
         lastAutoLoadedAccessTokenRef.current = null;
-        setCanManageAdminAccounts(false);
         setSession(null);
         setConsoleData(emptyConsole);
         setMessage("세션이 만료되어 다시 로그인해 주세요.");
@@ -375,7 +375,6 @@ export default function AdminHome() {
       ) {
         void supabase.auth.signOut().then(() => {
           lastAutoLoadedAccessTokenRef.current = null;
-          setCanManageAdminAccounts(false);
           setSession(null);
           setConsoleData(emptyConsole);
           setMessage("1시간 동안 활동이 없어 자동 로그아웃되었습니다.");
@@ -421,7 +420,6 @@ export default function AdminHome() {
   async function signOut() {
     await supabase.auth.signOut();
     lastAutoLoadedAccessTokenRef.current = null;
-    setCanManageAdminAccounts(false);
     setSession(null);
   }
 
@@ -653,7 +651,8 @@ export default function AdminHome() {
               activePrimaryTab === "partner-clinics" ||
               activePrimaryTab === "sales-performance" ||
               activePrimaryTab === "hospital-review" ||
-              activePrimaryTab === "license-review"
+              activePrimaryTab === "license-review" ||
+              activePrimaryTab === "external-connectors"
                 ? " admin-workspace-heading--sales"
                 : ""
             }`}
@@ -693,24 +692,17 @@ export default function AdminHome() {
                   : activePrimaryTab === "admin-accounts"
                     ? "치카픽 어드민 계정을 생성하고 초대하며, 권한 및 계정 정보를 관리할 수 있습니다."
                   : activePrimaryTab === "external-connectors"
-                    ? "치과 영업 관리에서 지정할 외부 연결자를 추가하고 확인합니다."
+                    ? "외부 연결자 정보를 등록하면 치과 및 영업 관련 담당자 정보에서 활용하게 됩니다."
                   : "실제 운영 데이터는 ChikaPick_API 관리자 엔드포인트에서 불러옵니다."}
               </p>
             </div>
-            {activePrimaryTab === "admin-accounts" && canManageAdminAccounts ? (
-              <button
-                className="admin-account-heading-action"
-                type="button"
-                onClick={() => setAdminAccountDialog("connector")}
-              >
-                외부 연결자 등록
-              </button>
-            ) : activePrimaryTab !== "dental-sales" &&
+            {activePrimaryTab !== "dental-sales" &&
             activePrimaryTab !== "partner-clinics" &&
             activePrimaryTab !== "sales-performance" &&
             activePrimaryTab !== "hospital-review" &&
             activePrimaryTab !== "license-review" &&
-            activePrimaryTab !== "admin-accounts" ? (
+            activePrimaryTab !== "admin-accounts" &&
+            activePrimaryTab !== "external-connectors" ? (
               <div className="admin-topbar-actions">
                 <button type="button" onClick={() => loadConsole(session)}>
                   {isLoadingConsole ? "새로고침 중" : "새로고침"}
@@ -752,6 +744,10 @@ export default function AdminHome() {
           }${
             activePrimaryTab === "admin-accounts"
               ? " admin-content--admin-accounts"
+              : ""
+          }${
+            activePrimaryTab === "external-connectors"
+              ? " admin-content--external-connectors"
               : ""
           }${isDentalSalesDetailView ? " admin-content--sales-detail" : ""}${
             isPartnerClinicDetailView ? " admin-content--partner-detail" : ""
@@ -796,11 +792,7 @@ export default function AdminHome() {
             <AdminAccountsTab
               accessToken={session?.access_token ?? ""}
               dialog={adminAccountDialog}
-              onCanManageChange={setCanManageAdminAccounts}
               onDialogChange={setAdminAccountDialog}
-              onCreateConnector={(name) =>
-                runAction((token) => createAdminExternalConnector(token, name))
-              }
               onInvite={(body) =>
                 runAction((token) =>
                   inviteAdminAccount(token, {
@@ -822,6 +814,18 @@ export default function AdminHome() {
               }
               onWithdraw={(userId) =>
                 runAction((token) => withdrawAdminAccount(token, userId))
+              }
+            />
+          ) : activePrimaryTab === "external-connectors" ? (
+            <ExternalConnectorsTab
+              accessToken={session?.access_token ?? ""}
+              onCreate={(body) =>
+                runAction((token) => createAdminExternalConnector(token, body))
+              }
+              onDelete={(connectorId) =>
+                runAction((token) =>
+                  deleteAdminExternalConnector(token, connectorId),
+                )
               }
             />
           ) : activePrimaryTab === "license-review" ? (
@@ -881,15 +885,6 @@ export default function AdminHome() {
               inviteEmail={inviteEmail}
               inviteName={inviteName}
               inviteRole={inviteRole}
-              externalConnectorName={externalConnectorName}
-              onExternalConnectorNameChange={setExternalConnectorName}
-              onExternalConnectorCreate={() =>
-                runAction((token) =>
-                  createAdminExternalConnector(token, externalConnectorName),
-                ).then((ok) => {
-                  if (ok) setExternalConnectorName("");
-                })
-              }
               onInviteEmailChange={setInviteEmail}
               onInviteNameChange={setInviteName}
               onInviteRoleChange={setInviteRole}
@@ -939,8 +934,6 @@ export default function AdminHome() {
 function AdminAccountsTab({
   accessToken,
   dialog,
-  onCanManageChange,
-  onCreateConnector,
   onDialogChange,
   onInvite,
   onLock,
@@ -949,10 +942,8 @@ function AdminAccountsTab({
   onWithdraw,
 }: {
   accessToken: string;
-  dialog: "invite" | "connector" | null;
-  onCanManageChange: (canManage: boolean) => void;
-  onCreateConnector: (name: string) => Promise<boolean>;
-  onDialogChange: (dialog: "invite" | "connector" | null) => void;
+  dialog: "invite" | null;
+  onDialogChange: (dialog: "invite" | null) => void;
   onInvite: (body: {
     email: string;
     fullName: string;
@@ -976,7 +967,6 @@ function AdminAccountsTab({
   const [actionUserId, setActionUserId] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<AdminAccountRole>("super_admin");
-  const [connectorName, setConnectorName] = useState("");
   const [dialogError, setDialogError] = useState("");
   const [isDialogSubmitting, setIsDialogSubmitting] = useState(false);
 
@@ -991,7 +981,6 @@ function AdminAccountsTab({
         currentPage,
       );
       setData(payload);
-      onCanManageChange(payload.canManage);
     } catch (error) {
       setErrorMessage(
         error instanceof Error
@@ -1001,7 +990,7 @@ function AdminAccountsTab({
     } finally {
       setIsLoading(false);
     }
-  }, [accessToken, currentPage, filters, onCanManageChange]);
+  }, [accessToken, currentPage, filters]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void loadAccounts(), 0);
@@ -1075,23 +1064,6 @@ function AdminAccountsTab({
       setInviteRole("super_admin");
       onDialogChange(null);
       await loadAccounts();
-    }
-    setIsDialogSubmitting(false);
-  }
-
-  async function submitConnector(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const name = connectorName.trim();
-    if (!name) {
-      setDialogError("외부 연결자 이름을 입력해 주세요.");
-      return;
-    }
-    setDialogError("");
-    setIsDialogSubmitting(true);
-    const succeeded = await onCreateConnector(name);
-    if (succeeded) {
-      setConnectorName("");
-      onDialogChange(null);
     }
     setIsDialogSubmitting(false);
   }
@@ -1405,94 +1377,331 @@ function AdminAccountsTab({
             onClick={closeDialog}
           />
           <section
-            className={`admin-account-dialog${
-              dialog === "invite" ? " admin-account-dialog--invite" : ""
-            }`}
+            className="admin-account-dialog admin-account-dialog--invite"
             role="dialog"
             aria-modal="true"
             aria-labelledby="admin-account-dialog-title"
           >
             <header>
-              <h2 id="admin-account-dialog-title">
-                {dialog === "invite" ? "계정 생성" : "외부 연결자 등록"}
-              </h2>
-              {dialog === "connector" ? (
-                <button type="button" aria-label="닫기" onClick={closeDialog}>
-                  ×
-                </button>
-              ) : null}
+              <h2 id="admin-account-dialog-title">계정 생성</h2>
             </header>
-            {dialog === "invite" ? (
-              <form className="admin-account-invite-form" onSubmit={submitInvite}>
-                <div className="admin-account-dialog-body">
-                  <label className="admin-account-invite-email">
-                    <span>
-                      이메일 <b aria-hidden="true">*</b>
-                    </span>
-                    <input
-                      autoFocus
-                      required
-                      type="email"
-                      autoComplete="email"
-                      placeholder="your@gmail.com"
-                      value={inviteEmail}
-                      onChange={(event) => {
-                        setInviteEmail(event.target.value);
-                        setDialogError("");
-                      }}
-                    />
-                  </label>
-                  <label className="admin-account-invite-role">
-                    <span>역할</span>
-                    <span className="admin-account-role-select">
-                      <select
-                        value={inviteRole}
-                        onChange={(event) =>
-                          setInviteRole(event.target.value as AdminAccountRole)
-                        }
-                      >
-                        <option value="super_admin">최고 관리자</option>
-                        <option value="sales">영업 담당자</option>
-                        <option value="admin">운영 관리자</option>
-                      </select>
-                    </span>
-                  </label>
-                  {dialogError ? <p role="alert">{dialogError}</p> : null}
-                </div>
-                <footer className="admin-account-dialog-footer">
-                  <button type="button" disabled={isDialogSubmitting} onClick={closeDialog}>
-                    취소
-                  </button>
-                  <button type="submit" disabled={isDialogSubmitting}>
-                    {isDialogSubmitting ? "발송 중" : "초대 메일 발송"}
-                  </button>
-                </footer>
-              </form>
-            ) : (
-              <form onSubmit={submitConnector}>
-                <label>
-                  <span>외부 연결자 이름</span>
+            <form className="admin-account-invite-form" onSubmit={submitInvite}>
+              <div className="admin-account-dialog-body">
+                <label className="admin-account-invite-email">
+                  <span>
+                    이메일 <b aria-hidden="true">*</b>
+                  </span>
                   <input
                     autoFocus
-                    value={connectorName}
-                    maxLength={100}
+                    required
+                    type="email"
+                    autoComplete="email"
+                    placeholder="your@gmail.com"
+                    value={inviteEmail}
                     onChange={(event) => {
-                      setConnectorName(event.target.value);
+                      setInviteEmail(event.target.value);
                       setDialogError("");
                     }}
                   />
                 </label>
+                <label className="admin-account-invite-role">
+                  <span>역할</span>
+                  <span className="admin-account-role-select">
+                    <select
+                      value={inviteRole}
+                      onChange={(event) =>
+                        setInviteRole(event.target.value as AdminAccountRole)
+                      }
+                    >
+                      <option value="super_admin">최고 관리자</option>
+                      <option value="sales">영업 담당자</option>
+                      <option value="admin">운영 관리자</option>
+                    </select>
+                  </span>
+                </label>
                 {dialogError ? <p role="alert">{dialogError}</p> : null}
-                <div className="admin-account-dialog-actions">
-                  <button type="button" disabled={isDialogSubmitting} onClick={closeDialog}>
-                    취소
-                  </button>
-                  <button type="submit" disabled={isDialogSubmitting}>
-                    {isDialogSubmitting ? "등록 중" : "등록"}
-                  </button>
-                </div>
-              </form>
-            )}
+              </div>
+              <footer className="admin-account-dialog-footer">
+                <button type="button" disabled={isDialogSubmitting} onClick={closeDialog}>
+                  취소
+                </button>
+                <button type="submit" disabled={isDialogSubmitting}>
+                  {isDialogSubmitting ? "발송 중" : "초대 메일 발송"}
+                </button>
+              </footer>
+            </form>
+          </section>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ExternalConnectorsTab({
+  accessToken,
+  onCreate,
+  onDelete,
+}: {
+  accessToken: string;
+  onCreate: (body: { affiliation: string; name: string }) => Promise<boolean>;
+  onDelete: (connectorId: string) => Promise<boolean>;
+}) {
+  const [data, setData] = useState<ExternalConnectorDirectoryPayload | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [affiliation, setAffiliation] = useState("");
+  const [dialogError, setDialogError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const loadConnectors = useCallback(async () => {
+    if (!accessToken) return;
+    setIsLoading(true);
+    setErrorMessage("");
+    try {
+      setData(await fetchAdminExternalConnectors(accessToken, currentPage));
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "외부 연결자 목록을 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, currentPage]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => void loadConnectors(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadConnectors]);
+
+  function closeDialog() {
+    if (isSubmitting) return;
+    setIsDialogOpen(false);
+    setDialogError("");
+  }
+
+  async function submitConnector(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedName = name.trim();
+    const normalizedAffiliation = affiliation.trim();
+    if (!normalizedName || !normalizedAffiliation) {
+      setDialogError("이름과 소속을 입력해 주세요.");
+      return;
+    }
+
+    setDialogError("");
+    setIsSubmitting(true);
+    const succeeded = await onCreate({
+      affiliation: normalizedAffiliation,
+      name: normalizedName,
+    });
+    if (succeeded) {
+      setName("");
+      setAffiliation("");
+      setIsDialogOpen(false);
+      if (currentPage === 1) await loadConnectors();
+      else setCurrentPage(1);
+    }
+    setIsSubmitting(false);
+  }
+
+  async function handleDelete(connectorId: string, connectorName: string) {
+    if (!window.confirm(`${connectorName} 외부 연결자를 삭제하시겠습니까?`)) return;
+    setDeletingId(connectorId);
+    const succeeded = await onDelete(connectorId);
+    if (succeeded) {
+      if ((data?.items.length ?? 0) === 1 && currentPage > 1) {
+        setCurrentPage((page) => page - 1);
+      } else {
+        await loadConnectors();
+      }
+    }
+    setDeletingId(null);
+  }
+
+  const pagination = data?.pagination;
+  const pageNumbers = dentalSalesPageNumbers(
+    pagination?.page ?? currentPage,
+    pagination?.totalPages ?? 1,
+  );
+
+  return (
+    <section className="admin-external-connectors">
+      {data?.canManage ? (
+        <button
+          className="admin-external-connectors-register"
+          type="button"
+          onClick={() => setIsDialogOpen(true)}
+        >
+          외부 연결자 등록
+        </button>
+      ) : null}
+
+      <div className="admin-external-connectors-content">
+        {errorMessage ? (
+          <div className="admin-sales-feedback admin-sales-feedback--error" role="alert">
+            <span>{errorMessage}</span>
+            <button type="button" onClick={() => void loadConnectors()}>
+              다시 시도
+            </button>
+          </div>
+        ) : null}
+
+        <div className="admin-external-connectors-table-scroll" aria-busy={isLoading}>
+          <table className="admin-external-connectors-table">
+            <thead>
+              <tr>
+                <th>이름</th>
+                <th>소속</th>
+                <th>등록 시점</th>
+                <th className="admin-external-connectors-delete-heading">삭제</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data?.items.map((connector) => (
+                <tr key={connector.id}>
+                  <td>{connector.name}</td>
+                  <td>{connector.affiliation ?? "-"}</td>
+                  <td>{formatExternalConnectorDate(connector.createdAt)}</td>
+                  <td className="admin-external-connectors-delete-cell">
+                    {data.canManage ? (
+                      <button
+                        type="button"
+                        disabled={deletingId === connector.id}
+                        onClick={() => void handleDelete(connector.id, connector.name)}
+                      >
+                        {deletingId === connector.id ? "삭제 중" : "삭제"}
+                      </button>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {!isLoading && (data?.items.length ?? 0) === 0 ? (
+                <tr>
+                  <td className="admin-sales-empty" colSpan={4}>
+                    등록된 외부 연결자가 없습니다.
+                  </td>
+                </tr>
+              ) : null}
+              {isLoading && !data ? (
+                <tr>
+                  <td className="admin-sales-empty" colSpan={4}>
+                    외부 연결자를 불러오는 중입니다.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+
+        {pagination ? (
+          <nav className="admin-sales-pagination" aria-label="외부 연결자 목록 페이지">
+            <button
+              type="button"
+              aria-label="이전 페이지"
+              disabled={pagination.page <= 1 || isLoading}
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            >
+              ‹
+            </button>
+            {pageNumbers.map((pageNumber) => (
+              <button
+                type="button"
+                key={pageNumber}
+                className={
+                  pageNumber === pagination.page ? "admin-sales-page-active" : undefined
+                }
+                aria-current={pageNumber === pagination.page ? "page" : undefined}
+                disabled={isLoading}
+                onClick={() => setCurrentPage(pageNumber)}
+              >
+                {pageNumber}
+              </button>
+            ))}
+            <button
+              type="button"
+              aria-label="다음 페이지"
+              disabled={pagination.page >= pagination.totalPages || isLoading}
+              onClick={() =>
+                setCurrentPage((page) => Math.min(pagination.totalPages, page + 1))
+              }
+            >
+              ›
+            </button>
+          </nav>
+        ) : null}
+      </div>
+
+      {isDialogOpen && data?.canManage ? (
+        <div className="admin-account-dialog-layer admin-external-connector-dialog-layer">
+          <button
+            type="button"
+            className="admin-account-dialog-backdrop"
+            aria-label="외부 연결자 등록 창 닫기"
+            tabIndex={-1}
+            onClick={closeDialog}
+          />
+          <section
+            className="admin-account-dialog admin-external-connector-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="external-connector-dialog-title"
+          >
+            <header>
+              <h2 id="external-connector-dialog-title">외부 연결자 등록</h2>
+              <span className="admin-external-connector-dialog-header-spacer" />
+            </header>
+            <form onSubmit={submitConnector}>
+              <div className="admin-external-connector-dialog-fields">
+                <label>
+                  <span>
+                    이름 <strong aria-hidden="true">*</strong>
+                  </span>
+                  <input
+                    autoFocus
+                    required
+                    maxLength={100}
+                    placeholder="이름을 입력해 주세요"
+                    value={name}
+                    onChange={(event) => {
+                      setName(event.target.value);
+                      setDialogError("");
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>
+                    소속 <strong aria-hidden="true">*</strong>
+                  </span>
+                  <input
+                    required
+                    maxLength={100}
+                    placeholder="소속을 입력해 주세요"
+                    value={affiliation}
+                    onChange={(event) => {
+                      setAffiliation(event.target.value);
+                      setDialogError("");
+                    }}
+                  />
+                </label>
+              </div>
+              {dialogError ? <p role="alert">{dialogError}</p> : null}
+              <div className="admin-account-dialog-actions">
+                <button type="button" disabled={isSubmitting} onClick={closeDialog}>
+                  취소
+                </button>
+                <button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "등록 중" : "등록하기"}
+                </button>
+              </div>
+            </form>
           </section>
         </div>
       ) : null}
@@ -4923,7 +5132,6 @@ function ClinicsTab({ data }: { data: AdminConsolePayload }) {
 
 function UsersTab({
   data,
-  externalConnectorName,
   inviteEmail,
   inviteName,
   inviteRole,
@@ -4931,13 +5139,10 @@ function UsersTab({
   onInviteEmailChange,
   onInviteNameChange,
   onInviteRoleChange,
-  onExternalConnectorCreate,
-  onExternalConnectorNameChange,
   onPasswordReset,
   onUnlock,
 }: {
   data: AdminConsolePayload;
-  externalConnectorName: string;
   inviteEmail: string;
   inviteName: string;
   inviteRole: AdminAccountRole;
@@ -4945,8 +5150,6 @@ function UsersTab({
   onInviteEmailChange: (value: string) => void;
   onInviteNameChange: (value: string) => void;
   onInviteRoleChange: (value: AdminAccountRole) => void;
-  onExternalConnectorCreate: () => void;
-  onExternalConnectorNameChange: (value: string) => void;
   onPasswordReset: (userId: string) => void;
   onUnlock: (userId: string) => void;
 }) {
@@ -5073,48 +5276,6 @@ function UsersTab({
         </table>
       </div>
 
-      <section className="admin-external-connector-section">
-        <h3>외부 연결자</h3>
-        <form
-          className="admin-inline-form admin-external-connector-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onExternalConnectorCreate();
-          }}
-        >
-          <label>
-            <span>이름</span>
-            <input
-              required
-              maxLength={100}
-              value={externalConnectorName}
-              onChange={(event) => onExternalConnectorNameChange(event.target.value)}
-            />
-          </label>
-          <button type="submit">외부 연결자 추가</button>
-        </form>
-        <div className="admin-table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>이름</th>
-                <th>추가일</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.externalConnectors.map((connector) => (
-                <tr key={connector.id}>
-                  <td><strong>{connector.name}</strong></td>
-                  <td>{formatDate(connector.createdAt)}</td>
-                </tr>
-              ))}
-              {data.externalConnectors.length === 0 ? (
-                <EmptyRow colSpan={2} label="추가된 외부 연결자가 없습니다." />
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-      </section>
     </Panel>
   );
 }

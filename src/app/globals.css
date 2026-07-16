@@ -393,24 +393,6 @@ textarea:focus-visible {
   min-height: 38px;
 }
 
-.admin-external-connector-section {
-  margin-top: 28px;
-  padding-top: 24px;
-  border-top: 1px solid var(--border);
-}
-
-.admin-external-connector-section h3 {
-  margin: 0 0 14px;
-  color: var(--text-primary);
-  font-size: 16px;
-  line-height: 24px;
-}
-
-.admin-external-connector-form {
-  grid-template-columns: minmax(180px, 320px) auto;
-  justify-content: start;
-}
-
 .admin-login-submit:disabled {
   cursor: not-allowed;
   opacity: 0.62;
@@ -1205,8 +1187,21 @@ td span {
   padding-top: 32px;
 }
 
-.admin-account-heading-action {
-  min-width: 104px;
+.admin-content--external-connectors {
+  max-width: none;
+  gap: 0;
+  padding-top: 32px;
+}
+
+.admin-external-connectors {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.admin-external-connectors-register {
+  width: fit-content;
   height: 36px;
   border: 0;
   border-radius: 6px;
@@ -1220,9 +1215,98 @@ td span {
   line-height: 20px;
 }
 
-.admin-account-heading-action:hover,
-.admin-account-heading-action:focus-visible {
+.admin-external-connectors-register:hover,
+.admin-external-connectors-register:focus-visible {
   background: var(--chika-secondary-6);
+}
+
+.admin-external-connectors-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.admin-external-connectors-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid #d4d6da;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.admin-external-connectors-table {
+  width: 100%;
+  min-width: 720px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
+}
+
+.admin-external-connectors-table th {
+  width: 25%;
+  height: 44px;
+  border-bottom: 1px solid #d4d6da;
+  background: #f4f6f8;
+  color: #596072;
+  padding: 0 20px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: normal;
+  text-align: left;
+}
+
+.admin-external-connectors-table td {
+  height: 56px;
+  overflow: hidden;
+  border-bottom: 1px solid #d4d6da;
+  background: var(--surface);
+  color: #3b4358;
+  padding: 0 20px;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-external-connectors-table td:first-child {
+  color: var(--text-primary);
+}
+
+.admin-external-connectors-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.admin-external-connectors-delete-heading,
+.admin-external-connectors-delete-cell {
+  text-align: center !important;
+}
+
+.admin-external-connectors-delete-cell button {
+  min-width: 44px;
+  min-height: 26px;
+  border: 1px solid #023dc7;
+  border-radius: 999px;
+  background: #f5f8ff;
+  color: #023dc7;
+  cursor: pointer;
+  padding: 1px 8px;
+  font-family: "Pretendard", ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 22px;
+  letter-spacing: -0.32px;
+}
+
+.admin-external-connectors-delete-cell button:hover,
+.admin-external-connectors-delete-cell button:focus-visible {
+  background: #e8efff;
+}
+
+.admin-external-connectors-delete-cell button:disabled {
+  cursor: wait;
+  opacity: 0.5;
 }
 
 .admin-account-directory {
@@ -1657,6 +1741,110 @@ td span {
 .admin-account-dialog-actions button:disabled {
   cursor: wait;
   opacity: 0.5;
+}
+
+.admin-external-connector-dialog-layer .admin-account-dialog-backdrop {
+  background: rgba(0, 0, 0, 0.33);
+}
+
+.admin-account-dialog.admin-external-connector-dialog {
+  width: min(420px, calc(100vw - 48px));
+  border: 1px solid #d4d6da;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 8px 10px rgba(0, 0, 0, 0.08);
+  font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
+}
+
+.admin-external-connector-dialog > header {
+  height: 24px;
+  align-items: flex-start;
+}
+
+.admin-external-connector-dialog h2 {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
+.admin-external-connector-dialog-header-spacer {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 4px;
+}
+
+.admin-external-connector-dialog form {
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.admin-external-connector-dialog-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.admin-external-connector-dialog label {
+  gap: 6px;
+}
+
+.admin-external-connector-dialog label > span {
+  color: #000b26;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.admin-external-connector-dialog label > span strong {
+  color: #ef4444;
+  font-weight: inherit;
+}
+
+.admin-external-connector-dialog input {
+  height: 40px;
+  border-color: #d9d9d9;
+  border-radius: 6px;
+  padding: 0 12px;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.admin-external-connector-dialog input::placeholder {
+  color: #a3a3a3;
+  opacity: 1;
+}
+
+.admin-external-connector-dialog input:focus {
+  border: 1.5px solid #2563eb;
+  box-shadow: none;
+}
+
+.admin-external-connector-dialog form > p {
+  margin: -18px 0 0;
+}
+
+.admin-external-connector-dialog .admin-account-dialog-actions {
+  gap: 8px;
+  margin-top: 0;
+}
+
+.admin-external-connector-dialog .admin-account-dialog-actions button {
+  min-width: 0;
+  height: 38px;
+  border-color: #d9d9d9;
+  border-radius: 6px;
+  padding: 0 16px;
+  color: #555;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.admin-external-connector-dialog .admin-account-dialog-actions button:last-child {
+  border-color: #011b5a;
+  background: #011b5a;
+  color: var(--surface);
 }
 
 .admin-account-dialog--invite {

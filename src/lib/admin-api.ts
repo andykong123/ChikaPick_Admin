@@ -160,6 +160,7 @@ export interface AdminOperations {
 export interface AdminExternalConnector {
   id: string;
   name: string;
+  affiliation: string | null;
   createdAt: string;
 }
 
@@ -283,12 +284,38 @@ export async function inviteAdminAccount(
 
 export async function createAdminExternalConnector(
   accessToken: string,
-  name: string,
+  body: { affiliation: string; name: string },
 ) {
   return adminFetch<AdminActionResult>(
     "/api/v1/admin/external-connectors",
     accessToken,
-    { method: "POST", body: JSON.stringify({ name }) },
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export async function fetchAdminExternalConnectors(
+  accessToken: string,
+  page: number,
+  pageSize = 10,
+) {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  return adminFetch<ExternalConnectorDirectoryPayload>(
+    `/api/v1/admin/external-connectors?${params.toString()}`,
+    accessToken,
+  );
+}
+
+export async function deleteAdminExternalConnector(
+  accessToken: string,
+  connectorId: string,
+) {
+  return adminFetch<AdminActionResult>(
+    `/api/v1/admin/external-connectors/${encodeURIComponent(connectorId)}`,
+    accessToken,
+    { method: "DELETE" },
   );
 }
 
@@ -494,6 +521,7 @@ import type {
   AdminAccountDirectoryFilters,
   AdminAccountDirectoryPayload,
 } from "./admin-accounts";
+import type { ExternalConnectorDirectoryPayload } from "./external-connectors";
 import type {
   DentalSalesDetailPayload,
   DentalSalesFilters,
