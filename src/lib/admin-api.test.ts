@@ -12,11 +12,15 @@ import {
   fetchAdminExternalConnectors,
   fetchAdminManualHospitalSubmissions,
   fetchAdminPartnerClinicDetail,
+  fetchAdminPartnerAccountDetail,
   fetchAdminPartnerClinics,
   fetchAdminSalesPerformance,
   fetchAdminSecretFeedback,
   inviteAdminAccount,
   lockAdminAccount,
+  lookupAdminChikapickAccount,
+  lookupAdminPartnerAccount,
+  searchAdminPartnerAccounts,
   sendAdminPasswordReset,
   unlockAdminAccount,
   withdrawAdminAccount,
@@ -144,6 +148,105 @@ test("fetchAdminSecretFeedback requests the anonymous feedback directory", async
     calls[0]?.input,
     "https://api.example.com/api/v1/admin/secret-feedback?page=2&pageSize=10",
   );
+});
+
+test("lookupAdminChikapickAccount posts exact email lookup and explicit masking intent", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(JSON.stringify({ account: {}, masked: false }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    await lookupAdminChikapickAccount("access-token", {
+      email: "patient@example.com",
+      unmask: true,
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(
+    calls[0]?.input,
+    "https://api.example.com/api/v1/admin/chikapick-accounts/lookup",
+  );
+  assert.equal(calls[0]?.init?.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0]?.init?.body as string), {
+    email: "patient@example.com",
+    unmask: true,
+  });
+});
+
+test("searchAdminPartnerAccounts keeps private directory filters in the POST body", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(JSON.stringify({ items: [], pagination: {} }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    await searchAdminPartnerAccounts("access-token", {
+      query: "01012345678",
+      page: 2,
+      pageSize: 10,
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(
+    calls[0]?.input,
+    "https://api.example.com/api/v1/admin/partner-accounts/search",
+  );
+  assert.equal(calls[0]?.init?.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0]?.init?.body as string), {
+    query: "01012345678",
+    page: 2,
+    pageSize: 10,
+  });
+});
+
+test("Partners account detail APIs use an exact-email POST and encoded UUID path", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(JSON.stringify({ account: {} }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    await lookupAdminPartnerAccount("access-token", "partner@example.com");
+    await fetchAdminPartnerAccountDetail("access-token", "user/id");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(
+    calls[0]?.input,
+    "https://api.example.com/api/v1/admin/partner-accounts/lookup",
+  );
+  assert.deepEqual(JSON.parse(calls[0]?.init?.body as string), {
+    email: "partner@example.com",
+  });
+  assert.equal(
+    calls[1]?.input,
+    "https://api.example.com/api/v1/admin/partner-accounts/user%2Fid",
+  );
+  assert.equal(calls[1]?.init?.method, undefined);
 });
 
 test("deleteAdminExternalConnector deletes the selected contact", async () => {

@@ -116,6 +116,8 @@ Before pushing, always run `npm run test`, `npm run lint`, and `npm run build`.
 - `src/lib/admin-api.ts` - Typed Admin API client wrappers for `ChikaPick_API`.
 - `src/lib/external-connectors.ts` - External-connector directory types and Korea-date presentation helper.
 - `src/lib/secret-feedback.ts` - Anonymous reservation-feedback types plus Client-aligned rating/tag labels, assets, and Korea-date presentation.
+- `src/lib/chikapick-accounts.ts` - Patient account lookup payload plus provider/status/country labels and Korea-time presentation.
+- `src/lib/partner-accounts.ts` - Partners account directory/detail payloads plus classification, status, provider, and Korea-time presentation helpers.
 - `src/lib/admin-auth-session.ts` - Guards automatic console loading so repeated auth notifications do not trigger repeated fetches for the same access token.
 - `src/lib/partner-clinics.ts` - Partner-clinic directory/detail payloads plus Korea-time activity, registration, duration, response-rate, and feedback labels.
 - `src/lib/admin-detail-history.ts` - Shared browser-history state for the dental-sales and partner-clinic full-page detail views. Opening a detail pushes history; browser Back/Forward restores the list/detail selection.
@@ -151,6 +153,10 @@ Current Admin API calls:
 - `POST /api/v1/admin/external-connectors`
 - `DELETE /api/v1/admin/external-connectors/:connectorId`
 - `GET /api/v1/admin/secret-feedback`
+- `POST /api/v1/admin/chikapick-accounts/lookup`
+- `POST /api/v1/admin/partner-accounts/search`
+- `POST /api/v1/admin/partner-accounts/lookup`
+- `GET /api/v1/admin/partner-accounts/:userId`
 - `DELETE /api/v1/admin/accounts/:userId`
 - `GET /api/v1/admin/dental-sales`
 - `GET /api/v1/admin/dental-sales/:profileId`
@@ -176,6 +182,8 @@ Do not expose plaintext invite codes in Admin. The invite tab should inspect inv
 - 치과의사 면허 인증: live actively affiliated owner/doctor counts split into verified, pending, and not-requested states. Pending submissions show the dentist, clinic, title, Korea-time request timestamp, and a short-lived private file link. Approval displays the Figma success dialog only after the API mutation succeeds; rejection requires a trimmed reason in an accessible dialog and sends it through the existing audit-note contract.
 - 병원 관리: inspect ChikaPick partner clinics, owner counts, active member counts, and registration dates.
 - 사용자/권한 관리: inspect users, roles, memberships, account status, super-admin state, and admin lock state.
+- 치카픽 계정 조회: exact-email patient account lookup backed by `ChikaPick_API`. Results are masked by the server by default and show login provider, identity/contact/country fields, patient account status, creation/last-access/withdrawal timestamps, and family-account registration/member names. `마스킹 해제` makes an explicit audited API request; do not expose already-unmasked PII in browser state before that request succeeds.
+- 파트너스 계정 조회: server-paginated Partners account directory backed by `ChikaPick_API`, with private server-side name/email/phone/clinic search, current clinic and representative/dentist/staff classification, Partners-device last activity, UUID-based row detail, and exact-email detail lookup. The browser response intentionally omits raw phone numbers even though phone is a supported server-side search key.
 - 어드민 계정 관리: server-paginated Admin-only directory with role chips, name/email/ID search, Korea-time last-login/joined dates, invitation/active/locked status, and row actions. Super admins can use the Figma-aligned account-creation modal to invite admin, super-admin, and sales accounts with the required email and role fields; the API's initial display name is derived from the email local part. The Figma row dropdown sends password-reset emails, locks/unlocks accounts, or withdraws Admin access. Lock and withdrawal require confirmation and refresh the server-owned directory; withdrawal revokes Admin sessions without deleting unrelated patient/partner profiles.
 - 외부 연결자 관리: Figma-aligned, server-paginated active contact directory with name, affiliation, Korea registration date, responsive table, and super-admin-only registration/deletion. Registration requires both name and affiliation. Deletion is confirmed in the browser and soft-deactivates the API row so it disappears from future 치과 영업 관리 assignment choices without erasing historical references.
 - 시크릿 피드백: Admin-only submitted reservation-feedback metrics and server-paginated list. `상세보기` opens an anonymous right-side drawer ported from the Client survey and reuses its tracked Piki rating, Safe, and Close assets without exposing patient identity.

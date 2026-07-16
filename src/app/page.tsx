@@ -19,13 +19,17 @@ import {
   fetchAdminManualHospitalSubmissions,
   fetchAdminPartnerClinicDetail,
   fetchAdminPartnerClinics,
+  fetchAdminPartnerAccountDetail,
   fetchAdminSalesPerformance,
   fetchAdminSecretFeedback,
   inviteAdminAccount,
   lockAdminAccount,
+  lookupAdminChikapickAccount,
+  lookupAdminPartnerAccount,
   rejectManualHospitalSubmission,
   revokeInvite,
   sendAdminPasswordReset,
+  searchAdminPartnerAccounts,
   unlockAdminAccount,
   withdrawAdminAccount,
   updateClinicMembership,
@@ -64,6 +68,23 @@ import {
   registerCurrentAdminBrowserSession,
   startAdminSessionHeartbeat,
 } from "@/lib/browser-session";
+import {
+  chikapickAccountStatusLabel,
+  chikapickAccountStatusTone,
+  chikapickCountryLabel,
+  chikapickLoginProviderLabel,
+  formatChikapickAccountDate,
+  type ChikapickAccountLookupPayload,
+} from "@/lib/chikapick-accounts";
+import {
+  formatPartnerAccountDate,
+  partnerAccountClassificationLabel,
+  partnerAccountLoginProviderLabel,
+  partnerAccountMembershipStatusLabel,
+  partnerAccountStatusLabel,
+  type AdminPartnerAccountDetail,
+  type AdminPartnerAccountsPayload,
+} from "@/lib/partner-accounts";
 import {
   dentalSalesDetailLabel,
   dentalSalesBusinessFileError,
@@ -227,6 +248,7 @@ export default function AdminHome() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<AdminAccountRole>("admin");
   const [adminAccountDialog, setAdminAccountDialog] = useState<"invite" | null>(null);
+  const [partnerAccountLookupRequest, setPartnerAccountLookupRequest] = useState(0);
 
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const lastAutoLoadedAccessTokenRef = useRef<string | null>(null);
@@ -662,8 +684,18 @@ export default function AdminHome() {
               activePrimaryTab === "hospital-review" ||
               activePrimaryTab === "license-review" ||
               activePrimaryTab === "secret-feedback" ||
+              activePrimaryTab === "chikapick-accounts" ||
+              activePrimaryTab === "partner-accounts" ||
               activePrimaryTab === "external-connectors"
                 ? " admin-workspace-heading--sales"
+                : ""
+            }${
+              activePrimaryTab === "chikapick-accounts"
+                ? " admin-workspace-heading--chikapick-accounts"
+                : ""
+            }${
+              activePrimaryTab === "partner-accounts"
+                ? " admin-workspace-heading--partner-accounts"
                 : ""
             }`}
           >
@@ -682,6 +714,10 @@ export default function AdminHome() {
                       ? "치과 의사 면허 인증"
                     : activePrimaryTab === "secret-feedback"
                       ? "시크릿 피드백"
+                    : activePrimaryTab === "chikapick-accounts"
+                      ? "치카픽 계정 조회"
+                    : activePrimaryTab === "partner-accounts"
+                      ? "파트너스 계정 관리"
                     : activePrimaryTab === "admin-accounts"
                       ? "어드민 계정 관리"
                     : activePrimaryTab === "external-connectors"
@@ -690,7 +726,7 @@ export default function AdminHome() {
                 </h1>
                 {activePrimaryTab === "dental-sales" ? <DentalSalesInfoTooltip /> : null}
               </div>
-              <p>
+              {activePrimaryTab !== "partner-accounts" ? <p>
                 {activePrimaryTab === "dental-sales"
                   ? "전국 치과를 지역별로 조회하고 초대 코드를 확인 할 수 있으며 영업 현황을 관리합니다."
                   : activePrimaryTab === "partner-clinics"
@@ -703,19 +739,30 @@ export default function AdminHome() {
                     ? "제출된 치과의사 면허증의 식별 가능 여부와 성명, 면허번호, 보건복지부 발급 여부를 확인한 후 승인 또는 반려해 주세요."
                   : activePrimaryTab === "secret-feedback"
                     ? "어드민 관리자에게만 전송되는 시크릿 피드백 입니다."
+                  : activePrimaryTab === "chikapick-accounts"
+                    ? "치카픽 서비스에 가입한 환자 계정을 이메일로 조회하고 계정 상태를 확인합니다."
                   : activePrimaryTab === "admin-accounts"
                     ? "치카픽 어드민 계정을 생성하고 초대하며, 권한 및 계정 정보를 관리할 수 있습니다."
                   : activePrimaryTab === "external-connectors"
                     ? "외부 연결자 정보를 등록하면 치과 및 영업 관련 담당자 정보에서 활용하게 됩니다."
                   : "실제 운영 데이터는 ChikaPick_API 관리자 엔드포인트에서 불러옵니다."}
-              </p>
+              </p> : null}
             </div>
-            {activePrimaryTab !== "dental-sales" &&
+            {activePrimaryTab === "partner-accounts" ? (
+              <button
+                type="button"
+                className="admin-partner-accounts-lookup-trigger"
+                onClick={() => setPartnerAccountLookupRequest((request) => request + 1)}
+              >
+                단일 계정 정보 상세 조회하기
+              </button>
+            ) : activePrimaryTab !== "dental-sales" &&
             activePrimaryTab !== "partner-clinics" &&
             activePrimaryTab !== "sales-performance" &&
             activePrimaryTab !== "hospital-review" &&
             activePrimaryTab !== "license-review" &&
             activePrimaryTab !== "secret-feedback" &&
+            activePrimaryTab !== "chikapick-accounts" &&
             activePrimaryTab !== "admin-accounts" &&
             activePrimaryTab !== "external-connectors" ? (
               <div className="admin-topbar-actions">
@@ -733,7 +780,9 @@ export default function AdminHome() {
         {message &&
         activePrimaryTab !== "dental-sales" &&
         activePrimaryTab !== "partner-clinics" &&
-        activePrimaryTab !== "sales-performance" ? (
+        activePrimaryTab !== "sales-performance" &&
+        activePrimaryTab !== "chikapick-accounts" &&
+        activePrimaryTab !== "partner-accounts" ? (
           <p className="admin-message">{message}</p>
         ) : null}
 
@@ -759,6 +808,14 @@ export default function AdminHome() {
           }${
             activePrimaryTab === "secret-feedback"
               ? " admin-content--secret-feedback"
+              : ""
+          }${
+            activePrimaryTab === "chikapick-accounts"
+              ? " admin-content--chikapick-accounts"
+              : ""
+          }${
+            activePrimaryTab === "partner-accounts"
+              ? " admin-content--partner-accounts"
               : ""
           }${
             activePrimaryTab === "admin-accounts"
@@ -809,6 +866,13 @@ export default function AdminHome() {
             />
           ) : activePrimaryTab === "secret-feedback" ? (
             <SecretFeedbackTab accessToken={session?.access_token ?? ""} />
+          ) : activePrimaryTab === "chikapick-accounts" ? (
+            <ChikapickAccountsTab accessToken={session?.access_token ?? ""} />
+          ) : activePrimaryTab === "partner-accounts" ? (
+            <PartnerAccountsTab
+              accessToken={session?.access_token ?? ""}
+              lookupRequest={partnerAccountLookupRequest}
+            />
           ) : activePrimaryTab === "admin-accounts" ? (
             <AdminAccountsTab
               accessToken={session?.access_token ?? ""}
@@ -2009,6 +2073,517 @@ function SecretFeedbackDetail({
         </div>
       </aside>
     </div>
+  );
+}
+
+function PartnerAccountsTab({
+  accessToken,
+  lookupRequest,
+}: {
+  accessToken: string;
+  lookupRequest: number;
+}) {
+  const [draftQuery, setDraftQuery] = useState("");
+  const [appliedQuery, setAppliedQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [data, setData] = useState<AdminPartnerAccountsPayload | null>(null);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [detail, setDetail] = useState<AdminPartnerAccountDetail | null>(null);
+  const [detailLoadingId, setDetailLoadingId] = useState<string | null>(null);
+  const [detailError, setDetailError] = useState("");
+  const [isLookupOpen, setIsLookupOpen] = useState(false);
+  const [lookupEmail, setLookupEmail] = useState("");
+  const [lookupError, setLookupError] = useState("");
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const handledLookupRequestRef = useRef(lookupRequest);
+
+  const loadDirectory = useCallback(async () => {
+    if (!accessToken) return;
+    setIsLoading(true);
+    setError("");
+    try {
+      const payload = await searchAdminPartnerAccounts(accessToken, {
+        query: appliedQuery,
+        page: currentPage,
+        pageSize: 10,
+      });
+      setData(payload);
+      if (currentPage > payload.pagination.totalPages) {
+        setCurrentPage(payload.pagination.totalPages);
+      }
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "파트너스 계정 목록을 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, appliedQuery, currentPage]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => void loadDirectory(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadDirectory]);
+
+  useEffect(() => {
+    if (lookupRequest === handledLookupRequestRef.current) return;
+    handledLookupRequestRef.current = lookupRequest;
+    const timeoutId = window.setTimeout(() => {
+      setLookupEmail("");
+      setLookupError("");
+      setIsLookupOpen(true);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [lookupRequest]);
+
+  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const query = draftQuery.trim();
+    if (query === appliedQuery && currentPage === 1) {
+      void loadDirectory();
+      return;
+    }
+    setCurrentPage(1);
+    setAppliedQuery(query);
+  };
+
+  const openDetail = async (userId: string) => {
+    if (!accessToken || detailLoadingId) return;
+    setDetail(null);
+    setDetailError("");
+    setDetailLoadingId(userId);
+    try {
+      const payload = await fetchAdminPartnerAccountDetail(accessToken, userId);
+      setDetail(payload.account);
+    } catch (loadError) {
+      setDetailError(
+        loadError instanceof Error
+          ? loadError.message
+          : "파트너스 계정 상세 정보를 불러오지 못했습니다.",
+      );
+    } finally {
+      setDetailLoadingId(null);
+    }
+  };
+
+  const submitLookup = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!accessToken || isLookingUp || !lookupEmail.trim()) return;
+    setIsLookingUp(true);
+    setLookupError("");
+    try {
+      const payload = await lookupAdminPartnerAccount(accessToken, lookupEmail.trim());
+      setDetail(payload.account);
+      setDetailError("");
+      setIsLookupOpen(false);
+    } catch (loadError) {
+      setLookupError(
+        loadError instanceof Error
+          ? loadError.message
+          : "파트너스 계정을 찾지 못했습니다.",
+      );
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
+
+  const pagination = data?.pagination;
+  const pageNumbers = pagination
+    ? dentalSalesPageNumbers(pagination.page, pagination.totalPages)
+    : [];
+
+  return (
+    <section className="admin-partner-accounts">
+      <form
+        className="admin-partner-accounts-search"
+        role="search"
+        onSubmit={submitSearch}
+      >
+        <Image src="/Type=Search.svg" alt="" width={22} height={22} />
+        <input
+          type="search"
+          aria-label="파트너스 계정 검색"
+          value={draftQuery}
+          onChange={(event) => setDraftQuery(event.target.value)}
+          placeholder="환자 이름 또는 전화번호 검색"
+          autoComplete="off"
+          maxLength={100}
+        />
+      </form>
+
+      {error ? (
+        <p className="admin-partner-accounts-error" role="alert">
+          {error}
+          <button type="button" onClick={() => void loadDirectory()}>
+            다시 시도
+          </button>
+        </p>
+      ) : null}
+
+      <div className="admin-partner-accounts-table-scroll" aria-busy={isLoading}>
+        <table className="admin-partner-accounts-table">
+          <thead>
+            <tr>
+              <th>이메일</th>
+              <th>이름</th>
+              <th>소속 치과</th>
+              <th>파트너 구분</th>
+              <th>마지막 접속 시간</th>
+              <th>상세 보기</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data?.items.map((account) => (
+              <tr key={account.id}>
+                <td>{account.email || "-"}</td>
+                <td>{account.fullName || "-"}</td>
+                <td>{account.clinicName || "-"}</td>
+                <td>{partnerAccountClassificationLabel(account.classification)}</td>
+                <td>{formatPartnerAccountDate(account.lastActiveAt)}</td>
+                <td>
+                  <button
+                    type="button"
+                    disabled={detailLoadingId !== null}
+                    onClick={() => void openDetail(account.id)}
+                  >
+                    {detailLoadingId === account.id ? "조회 중" : "상세 보기"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {!isLoading && !error && (data?.items.length ?? 0) === 0 ? (
+              <tr>
+                <td className="admin-sales-empty" colSpan={6}>
+                  검색 조건에 맞는 파트너스 계정이 없습니다.
+                </td>
+              </tr>
+            ) : null}
+            {isLoading && !data ? (
+              <tr>
+                <td className="admin-sales-empty" colSpan={6}>
+                  파트너스 계정을 불러오는 중입니다.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+
+      {pagination ? (
+        <nav className="admin-sales-pagination" aria-label="파트너스 계정 목록 페이지">
+          <button
+            type="button"
+            aria-label="이전 페이지"
+            disabled={pagination.page <= 1 || isLoading}
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+          >
+            ‹
+          </button>
+          {pageNumbers.map((pageNumber) => (
+            <button
+              type="button"
+              key={pageNumber}
+              className={
+                pageNumber === pagination.page ? "admin-sales-page-active" : undefined
+              }
+              aria-current={pageNumber === pagination.page ? "page" : undefined}
+              disabled={isLoading}
+              onClick={() => setCurrentPage(pageNumber)}
+            >
+              {pageNumber}
+            </button>
+          ))}
+          <button
+            type="button"
+            aria-label="다음 페이지"
+            disabled={pagination.page >= pagination.totalPages || isLoading}
+            onClick={() =>
+              setCurrentPage((page) => Math.min(pagination.totalPages, page + 1))
+            }
+          >
+            ›
+          </button>
+        </nav>
+      ) : null}
+
+      {detailError ? (
+        <p className="admin-partner-accounts-error" role="alert">
+          {detailError}
+        </p>
+      ) : null}
+
+      {isLookupOpen ? (
+        <div className="admin-partner-account-modal-layer">
+          <button
+            type="button"
+            className="admin-partner-account-modal-backdrop"
+            aria-label="단일 계정 조회 창 닫기"
+            onClick={() => setIsLookupOpen(false)}
+          />
+          <section
+            className="admin-partner-account-lookup-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="partner-account-lookup-title"
+          >
+            <header>
+              <h2 id="partner-account-lookup-title">단일 계정 정보 상세 조회</h2>
+              <button
+                type="button"
+                aria-label="닫기"
+                onClick={() => setIsLookupOpen(false)}
+              >
+                ×
+              </button>
+            </header>
+            <form onSubmit={submitLookup}>
+              <label htmlFor="partner-account-lookup-email">이메일</label>
+              <input
+                id="partner-account-lookup-email"
+                autoFocus
+                required
+                type="email"
+                autoComplete="off"
+                maxLength={320}
+                placeholder="가입한 이메일을 입력해 주세요"
+                value={lookupEmail}
+                onChange={(event) => {
+                  setLookupEmail(event.target.value);
+                  setLookupError("");
+                }}
+              />
+              {lookupError ? <p role="alert">{lookupError}</p> : null}
+              <footer>
+                <button
+                  type="button"
+                  disabled={isLookingUp}
+                  onClick={() => setIsLookupOpen(false)}
+                >
+                  취소
+                </button>
+                <button type="submit" disabled={isLookingUp || !lookupEmail.trim()}>
+                  {isLookingUp ? "조회 중" : "상세 조회"}
+                </button>
+              </footer>
+            </form>
+          </section>
+        </div>
+      ) : null}
+
+      {detail ? (
+        <div className="admin-partner-account-detail-layer">
+          <button
+            type="button"
+            className="admin-partner-account-detail-backdrop"
+            aria-label="파트너스 계정 상세 닫기"
+            onClick={() => setDetail(null)}
+          />
+          <aside
+            className="admin-partner-account-detail"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="partner-account-detail-title"
+          >
+            <header>
+              <div>
+                <span>파트너스 계정</span>
+                <h2 id="partner-account-detail-title">
+                  {detail.fullName || detail.email || "계정 상세"}
+                </h2>
+              </div>
+              <button type="button" aria-label="닫기" onClick={() => setDetail(null)}>
+                ×
+              </button>
+            </header>
+            <dl>
+              <div><dt>이메일</dt><dd>{detail.email || "-"}</dd></div>
+              <div><dt>이름</dt><dd>{detail.fullName || "-"}</dd></div>
+              <div><dt>소속 치과</dt><dd>{detail.clinicName || "-"}</dd></div>
+              <div><dt>파트너 구분</dt><dd>{partnerAccountClassificationLabel(detail.classification)}</dd></div>
+              <div><dt>소속 상태</dt><dd>{partnerAccountMembershipStatusLabel(detail.membershipStatus)}</dd></div>
+              <div><dt>로그인 수단</dt><dd>{partnerAccountLoginProviderLabel(detail.loginProvider)}</dd></div>
+              <div><dt>계정 상태</dt><dd>{partnerAccountStatusLabel(detail.accountStatus)}</dd></div>
+              <div><dt>마지막 접속 시간</dt><dd>{formatPartnerAccountDate(detail.lastActiveAt)}</dd></div>
+              <div><dt>계정 생성 시간</dt><dd>{formatPartnerAccountDate(detail.joinedAt)}</dd></div>
+              <div><dt>치과 소속 신청 시간</dt><dd>{formatPartnerAccountDate(detail.membershipJoinedAt)}</dd></div>
+              <div><dt>면허 인증</dt><dd>{detail.licenseVerified ? "인증 완료" : "미인증"}</dd></div>
+              <div><dt>휴대전화 인증</dt><dd>{detail.phoneVerified ? "인증 완료" : "미인증"}</dd></div>
+              <div><dt>탈퇴 일시</dt><dd>{formatPartnerAccountDate(detail.withdrawnAt)}</dd></div>
+            </dl>
+          </aside>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ChikapickAccountsTab({ accessToken }: { accessToken: string }) {
+  const [email, setEmail] = useState("");
+  const [searchedEmail, setSearchedEmail] = useState("");
+  const [result, setResult] = useState<ChikapickAccountLookupPayload | null>(null);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const runLookup = async ({
+    clearResultOnError,
+    lookupEmail,
+    unmask,
+  }: {
+    clearResultOnError: boolean;
+    lookupEmail: string;
+    unmask: boolean;
+  }) => {
+    if (!accessToken || isLoading) return;
+    setIsLoading(true);
+    setError("");
+    try {
+      const payload = await lookupAdminChikapickAccount(accessToken, {
+        email: lookupEmail.trim(),
+        unmask,
+      });
+      setResult(payload);
+      setSearchedEmail(lookupEmail.trim());
+    } catch (lookupError) {
+      if (clearResultOnError) setResult(null);
+      setError(
+        lookupError instanceof Error
+          ? lookupError.message
+          : "계정 조회에 실패했습니다.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const submitLookup = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void runLookup({
+      clearResultOnError: true,
+      lookupEmail: email,
+      unmask: false,
+    });
+  };
+
+  return (
+    <section className="admin-chikapick-account-lookup">
+      <form className="admin-chikapick-account-search" onSubmit={submitLookup}>
+        <label htmlFor="chikapick-account-email">이메일</label>
+        <input
+          id="chikapick-account-email"
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="가입한 이메일을 입력해 주세요"
+          autoComplete="off"
+          maxLength={320}
+          required
+        />
+        <button type="submit" disabled={isLoading || !email.trim()}>
+          {isLoading && !result ? "조회 중" : "조회"}
+        </button>
+      </form>
+
+      {error ? (
+        <p className="admin-chikapick-account-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+
+      {result ? (
+        <section className="admin-chikapick-account-result" aria-live="polite">
+          <header>
+            <h2>검색 결과</h2>
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() =>
+                void runLookup({
+                  clearResultOnError: false,
+                  lookupEmail: searchedEmail,
+                  unmask: result.masked,
+                })
+              }
+            >
+              {isLoading
+                ? "처리 중"
+                : result.masked
+                  ? "마스킹 해제"
+                  : "마스킹 적용"}
+            </button>
+          </header>
+          <ChikapickAccountResultCard account={result.account} />
+        </section>
+      ) : null}
+    </section>
+  );
+}
+
+function ChikapickAccountResultCard({
+  account,
+}: {
+  account: ChikapickAccountLookupPayload["account"];
+}) {
+  const family = account.family;
+  const rows = [
+    { label: "이메일", value: account.email || "-" },
+    {
+      label: "로그인 수단",
+      value: chikapickLoginProviderLabel(account.loginProvider),
+    },
+    { label: "이름", value: account.fullName || "-" },
+    { label: "전화번호", value: account.mobileNo || "-" },
+    { label: "가입국가", value: chikapickCountryLabel(account.countryCode) },
+    { label: "생성 시간", value: formatChikapickAccountDate(account.createdAt) },
+    {
+      label: "마지막 접속 시간",
+      value: formatChikapickAccountDate(account.lastSignInAt),
+    },
+    { label: "탈퇴 일시", value: formatChikapickAccountDate(account.withdrawnAt) },
+  ];
+
+  return (
+    <dl className="admin-chikapick-account-card">
+      {rows.slice(0, 5).map((row) => (
+        <div key={row.label}>
+          <dt>{row.label}</dt>
+          <dd>{row.value}</dd>
+        </div>
+      ))}
+      <div>
+        <dt>계정 상태</dt>
+        <dd>
+          <span
+            className={`admin-chikapick-account-status admin-chikapick-account-status--${chikapickAccountStatusTone(account.status)}`}
+          >
+            {chikapickAccountStatusLabel(account.status)}
+          </span>
+        </dd>
+      </div>
+      {rows.slice(5).map((row) => (
+        <div key={row.label}>
+          <dt>{row.label}</dt>
+          <dd>{row.value}</dd>
+        </div>
+      ))}
+      <div className="admin-chikapick-account-family">
+        <dt>가족계정 등록 여부</dt>
+        <dd>
+          {family.registered ? (
+            <>
+              <strong>등록됨 ({family.memberCount}인)</strong>
+              {family.memberNames.length ? (
+                <span>{family.memberNames.join(" , ")}</span>
+              ) : null}
+            </>
+          ) : (
+            "미등록"
+          )}
+        </dd>
+      </div>
+    </dl>
   );
 }
 

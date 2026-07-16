@@ -1199,6 +1199,699 @@ td span {
   padding-top: 24px;
 }
 
+.admin-workspace-heading--chikapick-accounts {
+  padding-right: 40px;
+  padding-left: 40px;
+}
+
+.admin-content--chikapick-accounts {
+  max-width: none;
+  gap: 0;
+  padding: 25px 40px 48px;
+}
+
+.admin-workspace-heading--partner-accounts {
+  padding: 24px 32px 0;
+}
+
+.admin-workspace-heading--partner-accounts h1 {
+  font-weight: 700;
+  letter-spacing: -0.48px;
+}
+
+.admin-partner-accounts-lookup-trigger {
+  min-height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: #2535cc;
+  color: var(--surface);
+  cursor: pointer;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.admin-partner-accounts-lookup-trigger:hover,
+.admin-partner-accounts-lookup-trigger:focus-visible {
+  background: #1d2ab2;
+}
+
+.admin-content--partner-accounts {
+  max-width: none;
+  gap: 0;
+  padding: 32px 32px 48px;
+}
+
+.admin-partner-accounts {
+  width: 100%;
+  font-family: "Pretendard", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+.admin-partner-accounts-search {
+  width: 264px;
+  height: 36px;
+  border: 1px solid #b8bbc2;
+  border-radius: 8px;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+}
+
+.admin-partner-accounts-search:focus-within {
+  border-color: #023dc7;
+  box-shadow: 0 0 0 2px rgba(2, 61, 199, 0.1);
+}
+
+.admin-partner-accounts-search img {
+  flex: 0 0 auto;
+}
+
+.admin-partner-accounts-search input {
+  min-width: 0;
+  width: 100%;
+  height: 34px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #000b26;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+}
+
+.admin-partner-accounts-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.admin-partner-accounts-search input::placeholder {
+  color: #787e8c;
+}
+
+.admin-partner-accounts-table-scroll {
+  width: 100%;
+  margin-top: 16px;
+  overflow-x: auto;
+  border: 1px solid #d4d6da;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.admin-partner-accounts-table {
+  width: 100%;
+  min-width: 968px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.admin-partner-accounts-table th {
+  height: 36px;
+  background: #f4f6f8;
+  color: #596072;
+  padding: 0 20px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: left;
+}
+
+.admin-partner-accounts-table th:nth-child(1) { width: 200px; }
+.admin-partner-accounts-table th:nth-child(2) { width: 80px; }
+.admin-partner-accounts-table th:nth-child(3) { width: 150px; }
+.admin-partner-accounts-table th:nth-child(4) { width: 150px; }
+.admin-partner-accounts-table th:nth-child(6) { width: 100px; }
+
+.admin-partner-accounts-table td {
+  height: 64px;
+  border-top: 1px solid #ececec;
+  color: #3b4358;
+  padding: 0 20px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-partner-accounts-table td:first-child {
+  color: #000b26;
+  font-weight: 600;
+}
+
+.admin-partner-accounts-table td:nth-child(2) {
+  color: #000b26;
+  font-weight: 500;
+}
+
+.admin-partner-accounts-table td:last-child {
+  overflow: visible;
+}
+
+.admin-partner-accounts-table td:last-child button {
+  min-width: 72px;
+  height: 32px;
+  border: 0;
+  border-radius: 10px;
+  background: #e6ecf9;
+  color: #023dc7;
+  cursor: pointer;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.admin-partner-accounts-table td:last-child button:hover,
+.admin-partner-accounts-table td:last-child button:focus-visible {
+  background: #d5e1f8;
+}
+
+.admin-partner-accounts-table td:last-child button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.admin-partner-accounts > .admin-sales-pagination {
+  margin-top: 16px;
+}
+
+.admin-partner-accounts-error {
+  min-height: 40px;
+  margin: 16px 0 0;
+  border: 1px solid rgba(249, 0, 3, 0.18);
+  border-radius: 8px;
+  background: #fff5f5;
+  color: #d60003;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.admin-partner-accounts-error button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+}
+
+.admin-partner-account-modal-layer,
+.admin-partner-account-detail-layer {
+  position: fixed;
+  z-index: 140;
+  inset: 0;
+}
+
+.admin-partner-account-modal-layer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.admin-partner-account-modal-backdrop,
+.admin-partner-account-detail-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 11, 38, 0.42);
+}
+
+.admin-partner-account-lookup-modal {
+  position: relative;
+  z-index: 1;
+  width: min(440px, calc(100vw - 40px));
+  border: 1px solid #d4d6da;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 20px 48px rgba(0, 11, 38, 0.2);
+  padding: 24px;
+}
+
+.admin-partner-account-lookup-modal > header,
+.admin-partner-account-detail > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-partner-account-lookup-modal h2,
+.admin-partner-account-detail h2 {
+  margin: 0;
+  color: #000b26;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
+.admin-partner-account-lookup-modal > header button,
+.admin-partner-account-detail > header button {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #596072;
+  cursor: pointer;
+  padding: 0;
+  font-size: 24px;
+  line-height: 24px;
+}
+
+.admin-partner-account-lookup-modal form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.admin-partner-account-lookup-modal label {
+  color: #596072;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.admin-partner-account-lookup-modal input {
+  width: 100%;
+  height: 40px;
+  border: 1px solid #b8bbc2;
+  border-radius: 8px;
+  outline: 0;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.admin-partner-account-lookup-modal input:focus {
+  border-color: #023dc7;
+  box-shadow: 0 0 0 2px rgba(2, 61, 199, 0.1);
+}
+
+.admin-partner-account-lookup-modal form > p {
+  margin: 0;
+  color: #d60003;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.admin-partner-account-lookup-modal footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.admin-partner-account-lookup-modal footer button {
+  min-width: 76px;
+  height: 36px;
+  border: 1px solid #d4d6da;
+  border-radius: 8px;
+  background: var(--surface);
+  color: #3b4358;
+  cursor: pointer;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-partner-account-lookup-modal footer button:last-child {
+  border-color: #2535cc;
+  background: #2535cc;
+  color: var(--surface);
+}
+
+.admin-partner-account-lookup-modal footer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.admin-partner-account-detail-layer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.admin-partner-account-detail {
+  position: relative;
+  z-index: 1;
+  width: min(480px, 100vw);
+  height: 100%;
+  overflow-y: auto;
+  background: var(--surface);
+  box-shadow: -12px 0 36px rgba(0, 11, 38, 0.18);
+  padding: 28px 24px;
+}
+
+.admin-partner-account-detail > header span {
+  color: #787e8c;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.admin-partner-account-detail > header h2 {
+  margin-top: 4px;
+}
+
+.admin-partner-account-detail dl {
+  margin: 28px 0 0;
+  border-top: 1px solid #ececec;
+}
+
+.admin-partner-account-detail dl > div {
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #ececec;
+}
+
+.admin-partner-account-detail dt,
+.admin-partner-account-detail dd {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.admin-partner-account-detail dt {
+  color: #596072;
+  font-weight: 500;
+}
+
+.admin-partner-account-detail dd {
+  min-width: 0;
+  color: #000b26;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.admin-chikapick-account-lookup {
+  width: 100%;
+  font-family: "Pretendard", ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+.admin-chikapick-account-search {
+  width: 100%;
+  min-height: 100px;
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr) 104px;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid #d4d6da;
+  border-radius: 16px;
+  background: var(--surface);
+  padding: 23px;
+}
+
+.admin-chikapick-account-search label {
+  color: #3b4358;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+  letter-spacing: -0.32px;
+}
+
+.admin-chikapick-account-search input {
+  width: 100%;
+  height: 52px;
+  border: 1px solid #b8bbc2;
+  border-radius: 12px;
+  outline: 0;
+  background: var(--surface);
+  color: #000b26;
+  padding: 0 16px;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 22px;
+  letter-spacing: -0.32px;
+}
+
+.admin-chikapick-account-search input::placeholder {
+  color: #787e8c;
+}
+
+.admin-chikapick-account-search input:focus {
+  border-color: #023dc7;
+  box-shadow: 0 0 0 2px rgba(2, 61, 199, 0.1);
+}
+
+.admin-chikapick-account-search button {
+  width: 104px;
+  height: 52px;
+  border: 0;
+  border-radius: 16px;
+  background: #023dc7;
+  color: var(--surface);
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 24px;
+}
+
+.admin-chikapick-account-search button:hover,
+.admin-chikapick-account-search button:focus-visible {
+  background: #023dc7;
+}
+
+.admin-chikapick-account-search button:disabled,
+.admin-chikapick-account-result > header button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.admin-chikapick-account-error {
+  margin: 15px 0 0;
+  border: 1px solid rgba(249, 0, 3, 0.18);
+  border-radius: 8px;
+  background: #fff5f5;
+  color: #d60003;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.admin-chikapick-account-result {
+  width: 100%;
+  margin-top: 15px;
+}
+
+.admin-chikapick-account-result > header {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-chikapick-account-result > header h2 {
+  margin: 0;
+  color: #000b26;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+  letter-spacing: -0.32px;
+}
+
+.admin-chikapick-account-result > header button {
+  min-width: 72px;
+  height: 32px;
+  border: 0;
+  border-radius: 10px;
+  background: #e6ecf9;
+  color: #023dc7;
+  cursor: pointer;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.admin-chikapick-account-result > header button:hover,
+.admin-chikapick-account-result > header button:focus-visible {
+  background: #d5e1f8;
+}
+
+.admin-chikapick-account-card {
+  width: 100%;
+  margin: 15px 0 0;
+  border: 1px solid #d4d6da;
+  border-radius: 16px;
+  background: var(--surface);
+  padding: 24px;
+}
+
+.admin-chikapick-account-card > div {
+  min-height: 32px;
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 16px;
+  border-bottom: 1px solid #ececec;
+  margin-top: 16px;
+  padding-bottom: 12px;
+}
+
+.admin-chikapick-account-card > div:first-child {
+  margin-top: 0;
+}
+
+.admin-chikapick-account-card > div:nth-child(2) {
+  border-bottom-color: transparent;
+}
+
+.admin-chikapick-account-card dt,
+.admin-chikapick-account-card dd {
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: -0.28px;
+}
+
+.admin-chikapick-account-card dt {
+  color: #596072;
+  font-weight: 500;
+}
+
+.admin-chikapick-account-card dd {
+  min-width: 0;
+  color: #000b26;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.admin-chikapick-account-status {
+  min-width: 43px;
+  height: 26px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.admin-chikapick-account-status--active {
+  background: #e2fbe9;
+  color: #0e7020;
+}
+
+.admin-chikapick-account-status--suspended,
+.admin-chikapick-account-status--withdrawn {
+  background: #fff0f0;
+  color: #d60003;
+}
+
+.admin-chikapick-account-status--dormant,
+.admin-chikapick-account-status--unknown {
+  background: #f4f6f8;
+  color: #596072;
+}
+
+.admin-chikapick-account-family dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.admin-chikapick-account-family dd strong {
+  font: inherit;
+}
+
+.admin-chikapick-account-family dd span {
+  color: inherit;
+  font-weight: inherit;
+}
+
+@media (max-width: 760px) {
+  .admin-workspace-heading--partner-accounts {
+    gap: 16px;
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .admin-partner-accounts-lookup-trigger {
+    width: 100%;
+  }
+
+  .admin-content--partner-accounts {
+    padding: 24px 20px 40px;
+  }
+
+  .admin-partner-accounts-search {
+    width: 100%;
+  }
+
+  .admin-partner-account-detail {
+    width: min(420px, 100vw);
+  }
+
+  .admin-chikapick-account-search {
+    grid-template-columns: minmax(0, 1fr) 92px;
+    padding: 16px;
+  }
+
+  .admin-chikapick-account-search label {
+    grid-column: 1 / -1;
+  }
+
+  .admin-chikapick-account-search button {
+    width: 92px;
+  }
+
+  .admin-chikapick-account-card {
+    padding: 20px;
+  }
+
+  .admin-chikapick-account-card > div {
+    grid-template-columns: 120px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .admin-partner-account-modal-layer {
+    padding: 12px;
+  }
+
+  .admin-partner-account-lookup-modal {
+    width: calc(100vw - 24px);
+    padding: 20px;
+  }
+
+  .admin-partner-account-detail {
+    padding: 24px 20px;
+  }
+
+  .admin-partner-account-detail dl > div {
+    grid-template-columns: 112px minmax(0, 1fr);
+  }
+
+  .admin-chikapick-account-search {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-chikapick-account-search button {
+    width: 100%;
+  }
+
+  .admin-chikapick-account-card > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+}
+
 .admin-secret-feedback {
   width: min(100%, 583px);
   display: flex;

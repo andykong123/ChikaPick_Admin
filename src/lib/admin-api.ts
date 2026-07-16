@@ -323,6 +323,46 @@ export async function fetchAdminSecretFeedback(
   );
 }
 
+export async function lookupAdminChikapickAccount(
+  accessToken: string,
+  body: { email: string; unmask?: boolean },
+) {
+  return adminFetch<ChikapickAccountLookupPayload>(
+    "/api/v1/admin/chikapick-accounts/lookup",
+    accessToken,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export async function searchAdminPartnerAccounts(
+  accessToken: string,
+  body: { query?: string; page?: number; pageSize?: number },
+) {
+  return adminFetch<AdminPartnerAccountsPayload>(
+    "/api/v1/admin/partner-accounts/search",
+    accessToken,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export async function lookupAdminPartnerAccount(accessToken: string, email: string) {
+  return adminFetch<AdminPartnerAccountDetailPayload>(
+    "/api/v1/admin/partner-accounts/lookup",
+    accessToken,
+    { method: "POST", body: JSON.stringify({ email }) },
+  );
+}
+
+export async function fetchAdminPartnerAccountDetail(
+  accessToken: string,
+  userId: string,
+) {
+  return adminFetch<AdminPartnerAccountDetailPayload>(
+    `/api/v1/admin/partner-accounts/${encodeURIComponent(userId)}`,
+    accessToken,
+  );
+}
+
 export async function deleteAdminExternalConnector(
   accessToken: string,
   connectorId: string,
@@ -538,6 +578,11 @@ import type {
 } from "./admin-accounts";
 import type { ExternalConnectorDirectoryPayload } from "./external-connectors";
 import type { SecretFeedbackPayload } from "./secret-feedback";
+import type { ChikapickAccountLookupPayload } from "./chikapick-accounts";
+import type {
+  AdminPartnerAccountDetailPayload,
+  AdminPartnerAccountsPayload,
+} from "./partner-accounts";
 import type {
   DentalSalesDetailPayload,
   DentalSalesFilters,
