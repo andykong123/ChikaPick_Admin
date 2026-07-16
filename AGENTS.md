@@ -143,7 +143,9 @@ Current Admin API calls:
 - `GET /api/v1/admin/accounts`
 - `POST /api/v1/admin/accounts/invite`
 - `POST /api/v1/admin/accounts/:userId/password-reset`
+- `POST /api/v1/admin/accounts/:userId/lock`
 - `POST /api/v1/admin/accounts/:userId/unlock`
+- `DELETE /api/v1/admin/accounts/:userId`
 - `POST /api/v1/admin/external-connectors`
 - `GET /api/v1/admin/dental-sales`
 - `GET /api/v1/admin/dental-sales/:profileId`
@@ -169,7 +171,7 @@ Do not expose plaintext invite codes in Admin. The invite tab should inspect inv
 - 치과의사 면허 인증: live actively affiliated owner/doctor counts split into verified, pending, and not-requested states. Pending submissions show the dentist, clinic, title, Korea-time request timestamp, and a short-lived private file link. Approval displays the Figma success dialog only after the API mutation succeeds; rejection requires a trimmed reason in an accessible dialog and sends it through the existing audit-note contract.
 - 병원 관리: inspect ChikaPick partner clinics, owner counts, active member counts, and registration dates.
 - 사용자/권한 관리: inspect users, roles, memberships, account status, super-admin state, and admin lock state.
-- 어드민 계정 관리: server-paginated Admin-only directory with role chips, name/email/ID search, Korea-time last-login/joined dates, invitation/active/locked status, and row actions. Super admins can open the Figma-aligned dialogs to invite admin, super-admin, and sales accounts by email, add non-login external connectors, send password reset emails, and unlock failed-login locks; the API independently enforces those mutations and writes audit logs. Active sales accounts and added external connectors populate the matching 치과 영업 관리 assignment lists.
+- 어드민 계정 관리: server-paginated Admin-only directory with role chips, name/email/ID search, Korea-time last-login/joined dates, invitation/active/locked status, and row actions. Super admins can open the Figma-aligned dialogs to invite admin, super-admin, and sales accounts by email, add non-login external connectors, and use the Figma row dropdown to send password-reset emails, lock/unlock accounts, or withdraw Admin access. Lock and withdrawal require confirmation and refresh the server-owned directory; withdrawal revokes Admin sessions without deleting unrelated patient/partner profiles. Active sales accounts and added external connectors populate the matching 치과 영업 관리 assignment lists.
 - 초대코드 관리: inspect invite status and revoke unused invites without exposing plaintext invite codes.
 - 예약/전문의 소견 운영 조회: admin-wide operational oversight, including 즉시 예약 vs 일반 예약 source labels.
 - 약관/운영 도구: terms version overview and operational queue/job status.

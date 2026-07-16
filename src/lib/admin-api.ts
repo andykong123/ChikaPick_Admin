@@ -312,6 +312,22 @@ export async function unlockAdminAccount(accessToken: string, userId: string) {
   );
 }
 
+export async function lockAdminAccount(accessToken: string, userId: string) {
+  return adminFetch<AdminActionResult>(
+    `/api/v1/admin/accounts/${userId}/lock`,
+    accessToken,
+    { method: "POST" },
+  );
+}
+
+export async function withdrawAdminAccount(accessToken: string, userId: string) {
+  return adminFetch<AdminActionResult>(
+    `/api/v1/admin/accounts/${userId}`,
+    accessToken,
+    { method: "DELETE" },
+  );
+}
+
 export async function fetchAdminAccountDirectory(
   accessToken: string,
   filters: AdminAccountDirectoryFilters,

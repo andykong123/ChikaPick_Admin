@@ -1474,41 +1474,50 @@ td span {
   color: var(--text-primary);
 }
 
-.admin-account-row-action > div {
-  position: absolute;
-  z-index: 20;
-  top: 30px;
-  right: 0;
-  width: 176px;
+.admin-account-row-action-menu {
+  position: fixed;
+  z-index: 80;
+  width: 224px;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: 1px solid #d4d6da;
   border-radius: 8px;
   background: var(--surface);
-  box-shadow: 0 8px 24px rgba(0, 11, 38, 0.14);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
-  padding: 4px;
+  align-items: stretch;
+  padding: 8px;
 }
 
-.admin-account-row-action > div button {
-  min-height: 34px;
+.admin-account-row-action-menu button {
+  min-height: 35px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 4px;
   background: transparent;
-  color: var(--text-tertiary);
+  color: var(--text-primary);
   cursor: pointer;
-  padding: 7px 10px;
+  padding: 10px 12px;
   font-size: 12px;
-  text-align: left;
+  font-weight: 400;
+  line-height: normal;
+  text-align: center;
+  white-space: nowrap;
 }
 
-.admin-account-row-action > div button:hover,
-.admin-account-row-action > div button:focus-visible {
-  background: var(--chika-secondary-0);
-  color: var(--chika-secondary-6);
+.admin-account-row-action-menu button:hover,
+.admin-account-row-action-menu button:focus-visible {
+  background: #f4f6f8;
+  color: var(--text-primary);
 }
 
-.admin-account-row-action > div button:disabled {
+.admin-account-row-action-menu > span {
+  width: 100%;
+  height: 1px;
+  flex: 0 0 1px;
+  background: #d4d6da;
+}
+
+.admin-account-row-action-menu button:disabled {
   cursor: wait;
   opacity: 0.5;
 }

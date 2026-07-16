@@ -19,10 +19,12 @@ import {
   fetchAdminPartnerClinics,
   fetchAdminSalesPerformance,
   inviteAdminAccount,
+  lockAdminAccount,
   rejectManualHospitalSubmission,
   revokeInvite,
   sendAdminPasswordReset,
   unlockAdminAccount,
+  withdrawAdminAccount,
   updateClinicMembership,
   updateLicenseVerification,
   type AdminConsolePayload,
@@ -814,6 +816,12 @@ export default function AdminHome() {
               onUnlock={(userId) =>
                 runAction((token) => unlockAdminAccount(token, userId))
               }
+              onLock={(userId) =>
+                runAction((token) => lockAdminAccount(token, userId))
+              }
+              onWithdraw={(userId) =>
+                runAction((token) => withdrawAdminAccount(token, userId))
+              }
             />
           ) : activePrimaryTab === "license-review" ? (
             <LicenseReviewTab
@@ -934,8 +942,10 @@ function AdminAccountsTab({
   onCreateConnector,
   onDialogChange,
   onInvite,
+  onLock,
   onPasswordReset,
   onUnlock,
+  onWithdraw,
 }: {
   accessToken: string;
   dialog: "invite" | "connector" | null;
@@ -947,8 +957,10 @@ function AdminAccountsTab({
     fullName: string;
     role: AdminAccountRole;
   }) => Promise<boolean>;
+  onLock: (userId: string) => Promise<boolean>;
   onPasswordReset: (userId: string) => Promise<boolean>;
   onUnlock: (userId: string) => Promise<boolean>;
+  onWithdraw: (userId: string) => Promise<boolean>;
 }) {
   const [filters, setFilters] = useState<AdminAccountDirectoryFilters>(
     defaultAdminAccountDirectoryFilters,
@@ -959,6 +971,7 @@ function AdminAccountsTab({
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [openActionId, setOpenActionId] = useState<string | null>(null);
+  const [actionMenuPosition, setActionMenuPosition] = useState({ left: 0, top: 0 });
   const [actionUserId, setActionUserId] = useState<string | null>(null);
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -994,6 +1007,35 @@ function AdminAccountsTab({
     const timeoutId = window.setTimeout(() => void loadAccounts(), 0);
     return () => window.clearTimeout(timeoutId);
   }, [loadAccounts]);
+
+  useEffect(() => {
+    if (!openActionId) return;
+
+    const closeMenu = () => setOpenActionId(null);
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        event.target instanceof Element &&
+        event.target.closest(".admin-account-row-action")
+      ) {
+        return;
+      }
+      closeMenu();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("scroll", closeMenu, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("scroll", closeMenu, true);
+    };
+  }, [openActionId]);
 
   const pagination = data?.pagination;
   const pageNumbers = dentalSalesPageNumbers(
@@ -1068,6 +1110,68 @@ function AdminAccountsTab({
       await loadAccounts();
     }
     setActionUserId(null);
+  }
+
+  async function handleLock(userId: string) {
+    if (
+      !window.confirm(
+        "이 어드민 계정을 잠그시겠습니까? 잠금을 해제하기 전까지 로그인할 수 없습니다.",
+      )
+    ) {
+      return;
+    }
+    setActionUserId(userId);
+    const succeeded = await onLock(userId);
+    if (succeeded) {
+      setOpenActionId(null);
+      await loadAccounts();
+    }
+    setActionUserId(null);
+  }
+
+  async function handleWithdraw(userId: string) {
+    if (
+      !window.confirm(
+        "이 어드민 계정을 탈퇴 처리하시겠습니까? 어드민 권한과 로그인 세션이 즉시 해제됩니다.",
+      )
+    ) {
+      return;
+    }
+    setActionUserId(userId);
+    const succeeded = await onWithdraw(userId);
+    if (succeeded) {
+      setOpenActionId(null);
+      await loadAccounts();
+    }
+    setActionUserId(null);
+  }
+
+  function toggleActionMenu(
+    accountId: string,
+    button: HTMLButtonElement,
+  ) {
+    if (openActionId === accountId) {
+      setOpenActionId(null);
+      return;
+    }
+
+    const rect = button.getBoundingClientRect();
+    const viewportPadding = 8;
+    const menuGap = 4;
+    const menuWidth = 224;
+    const menuHeight = 126;
+    const left = Math.min(
+      window.innerWidth - menuWidth - viewportPadding,
+      Math.max(viewportPadding, rect.right - menuWidth),
+    );
+    const below = rect.bottom + menuGap;
+    const top =
+      below + menuHeight <= window.innerHeight - viewportPadding
+        ? below
+        : Math.max(viewportPadding, rect.top - menuHeight - menuGap);
+
+    setActionMenuPosition({ left, top });
+    setOpenActionId(accountId);
   }
 
   return (
@@ -1173,25 +1277,31 @@ function AdminAccountsTab({
                       <button
                         type="button"
                         aria-label={`${account.fullName ?? account.email ?? "계정"} 관리`}
+                        aria-haspopup="menu"
+                        aria-controls={`admin-account-actions-${account.id}`}
                         aria-expanded={openActionId === account.id}
-                        onClick={() =>
-                          setOpenActionId((current) =>
-                            current === account.id ? null : account.id,
-                          )
+                        onClick={(event) =>
+                          toggleActionMenu(account.id, event.currentTarget)
                         }
                       >
                         <span aria-hidden="true">⋮</span>
                       </button>
                       {openActionId === account.id ? (
-                        <div role="menu">
+                        <div
+                          id={`admin-account-actions-${account.id}`}
+                          className="admin-account-row-action-menu"
+                          role="menu"
+                          style={actionMenuPosition}
+                        >
                           <button
                             type="button"
                             role="menuitem"
                             disabled={actionUserId === account.id}
                             onClick={() => void handlePasswordReset(account.id)}
                           >
-                            비밀번호 재설정 메일
+                            비밀번호 재설정 이메일 전송
                           </button>
+                          <span aria-hidden="true" />
                           {account.status === "locked" ? (
                             <button
                               type="button"
@@ -1199,9 +1309,27 @@ function AdminAccountsTab({
                               disabled={actionUserId === account.id}
                               onClick={() => void handleUnlock(account.id)}
                             >
-                              잠금 해제
+                              계정 잠금 해제
                             </button>
-                          ) : null}
+                          ) : (
+                            <button
+                              type="button"
+                              role="menuitem"
+                              disabled={actionUserId === account.id}
+                              onClick={() => void handleLock(account.id)}
+                            >
+                              계정 잠금
+                            </button>
+                          )}
+                          <span aria-hidden="true" />
+                          <button
+                            type="button"
+                            role="menuitem"
+                            disabled={actionUserId === account.id}
+                            onClick={() => void handleWithdraw(account.id)}
+                          >
+                            계정 탈퇴
+                          </button>
                         </div>
                       ) : null}
                     </div>
