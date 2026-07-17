@@ -18,6 +18,11 @@ export type MembershipSort = "recommended" | "name" | "updated";
 export type MembershipInquiryMethod = "external_link" | "phone" | "kakao";
 export type MembershipContentType = "section" | "editor" | "download";
 
+export interface AdminMembershipInlineImage {
+  file: File;
+  token: string;
+}
+
 export interface AdminMembershipCreateInput {
   attachmentFile: File | null;
   attachmentLabel: string;
@@ -38,6 +43,7 @@ export interface AdminMembershipCreateInput {
   name: string;
   recommendedOrder: number;
   richContent: string;
+  richContentImages: AdminMembershipInlineImage[];
   serviceTags: string[];
   strengths: string[];
 }
@@ -134,7 +140,12 @@ export function validateMembershipRegistration(input: AdminMembershipCreateInput
   return (
     membershipAssetError(input.cardImage, "card") ??
     membershipAssetError(input.detailImage, "detail") ??
-    membershipAssetError(input.attachmentFile, "attachment")
+    membershipAssetError(input.attachmentFile, "attachment") ??
+    (input.richContentImages.length > 5
+      ? "본문 이미지는 최대 5개까지 등록할 수 있습니다."
+      : input.richContentImages
+          .map(({ file }) => membershipAssetError(file, "detail"))
+          .find((message) => message !== null) ?? null)
   );
 }
 

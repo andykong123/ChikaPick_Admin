@@ -45,6 +45,7 @@ test("membership registration validates required fields and Figma upload limits"
     name: "서울기공연구소",
     recommendedOrder: 1,
     richContent: "",
+    richContentImages: [],
     serviceTags: [],
     strengths: [],
   };

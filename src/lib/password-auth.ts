@@ -1,3 +1,5 @@
+import { adminApiBaseUrl } from "./public-env.ts";
+
 type PasswordCredentials = {
   email: string;
   password: string;
@@ -23,7 +25,7 @@ export async function signInWithAdminPassword(
     throw new Error("이메일과 비밀번호를 입력해 주세요.");
   }
 
-  const response = await fetch(`${apiBaseUrl()}/api/v1/admin/auth/login`, {
+  const response = await fetch(`${adminApiBaseUrl()}/api/v1/admin/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -54,11 +56,4 @@ export async function signInWithAdminPassword(
   if (error) throw new Error(error.message ?? "로그인에 실패했습니다.");
 
   return payload.data;
-}
-
-function apiBaseUrl() {
-  return (
-    process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL?.replace(/\/$/, "") ??
-    "http://localhost:3000"
-  );
 }

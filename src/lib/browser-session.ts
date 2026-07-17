@@ -6,6 +6,7 @@ import {
   isSessionClearingError,
   sessionIdFromAccessToken,
 } from "./session-device";
+import { adminApiBaseUrl } from "./public-env.ts";
 
 const heartbeatIntervalMs = 5 * 60 * 1000;
 let registeredSessionId: string | null = null;
@@ -89,7 +90,7 @@ async function requestAdminSessionEndpoint(
   path: string,
   init: RequestInit,
 ) {
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
+  const response = await fetch(`${adminApiBaseUrl()}${path}`, {
     ...init,
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -122,11 +123,4 @@ function errorFromUnknown(error: unknown) {
   }
 
   return {};
-}
-
-function apiBaseUrl() {
-  return (
-    process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL?.replace(/\/$/, "") ??
-    "https://chikapick-api.vercel.app"
-  );
 }

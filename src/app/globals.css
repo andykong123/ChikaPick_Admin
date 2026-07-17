@@ -223,6 +223,40 @@
   color: #c33;
 }
 
+.admin-membership-bulk-actions {
+  width: fit-content;
+  min-height: 36px;
+  margin: -12px 0 16px;
+  border: 1px solid #d4d6da;
+  border-radius: 8px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 12px;
+  box-shadow: 0 4px 12px rgba(0, 11, 38, 0.08);
+}
+
+.admin-membership-bulk-actions strong,
+.admin-membership-bulk-actions button {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.admin-membership-bulk-actions button {
+  border: 0;
+  border-radius: 5px;
+  background: #e6ecf9;
+  color: #023dc7;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.admin-membership-bulk-actions button:last-child {
+  background: #ffebeb;
+  color: #c33;
+}
+
 .admin-membership-content-grid {
   display: grid;
   grid-template-columns: minmax(0, 725px) minmax(236px, 251px);
@@ -1095,17 +1129,58 @@
   padding-bottom: 12px;
 }
 
-.admin-membership-rich-toolbar b {
+.admin-membership-rich-toolbar b,
+.admin-membership-rich-toolbar button {
   width: 24px;
   height: 24px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
   font-weight: 400;
   text-align: center;
+}
+
+.admin-membership-rich-toolbar button:hover,
+.admin-membership-rich-toolbar button:focus-visible {
+  background: #e6ecf9;
+  color: #023dc7;
 }
 
 .admin-membership-rich-toolbar i {
   width: 1px;
   height: 20px;
   background: #d4d6da;
+}
+
+.admin-membership-inline-images {
+  margin: 8px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+}
+
+.admin-membership-inline-images li {
+  border-radius: 5px;
+  background: #e6ecf9;
+  color: #023dc7;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 5px 3px 8px;
+  font-size: 11px;
+}
+
+.admin-membership-inline-images button {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
 }
 
 .admin-membership-rich-toolbar span {
@@ -1862,6 +1937,11 @@ textarea:focus-visible {
 .admin-topbar-tools button:hover,
 .admin-topbar-tools button:focus-visible {
   background: var(--chika-base-1);
+}
+
+.admin-topbar-tools button:disabled {
+  opacity: 1;
+  cursor: default;
 }
 
 .admin-topbar-divider {
@@ -5665,6 +5745,15 @@ td span {
   font-weight: 700;
 }
 
+.admin-partner-operator-control select {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
 .admin-partner-detail-metric-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -6206,6 +6295,80 @@ td span {
   color: var(--text-quaternary);
   font-size: 12px;
 }
+
+.admin-partner-detail-notes > .admin-partner-operation-heading {
+  margin: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0;
+}
+
+.admin-partner-operation-heading > .admin-partner-detail-section-heading {
+  flex: 1;
+}
+
+.admin-partner-operation-heading > button {
+  min-height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.admin-partner-operation-events {
+  margin: 16px 0 0;
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+}
+
+.admin-partner-operation-events > li {
+  border-radius: 6px;
+  background: #f5f6f8;
+  padding: 12px;
+}
+
+.admin-partner-operation-events p,
+.admin-partner-operation-events small {
+  display: block;
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.admin-partner-operation-events small {
+  color: var(--text-quaternary);
+  font-size: 11px;
+}
+
+.admin-partner-operation-dialog form label {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-partner-operation-dialog select,
+.admin-partner-operation-dialog input,
+.admin-partner-operation-dialog textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 10px;
+  font: inherit;
+}
+
+.admin-partner-operation-dialog textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
 
 .admin-sales-filters {
   height: 82px;
@@ -7506,6 +7669,27 @@ td span {
   font-size: 13px;
   line-height: 1.5;
   white-space: pre-wrap;
+}
+
+.admin-sales-visit-files {
+  margin: 8px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+}
+
+.admin-sales-visit-files a,
+.admin-sales-visit-files span {
+  border-radius: 4px;
+  background: var(--chika-secondary-0);
+  color: var(--chika-secondary-6);
+  display: block;
+  padding: 3px 7px;
+  font-size: 11px;
+  line-height: 15px;
+  text-decoration: none;
 }
 
 .admin-sales-detail-empty {

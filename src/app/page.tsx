@@ -8,7 +8,10 @@ import type { Session } from "@supabase/supabase-js";
 import {
   approveManualHospitalSubmission,
   assignAdminDentalSalesperson,
+  assignAdminPartnerClinicOperator,
+  bulkUpdateAdminMembershipPartners,
   createAdminMembershipPartner,
+  createAdminPartnerClinicOperationEvent,
   createAdminExternalConnector,
   createAdminDentalSalesVisit,
   deleteAdminMembershipPartner,
@@ -46,6 +49,7 @@ import {
   withdrawAdminAccount,
   updateClinicMembership,
   updateLicenseVerification,
+  uploadAdminDentalSalesBusinessLicense,
   type AdminAccountRole,
   type AdminConsolePayload,
   type AdminManualHospitalSubmissionsPayload,
@@ -156,6 +160,7 @@ import {
   defaultAdminMembershipFilters,
   formatMembershipDate,
   membershipCategories,
+  membershipAssetError,
   membershipCategoryLabel,
   membershipPageNumbers,
   membershipSortLabel,
@@ -297,6 +302,7 @@ export default function AdminHome() {
   );
   const [consoleData, setConsoleData] = useState<AdminConsolePayload>(emptyConsole);
   const [isLoadingConsole, setIsLoadingConsole] = useState(false);
+  const [hasLoadedConsole, setHasLoadedConsole] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
@@ -382,6 +388,7 @@ export default function AdminHome() {
         await registerCurrentAdminBrowserSession(supabase);
         const payload = await fetchAdminConsole(currentSession.access_token);
         setConsoleData(payload);
+        setHasLoadedConsole(true);
       } catch (error) {
         setMessage(
           error instanceof Error
@@ -425,6 +432,7 @@ export default function AdminHome() {
       } else {
         lastAutoLoadedAccessTokenRef.current = null;
         setConsoleData(emptyConsole);
+        setHasLoadedConsole(false);
       }
     });
 
@@ -444,6 +452,7 @@ export default function AdminHome() {
         lastAutoLoadedAccessTokenRef.current = null;
         setSession(null);
         setConsoleData(emptyConsole);
+        setHasLoadedConsole(false);
         setMessage("세션이 만료되어 다시 로그인해 주세요.");
       },
     });
@@ -475,6 +484,7 @@ export default function AdminHome() {
           lastAutoLoadedAccessTokenRef.current = null;
           setSession(null);
           setConsoleData(emptyConsole);
+          setHasLoadedConsole(false);
           setMessage("1시간 동안 활동이 없어 자동 로그아웃되었습니다.");
         });
       }
@@ -697,14 +707,14 @@ export default function AdminHome() {
             </nav>
           ) : null}
           <div className="admin-topbar-tools">
-            <button type="button" aria-label="검색">
+            <button type="button" aria-label="검색 (준비 중)" title="준비 중" disabled>
               <Image src="/Type=Search.svg" alt="" width={24} height={24} />
             </button>
             <span className="admin-topbar-divider" aria-hidden="true" />
-            <button type="button" aria-label="알림">
+            <button type="button" aria-label="알림 (준비 중)" title="준비 중" disabled>
               <Image src="/Type=Notification.svg" alt="" width={24} height={24} />
             </button>
-            <button type="button" aria-label="도움말">
+            <button type="button" aria-label="도움말 (준비 중)" title="준비 중" disabled>
               <Image src="/Type=Question.svg" alt="" width={24} height={24} />
             </button>
           </div>
@@ -975,6 +985,7 @@ export default function AdminHome() {
           ) : activePrimaryTab === "dashboard" ? (
             <OverviewTab
               data={consoleData}
+              isInitialLoading={!hasLoadedConsole}
               isSuperAdmin={isSuperAdmin}
               onNavigatePrimary={navigateToPrimaryTab}
             />
@@ -1013,6 +1024,7 @@ function MembershipManagementTab({
   const [editCategory, setEditCategory] = useState<MembershipCategory>("lab");
   const [editOrder, setEditOrder] = useState("1");
   const [busyPartnerId, setBusyPartnerId] = useState<string | null>(null);
+  const [isBulkBusy, setIsBulkBusy] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -1117,6 +1129,38 @@ function MembershipManagementTab({
   const allRowsSelected =
     data.items.length > 0 && data.items.every((item) => selectedIds.has(item.id));
 
+  async function runBulkAction(action: "show" | "hide" | "delete") {
+    const partnerIds = [...selectedIds];
+    if (!partnerIds.length) return;
+    if (
+      action === "delete" &&
+      !window.confirm(`선택한 ${partnerIds.length}개 업체를 삭제하시겠습니까?`)
+    ) {
+      return;
+    }
+    setIsBulkBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await bulkUpdateAdminMembershipPartners(
+        accessToken,
+        partnerIds,
+        action,
+      );
+      setNotice(result.message);
+      setSelectedIds(new Set());
+      await loadMemberships();
+    } catch (bulkError) {
+      setError(
+        bulkError instanceof Error
+          ? bulkError.message
+          : "선택한 업체를 처리하지 못했습니다.",
+      );
+    } finally {
+      setIsBulkBusy(false);
+    }
+  }
+
   if (isRegistrationView) {
     return (
       <MembershipRegistrationView
@@ -1193,6 +1237,20 @@ function MembershipManagementTab({
 
       {error ? <p className="admin-membership-feedback is-error" role="alert">{error}</p> : null}
       {notice ? <p className="admin-membership-feedback" role="status">{notice}</p> : null}
+      {selectedIds.size > 0 ? (
+        <div className="admin-membership-bulk-actions" role="toolbar" aria-label="선택 업체 작업">
+          <strong>{selectedIds.size}개 선택</strong>
+          <button type="button" disabled={isBulkBusy} onClick={() => void runBulkAction("show")}>
+            노출
+          </button>
+          <button type="button" disabled={isBulkBusy} onClick={() => void runBulkAction("hide")}>
+            숨김
+          </button>
+          <button type="button" disabled={isBulkBusy} onClick={() => void runBulkAction("delete")}>
+            삭제
+          </button>
+        </div>
+      ) : null}
 
       <div className="admin-membership-content-grid">
         <div className="admin-membership-directory">
@@ -1474,6 +1532,9 @@ function MembershipRegistrationView({
   const [benefitItems, setBenefitItems] = useState<string[]>([""]);
   const [contentType, setContentType] = useState<MembershipContentType>("section");
   const [richContent, setRichContent] = useState("");
+  const [richContentImages, setRichContentImages] = useState<
+    AdminMembershipCreateInput["richContentImages"]
+  >([]);
   const [attachmentLabel, setAttachmentLabel] = useState("");
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState<{
@@ -1482,6 +1543,8 @@ function MembershipRegistrationView({
   } | null>(null);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const richContentRef = useRef<HTMLTextAreaElement>(null);
+  const richContentImageInputRef = useRef<HTMLInputElement>(null);
 
   function addTag() {
     const normalized = tagDraft.trim();
@@ -1521,6 +1584,66 @@ function MembershipRegistrationView({
     });
   }
 
+  function applyRichContentFormat(
+    prefix: string,
+    suffix: string,
+    placeholder: string,
+  ) {
+    const textarea = richContentRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = richContent.slice(start, end) || placeholder;
+    const next =
+      richContent.slice(0, start) +
+      prefix +
+      selected +
+      suffix +
+      richContent.slice(end);
+    if (next.length > 20_000) return;
+    setRichContent(next);
+    window.requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(
+        start + prefix.length,
+        start + prefix.length + selected.length,
+      );
+    });
+  }
+
+  function addRichContentImages(files: FileList | null) {
+    if (!files) return;
+    const available = Math.max(0, 5 - richContentImages.length);
+    const selected = Array.from(files).slice(0, available);
+    if (selected.length === 0) {
+      setError("본문 이미지는 최대 5개까지 등록할 수 있습니다.");
+      return;
+    }
+    const invalid = selected
+      .map((file) => membershipAssetError(file, "detail"))
+      .find((message) => message !== null);
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
+    const images = selected.map((file) => ({
+      file,
+      token: crypto.randomUUID(),
+    }));
+    setRichContentImages((current) => [...current, ...images]);
+    setRichContent((current) => {
+      const separator = current && !current.endsWith("\n") ? "\n" : "";
+      const markup = images
+        .map(
+          ({ file, token }) =>
+            `![${file.name.replace(/[\\[\]]/g, "")}](membership-inline://${token})`,
+        )
+        .join("\n");
+      return `${current}${separator}${markup}`.slice(0, 20_000);
+    });
+    setError("");
+  }
+
   async function submitRegistration(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const input: AdminMembershipCreateInput = {
@@ -1543,6 +1666,7 @@ function MembershipRegistrationView({
       name: name.trim(),
       recommendedOrder: Number(recommendedOrder),
       richContent: richContent.trim(),
+      richContentImages,
       serviceTags,
       strengths: strengths.map((item) => item.trim()).filter(Boolean),
     };
@@ -1801,24 +1925,105 @@ function MembershipRegistrationView({
               </div>
               <MembershipFormField label="자유 본문 편집 영역">
                 <div className="admin-membership-rich-editor">
-                  <div className="admin-membership-rich-toolbar" aria-hidden="true">
-                    <b>✎</b><b>▧</b><b>⌁</b><i />
+                  <div
+                    className="admin-membership-rich-toolbar"
+                    role="toolbar"
+                    aria-label="본문 서식"
+                  >
+                    <button
+                      type="button"
+                      aria-label="굵게"
+                      onClick={() =>
+                        applyRichContentFormat("**", "**", "강조할 내용")
+                      }
+                    >
+                      ✎
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="목록"
+                      onClick={() =>
+                        applyRichContentFormat("- ", "", "목록 항목")
+                      }
+                    >
+                      ▧
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="링크"
+                      onClick={() =>
+                        applyRichContentFormat("[", "](https://)", "링크 문구")
+                      }
+                    >
+                      ⌁
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="본문 이미지 추가"
+                      onClick={() => richContentImageInputRef.current?.click()}
+                    >
+                      ▧
+                    </button>
+                    <i />
                     <span>Pretendard Regular</span><b>⌄</b>
                   </div>
                   <textarea
+                    ref={richContentRef}
                     value={richContent}
                     maxLength={20000}
                     onChange={(event) => setRichContent(event.target.value)}
-                    placeholder="본문을 자유롭게 작성하고 이미지를 배치할 수 있는 위지위그(WYSIWYG) 에디터 영역입니다."
+                    placeholder="본문을 입력하고 상단 서식 버튼으로 강조, 목록, 링크를 추가하세요."
+                  />
+                  <input
+                    ref={richContentImageInputRef}
+                    className="sr-only"
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif"
+                    multiple
+                    onChange={(event) => {
+                      addRichContentImages(event.target.files);
+                      event.target.value = "";
+                    }}
                   />
                 </div>
+                {richContentImages.length > 0 ? (
+                  <ul className="admin-membership-inline-images">
+                    {richContentImages.map((image) => (
+                      <li key={image.token}>
+                        <span>{image.file.name}</span>
+                        <button
+                          type="button"
+                          aria-label={`${image.file.name} 본문 이미지 삭제`}
+                          onClick={() => {
+                            setRichContentImages((current) =>
+                              current.filter((item) => item.token !== image.token),
+                            );
+                            setRichContent((current) =>
+                              current
+                                .replace(
+                                  new RegExp(
+                                    `!?\\[[^\\]]*\\]\\(membership-inline://${image.token}\\)\\n?`,
+                                    "g",
+                                  ),
+                                  "",
+                                )
+                                .trimEnd(),
+                            );
+                          }}
+                        >
+                          ×
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </MembershipFormField>
               <MembershipFormField label="첨부파일 명칭">
                 <input
                   value={attachmentLabel}
                   maxLength={150}
                   onChange={(event) => setAttachmentLabel(event.target.value)}
-                  placeholder="예: [브로셔] 서울기공연구소_소개서.pdf"
+                  placeholder="예: [브로셔] 업체명_소개서.pdf"
                 />
               </MembershipFormField>
               <MembershipFileField
@@ -1892,7 +2097,14 @@ function MembershipFileField({
   return (
     <div className="admin-membership-file-field">
       <span>{label}</span>
-      <label className={large ? "admin-membership-upload-zone is-large" : "admin-membership-upload-zone"}>
+      <label
+        className={large ? "admin-membership-upload-zone is-large" : "admin-membership-upload-zone"}
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => {
+          event.preventDefault();
+          onChange(event.dataTransfer.files[0] ?? null);
+        }}
+      >
         <input
           type="file"
           accept={accept}
@@ -2820,10 +3032,10 @@ function SecretFeedbackTab({ accessToken }: { accessToken: string }) {
   }, [selectedFeedback]);
 
   const metrics = [
-    { label: "전체 피드백 수", value: data?.metrics.total ?? 0 },
-    { label: "매우만족/만족 수", value: data?.metrics.positive ?? 0 },
-    { label: "보통 수", value: data?.metrics.neutral ?? 0 },
-    { label: "매우 아쉬움/아쉬움 수", value: data?.metrics.negative ?? 0 },
+    { label: "전체 피드백 수", value: data?.metrics.total ?? null },
+    { label: "매우만족/만족 수", value: data?.metrics.positive ?? null },
+    { label: "보통 수", value: data?.metrics.neutral ?? null },
+    { label: "매우 아쉬움/아쉬움 수", value: data?.metrics.negative ?? null },
   ];
   const pagination = data?.pagination;
   const pageNumbers = dentalSalesPageNumbers(
@@ -2837,7 +3049,7 @@ function SecretFeedbackTab({ accessToken }: { accessToken: string }) {
         {metrics.map((metric) => (
           <article key={metric.label}>
             <span>{metric.label}</span>
-            <strong>{metric.value.toLocaleString("ko-KR")}</strong>
+            <strong>{metric.value?.toLocaleString("ko-KR") ?? "—"}</strong>
           </article>
         ))}
       </div>
@@ -3764,15 +3976,15 @@ function SalesPerformanceTab({
       <div className="admin-performance-metrics" aria-label="영업 성과 요약">
         <PerformanceMetricCard
           label="담당자만 등록 수"
-          value={data?.metrics.salespersonOnly ?? 0}
+          value={data?.metrics.salespersonOnly ?? null}
         />
         <PerformanceMetricCard
           label="외부 연결자만 등록 수"
-          value={data?.metrics.externalConnectorOnly ?? 0}
+          value={data?.metrics.externalConnectorOnly ?? null}
         />
         <PerformanceMetricCard
           label="둘 다 지정된 수"
-          value={data?.metrics.bothAssigned ?? 0}
+          value={data?.metrics.bothAssigned ?? null}
         />
       </div>
 
@@ -3786,7 +3998,9 @@ function SalesPerformanceTab({
       ) : null}
 
       <div className="admin-performance-table-card">
-        <header>총 {data?.pagination.totalItems ?? 0}건</header>
+        <header>
+          총 {data ? `${data.pagination.totalItems.toLocaleString("ko-KR")}건` : "—"}
+        </header>
         <div className="admin-sales-table-scroll admin-performance-table-scroll">
           <table className="admin-sales-table admin-performance-table">
             <colgroup>
@@ -3880,11 +4094,17 @@ function SalesPerformanceTab({
   );
 }
 
-function PerformanceMetricCard({ label, value }: { label: string; value: number }) {
+function PerformanceMetricCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: number | null;
+}) {
   return (
     <article>
       <span>{label}</span>
-      <strong>{value.toLocaleString("ko-KR")}</strong>
+      <strong>{value?.toLocaleString("ko-KR") ?? "—"}</strong>
     </article>
   );
 }
@@ -4015,6 +4235,14 @@ function PartnerClinicsTab({
     return () => window.clearTimeout(timeoutId);
   }, [loadDetail, selectedClinicId]);
 
+  useEffect(() => {
+    if (!selectedClinicId) return;
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") void loadDetail();
+    }, 60_000);
+    return () => window.clearInterval(intervalId);
+  }, [loadDetail, selectedClinicId]);
+
   const pagination = listData?.pagination;
   const pageNumbers = dentalSalesPageNumbers(
     pagination?.page ?? currentPage,
@@ -4024,11 +4252,14 @@ function PartnerClinicsTab({
   if (selectedClinicId) {
     return (
       <PartnerClinicDetailPage
+        accessToken={accessToken}
+        clinicId={selectedClinicId}
         detail={detailClinicId === selectedClinicId ? detail : null}
         detailError={detailError}
         isDetailLoading={isDetailLoading}
         onBack={() => onSelectClinic(null)}
         onRetry={() => void loadDetail()}
+        onSaved={() => void loadDetail()}
       />
     );
   }
@@ -4185,21 +4416,40 @@ function PartnerClinicsTab({
 }
 
 function PartnerClinicDetailPage({
+  accessToken,
+  clinicId,
   detail,
   detailError,
   isDetailLoading,
   onBack,
   onRetry,
+  onSaved,
 }: {
+  accessToken: string;
+  clinicId: string;
   detail: AdminPartnerClinicDetailPayload | null;
   detailError: string;
   isDetailLoading: boolean;
   onBack: () => void;
   onRetry: () => void;
+  onSaved: () => void;
 }) {
   const [isHospitalReviewOpen, setIsHospitalReviewOpen] = useState(false);
+  const [isOperationDialogOpen, setIsOperationDialogOpen] = useState(false);
+  const [isOperationSaving, setIsOperationSaving] = useState(false);
+  const [isOperatorSaving, setIsOperatorSaving] = useState(false);
+  const [operationError, setOperationError] = useState("");
+  const [operationForm, setOperationForm] = useState({
+    type: "operation_memo" as "operation_memo" | "support_history",
+    content: "",
+    occurredAt: localDateTimeValue(new Date()),
+    resolvedAt: "",
+    resolvedByAdminUserId: "",
+  });
   const reviewButtonRef = useRef<HTMLButtonElement>(null);
   const reviewCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const operationButtonRef = useRef<HTMLButtonElement>(null);
+  const operationCloseButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!isHospitalReviewOpen) return;
@@ -4218,20 +4468,93 @@ function PartnerClinicDetailPage({
   }, [isHospitalReviewOpen]);
 
   useEffect(() => {
+    if (!isOperationDialogOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const operationButton = operationButtonRef.current;
+    document.body.style.overflow = "hidden";
+    const focusTimer = window.setTimeout(
+      () => operationCloseButtonRef.current?.focus(),
+      0,
+    );
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.body.style.overflow = previousOverflow;
+      operationButton?.focus();
+    };
+  }, [isOperationDialogOpen]);
+
+  useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       if (isHospitalReviewOpen) setIsHospitalReviewOpen(false);
+      else if (isOperationDialogOpen) setIsOperationDialogOpen(false);
       else onBack();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isHospitalReviewOpen, onBack]);
+  }, [isHospitalReviewOpen, isOperationDialogOpen, onBack]);
+
+  async function saveOperator(assignedOperatorUserId: string) {
+    setIsOperatorSaving(true);
+    setOperationError("");
+    try {
+      await assignAdminPartnerClinicOperator(
+        accessToken,
+        clinicId,
+        assignedOperatorUserId || null,
+      );
+      onSaved();
+    } catch (error) {
+      setOperationError(
+        error instanceof Error ? error.message : "담당 운영자를 변경하지 못했습니다.",
+      );
+    } finally {
+      setIsOperatorSaving(false);
+    }
+  }
+
+  async function saveOperationEvent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!operationForm.content.trim()) return;
+    setIsOperationSaving(true);
+    setOperationError("");
+    try {
+      await createAdminPartnerClinicOperationEvent(accessToken, clinicId, {
+        type: operationForm.type,
+        content: operationForm.content.trim(),
+        occurredAt: new Date(operationForm.occurredAt).toISOString(),
+        resolvedAt:
+          operationForm.type === "support_history" && operationForm.resolvedAt
+            ? new Date(operationForm.resolvedAt).toISOString()
+            : null,
+        resolvedByAdminUserId:
+          operationForm.type === "support_history"
+            ? operationForm.resolvedByAdminUserId || null
+            : null,
+      });
+      setOperationForm({
+        type: "operation_memo",
+        content: "",
+        occurredAt: localDateTimeValue(new Date()),
+        resolvedAt: "",
+        resolvedByAdminUserId: "",
+      });
+      setIsOperationDialogOpen(false);
+      onSaved();
+    } catch (error) {
+      setOperationError(
+        error instanceof Error ? error.message : "운영 이력을 저장하지 못했습니다.",
+      );
+    } finally {
+      setIsOperationSaving(false);
+    }
+  }
 
   function keepModalFocus(event: React.KeyboardEvent<HTMLDivElement>) {
     if (event.key !== "Tab") return;
     const focusableElements = Array.from(
       event.currentTarget.querySelectorAll<HTMLElement>(
-        'input:not([disabled]), textarea:not([disabled]), button:not([disabled])',
+        'a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])',
       ),
     );
     const firstElement = focusableElements[0];
@@ -4278,6 +4601,9 @@ function PartnerClinicDetailPage({
   const reservationDuration = partnerClinicDurationLabel(
     metrics.reservations.averageConfirmationMinutes,
   );
+  const reservationModificationDuration = partnerClinicDurationLabel(
+    metrics.reservations.averageModificationMinutes,
+  );
   const completion = hospitalInformation.completion;
   const reservationTotal = Math.max(metrics.reservations.requests, 1);
   const trendMaximum = Math.max(
@@ -4318,7 +4644,28 @@ function PartnerClinicDetailPage({
               value={`${formatPartnerMetric(clinic.staffCount)} 명`}
               strong
             />
-            <PartnerClinicSummaryRow label="담당 운영자" value="미지정" strong />
+            <div>
+              <dt>담당 운영자</dt>
+              <dd className="is-strong admin-partner-operator-control">
+                {detail.canManageOperations ? (
+                  <select
+                    aria-label="담당 운영자"
+                    disabled={isOperatorSaving}
+                    value={detail.operations.assignedOperator?.id ?? ""}
+                    onChange={(event) => void saveOperator(event.target.value)}
+                  >
+                    <option value="">미지정</option>
+                    {detail.operations.operatorOptions.map((operator) => (
+                      <option key={operator.id} value={operator.id}>
+                        {operator.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  detail.operations.assignedOperator?.name ?? "미지정"
+                )}
+              </dd>
+            </div>
           </dl>
           <dl>
             <PartnerClinicSummaryRow
@@ -4457,7 +4804,10 @@ function PartnerClinicDetailPage({
               label="확정 처리 속도"
               value={`${reservationDuration.value}${reservationDuration.unit}`}
             />
-            <PartnerClinicStatusValue label="수정 처리 속도" value="-" />
+            <PartnerClinicStatusValue
+              label="수정 처리 속도"
+              value={`${reservationModificationDuration.value}${reservationModificationDuration.unit}`}
+            />
             <PartnerClinicStatusValue
               label="최근 30일 요청"
               value={`${formatPartnerMetric(metrics.reservations.recent30Days)}건`}
@@ -4494,7 +4844,15 @@ function PartnerClinicDetailPage({
         </section>
 
         <section className="admin-partner-detail-section-card admin-partner-detail-instant">
-          <PartnerClinicSectionHeading title="즉시 예약 관리 현황" badge="활성 상태" tone="green" />
+          <PartnerClinicSectionHeading
+            title="즉시 예약 관리 현황"
+            badge={
+              metrics.instantBookings.hasAvailableFutureSlots
+                ? "활성 상태"
+                : "비활성 상태"
+            }
+            tone={metrics.instantBookings.hasAvailableFutureSlots ? "green" : undefined}
+          />
           <div className="admin-partner-detail-instant-grid">
             <PartnerClinicStatusValue
               label="이번 달 등록 횟수"
@@ -4610,12 +4968,168 @@ function PartnerClinicDetailPage({
       </div>
 
       <section className="admin-partner-detail-section-card admin-partner-detail-notes">
-        <PartnerClinicSectionHeading title="운영 메모 및 지원 이력" />
-        <div>
-          <strong>등록된 운영 메모가 없습니다.</strong>
-          <p>운영 메모 및 지원 이력 저장 기능은 준비 중입니다.</p>
+        <div className="admin-partner-operation-heading">
+          <PartnerClinicSectionHeading title="운영 메모 및 지원 이력" />
+          <button
+            ref={operationButtonRef}
+            type="button"
+            onClick={() => setIsOperationDialogOpen(true)}
+          >
+            메모 추가
+          </button>
         </div>
+        {operationError ? <p role="alert">{operationError}</p> : null}
+        {detail.operations.events.length ? (
+          <ol className="admin-partner-operation-events">
+            {detail.operations.events.map((event) => (
+              <li key={event.id}>
+                <strong>
+                  {event.type === "operation_memo" ? "[운영 메모]" : "[지원 요청 이력]"}
+                </strong>
+                <p>{event.content}</p>
+                <small>
+                  {partnerClinicRegistrationLabel(event.occurredAt)} · {event.createdBy.name}
+                  {event.resolvedAt && event.resolvedBy
+                    ? ` · 최종 처리 ${partnerClinicRegistrationLabel(event.resolvedAt)} / ${event.resolvedBy.name}`
+                    : ""}
+                </small>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <div>
+            <strong>등록된 운영 메모가 없습니다.</strong>
+            <p>메모 추가 버튼으로 운영 메모와 지원 이력을 등록할 수 있습니다.</p>
+          </div>
+        )}
       </section>
+
+      {isOperationDialogOpen ? (
+        <div className="admin-account-dialog-layer">
+          <button
+            type="button"
+            className="admin-account-dialog-backdrop"
+            aria-label="운영 이력 등록 닫기"
+            onClick={() => setIsOperationDialogOpen(false)}
+          />
+          <div
+            className="admin-account-dialog admin-partner-operation-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-partner-operation-dialog-title"
+            onKeyDown={keepModalFocus}
+          >
+            <header>
+              <h2 id="admin-partner-operation-dialog-title">운영 이력 등록</h2>
+              <button
+                ref={operationCloseButtonRef}
+                type="button"
+                aria-label="닫기"
+                onClick={() => setIsOperationDialogOpen(false)}
+              >
+                ×
+              </button>
+            </header>
+            <form onSubmit={saveOperationEvent}>
+              <label>
+                <span>유형</span>
+                <select
+                  value={operationForm.type}
+                  onChange={(event) =>
+                    setOperationForm((form) => ({
+                      ...form,
+                      type: event.target.value as typeof form.type,
+                      resolvedAt: "",
+                      resolvedByAdminUserId: "",
+                    }))
+                  }
+                >
+                  <option value="operation_memo">운영 메모</option>
+                  <option value="support_history">지원 요청 이력</option>
+                </select>
+              </label>
+              <label>
+                <span>발생 일시</span>
+                <input
+                  type="datetime-local"
+                  required
+                  value={operationForm.occurredAt}
+                  onChange={(event) =>
+                    setOperationForm((form) => ({
+                      ...form,
+                      occurredAt: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                <span>내용</span>
+                <textarea
+                  required
+                  maxLength={2000}
+                  value={operationForm.content}
+                  onChange={(event) =>
+                    setOperationForm((form) => ({
+                      ...form,
+                      content: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              {operationForm.type === "support_history" ? (
+                <>
+                  <label>
+                    <span>최종 처리 일시 (선택)</span>
+                    <input
+                      type="datetime-local"
+                      value={operationForm.resolvedAt}
+                      onChange={(event) =>
+                        setOperationForm((form) => ({
+                          ...form,
+                          resolvedAt: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>처리 담당자</span>
+                    <select
+                      disabled={!operationForm.resolvedAt}
+                      required={!!operationForm.resolvedAt}
+                      value={operationForm.resolvedByAdminUserId}
+                      onChange={(event) =>
+                        setOperationForm((form) => ({
+                          ...form,
+                          resolvedByAdminUserId: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">선택</option>
+                      {detail.operations.operatorOptions.map((operator) => (
+                        <option key={operator.id} value={operator.id}>
+                          {operator.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
+              ) : null}
+              {operationError ? <p role="alert">{operationError}</p> : null}
+              <footer>
+                <button type="button" onClick={() => setIsOperationDialogOpen(false)}>
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  disabled={isOperationSaving || !operationForm.content.trim()}
+                >
+                  {isOperationSaving ? "저장 중" : "저장"}
+                </button>
+              </footer>
+            </form>
+          </div>
+        </div>
+      ) : null}
 
       {isHospitalReviewOpen ? (
         <HospitalInformationReviewModal
@@ -4730,13 +5244,14 @@ function DentalSalesTab({
   const [detailError, setDetailError] = useState("");
   const [actionMessage, setActionMessage] = useState("");
   const [isSavingAssignment, setIsSavingAssignment] = useState(false);
+  const [isSavingBusinessFile, setIsSavingBusinessFile] = useState(false);
   const [isSavingVisit, setIsSavingVisit] = useState(false);
   const [isAssignmentEditing, setIsAssignmentEditing] = useState(false);
   const [isHospitalReviewOpen, setIsHospitalReviewOpen] = useState(false);
   const [isVisitFormOpen, setIsVisitFormOpen] = useState(false);
   const [businessFileName, setBusinessFileName] = useState("");
   const [businessFileError, setBusinessFileError] = useState("");
-  const [visitAttachmentNames, setVisitAttachmentNames] = useState<string[]>([]);
+  const [visitAttachments, setVisitAttachments] = useState<File[]>([]);
   const [visitAttachmentError, setVisitAttachmentError] = useState("");
   const [visitPage, setVisitPage] = useState(1);
   const [visitForm, setVisitForm] = useState<DentalSalesVisitForm>(() => ({
@@ -4811,7 +5326,7 @@ function DentalSalesTab({
         }
         if (isVisitFormOpen) {
           setIsVisitFormOpen(false);
-          setVisitAttachmentNames([]);
+          setVisitAttachments([]);
           setVisitAttachmentError("");
           return;
         }
@@ -4902,6 +5417,7 @@ function DentalSalesTab({
         salespersonUserId: visitForm.salespersonUserId,
         detailStatus: visitForm.detailStatus,
         note: dentalSalesVisitNote(visitForm.title, visitForm.note),
+        attachments: visitAttachments,
       });
       setActionMessage(result.message);
       setVisitForm((form) => ({
@@ -4910,7 +5426,7 @@ function DentalSalesTab({
         visitedAt: localDateTimeValue(new Date()),
         note: "",
       }));
-      setVisitAttachmentNames([]);
+      setVisitAttachments([]);
       setVisitAttachmentError("");
       setIsVisitFormOpen(false);
       setVisitPage(1);
@@ -4922,22 +5438,43 @@ function DentalSalesTab({
     }
   }
 
-  function selectBusinessFile(file: File | undefined) {
+  async function selectBusinessFile(file: File | undefined) {
     setBusinessFileError("");
     setBusinessFileName("");
-    if (!file) return;
+    if (!file || !selectedProfileId) return;
     const validationError = dentalSalesBusinessFileError(file);
     if (validationError) {
       setBusinessFileError(validationError);
       return;
     }
     setBusinessFileName(file.name);
+    setIsSavingBusinessFile(true);
+    try {
+      const result = await uploadAdminDentalSalesBusinessLicense(
+        accessToken,
+        selectedProfileId,
+        file,
+      );
+      setActionMessage(result.message);
+      await loadDetail();
+      setBusinessFileName("");
+    } catch (error) {
+      setBusinessFileError(
+        error instanceof Error ? error.message : "사업자 등록증을 저장하지 못했습니다.",
+      );
+    } finally {
+      setIsSavingBusinessFile(false);
+    }
   }
 
   function selectVisitAttachments(files: File[]) {
     setVisitAttachmentError("");
-    setVisitAttachmentNames([]);
+    setVisitAttachments([]);
     if (!files.length) return;
+    if (files.length > 5) {
+      setVisitAttachmentError("첨부파일은 최대 5개까지 등록할 수 있습니다.");
+      return;
+    }
     for (const file of files) {
       const validationError = dentalSalesBusinessFileError(file);
       if (validationError) {
@@ -4945,7 +5482,7 @@ function DentalSalesTab({
         return;
       }
     }
-    setVisitAttachmentNames(files.map((file) => file.name));
+    setVisitAttachments(files);
   }
 
   function openVisitModal() {
@@ -4961,13 +5498,13 @@ function DentalSalesTab({
         ? profileDetailStatus
         : form.detailStatus,
     }));
-    setVisitAttachmentNames([]);
+    setVisitAttachments([]);
     setVisitAttachmentError("");
     setIsVisitFormOpen(true);
   }
 
   function closeVisitModal() {
-    setVisitAttachmentNames([]);
+    setVisitAttachments([]);
     setVisitAttachmentError("");
     setIsVisitFormOpen(false);
   }
@@ -4978,7 +5515,7 @@ function DentalSalesTab({
     setIsVisitFormOpen(false);
     setBusinessFileName("");
     setBusinessFileError("");
-    setVisitAttachmentNames([]);
+    setVisitAttachments([]);
     setVisitAttachmentError("");
     onSelectProfile(null);
   }
@@ -4992,7 +5529,7 @@ function DentalSalesTab({
     setIsVisitFormOpen(false);
     setBusinessFileName("");
     setBusinessFileError("");
-    setVisitAttachmentNames([]);
+    setVisitAttachments([]);
     setVisitAttachmentError("");
     setVisitForm({
       title: "",
@@ -5016,6 +5553,7 @@ function DentalSalesTab({
         isDetailLoading={isDetailLoading}
         isHospitalReviewOpen={isHospitalReviewOpen}
         isSavingAssignment={isSavingAssignment}
+        isSavingBusinessFile={isSavingBusinessFile}
         isSavingVisit={isSavingVisit}
         isVisitFormOpen={isVisitFormOpen}
         onAssignmentCancel={() => setIsAssignmentEditing(false)}
@@ -5038,7 +5576,7 @@ function DentalSalesTab({
         onVisitPageChange={setVisitPage}
         visitForm={visitForm}
         visitAttachmentError={visitAttachmentError}
-        visitAttachmentNames={visitAttachmentNames}
+        visitAttachmentNames={visitAttachments.map((file) => file.name)}
         visitPage={visitPage}
       />
     );
@@ -5302,6 +5840,7 @@ function DentalSalesDetailPage({
   isDetailLoading,
   isHospitalReviewOpen,
   isSavingAssignment,
+  isSavingBusinessFile,
   isSavingVisit,
   isVisitFormOpen,
   onAssignmentCancel,
@@ -5332,6 +5871,7 @@ function DentalSalesDetailPage({
   isDetailLoading: boolean;
   isHospitalReviewOpen: boolean;
   isSavingAssignment: boolean;
+  isSavingBusinessFile: boolean;
   isSavingVisit: boolean;
   isVisitFormOpen: boolean;
   onAssignmentCancel: () => void;
@@ -5526,6 +6066,27 @@ function DentalSalesDetailPage({
                         <span>{visit.salesperson.name} 작성</span>
                       </header>
                       <p>{presentation.memo || "기록된 메모가 없습니다."}</p>
+                      {visit.attachments.length ? (
+                        <ul className="admin-sales-visit-files">
+                          {visit.attachments.map((attachment) => (
+                            <li key={attachment.id}>
+                              {attachment.url ? (
+                                <a
+                                  href={attachment.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  {attachment.fileName}
+                                </a>
+                              ) : (
+                                <span title="다운로드 링크가 만료되었습니다. 새로고침해 주세요.">
+                                  {attachment.fileName}
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </article>
                   </li>
                 );
@@ -5701,6 +6262,7 @@ function DentalSalesDetailPage({
                 id="admin-sales-business-file"
                 className="admin-visually-hidden"
                 type="file"
+                disabled={isSavingBusinessFile}
                 accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
                 onChange={(event) => {
                   onBusinessFileSelect(event.target.files?.[0]);
@@ -5709,10 +6271,21 @@ function DentalSalesDetailPage({
               />
               <label htmlFor="admin-sales-business-file">
                 <Image src="/Type=Upload.svg" alt="" width={18} height={18} />
-                파일 업로드
+                {isSavingBusinessFile ? "저장 중" : "파일 업로드"}
               </label>
               {businessLicenseName ? (
-                <span className="admin-sales-business-file-name">{businessLicenseName}</span>
+                profile.businessLicense?.url && !businessFileName ? (
+                  <a
+                    className="admin-sales-business-file-name"
+                    href={profile.businessLicense.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {businessLicenseName}
+                  </a>
+                ) : (
+                  <span className="admin-sales-business-file-name">{businessLicenseName}</span>
+                )
               ) : null}
               {businessFileError ? (
                 <span className="admin-sales-business-file-error" role="alert">
@@ -5866,11 +6439,6 @@ function DentalSalesDetailPage({
                 {visitAttachmentError ? (
                   <p className="admin-sales-visit-attachment-error" role="alert">
                     {visitAttachmentError}
-                  </p>
-                ) : null}
-                {visitAttachmentNames.length ? (
-                  <p className="admin-sales-visit-attachment-notice">
-                    첨부파일은 현재 서버에 저장되지 않습니다.
                   </p>
                 ) : null}
               </div>
@@ -7189,10 +7757,12 @@ function AdminAuditLogTab({ accessToken }: { accessToken: string }) {
 
 function OverviewTab({
   data,
+  isInitialLoading,
   isSuperAdmin,
   onNavigatePrimary,
 }: {
   data: AdminConsolePayload;
+  isInitialLoading: boolean;
   isSuperAdmin: boolean;
   onNavigatePrimary: (tab: PrimaryAdminTab) => void;
 }) {
@@ -7347,7 +7917,11 @@ function OverviewTab({
 
   return (
     <div className="admin-overview">
-      <section className="admin-overview-section" aria-labelledby="overview-summary-title">
+      <section
+        className="admin-overview-section"
+        aria-labelledby="overview-summary-title"
+        aria-busy={isInitialLoading}
+      >
         <div className="admin-overview-section-heading">
           <div>
             <h2 id="overview-summary-title">처리 현황</h2>
@@ -7357,25 +7931,25 @@ function OverviewTab({
         <div className="admin-overview-summary-grid">
           <OverviewSummaryCard
             label="병원 가입 심사 대기"
-            value={pendingHospitalReviews}
+            value={isInitialLoading ? "—" : pendingHospitalReviews}
             tone="orange"
             onClick={() => onNavigatePrimary("hospital-review")}
           />
           <OverviewSummaryCard
             label="면허 인증 검토 대기"
-            value={pendingLicenseReviews}
+            value={isInitialLoading ? "—" : pendingLicenseReviews}
             tone="red"
             onClick={() => onNavigatePrimary("license-review")}
           />
           <OverviewSummaryCard
             label="소속 승인 대기"
-            value={pendingMemberships}
+            value={isInitialLoading ? "—" : pendingMemberships}
             tone="blue"
             onClick={() => onNavigatePrimary("clinic-membership-requests")}
           />
           <OverviewSummaryCard
             label="활성 파트너 치과"
-            value={activePartnerClinics}
+            value={isInitialLoading ? "—" : activePartnerClinics}
             tone="green"
             onClick={() => onNavigatePrimary("partner-clinics")}
           />
@@ -7451,17 +8025,19 @@ function OverviewSummaryCard({
   label: string;
   onClick: () => void;
   tone: "blue" | "orange" | "green" | "red";
-  value: number;
+  value: number | string;
 }) {
+  const displayValue =
+    typeof value === "number" ? value.toLocaleString("ko-KR") : value;
   return (
     <button
       type="button"
       className={`admin-overview-summary admin-overview-summary--${tone}`}
       onClick={onClick}
-      aria-label={`${label} ${value.toLocaleString("ko-KR")}건 보기`}
+      aria-label={`${label} ${displayValue}건 보기`}
     >
       <span>{label}</span>
-      <strong>{value.toLocaleString("ko-KR")}</strong>
+      <strong>{displayValue}</strong>
       <small>
         바로가기 <span aria-hidden="true">→</span>
       </small>
@@ -7571,7 +8147,9 @@ function ManualHospitalReviewTab({
       ) : null}
 
       <div className="admin-hospital-review-table-card" aria-busy={isLoading}>
-        <header>총 {pagination?.totalItems ?? 0}건</header>
+        <header>
+          총 {pagination ? `${pagination.totalItems.toLocaleString("ko-KR")}건` : "—"}
+        </header>
         <div className="admin-hospital-review-table-scroll">
           <table className="admin-hospital-review-table">
             <colgroup>

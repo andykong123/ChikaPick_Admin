@@ -23,6 +23,7 @@ export interface AdminPartnerClinicsPayload {
 }
 
 export interface AdminPartnerClinicDetailPayload {
+  canManageOperations: boolean;
   clinic: AdminPartnerClinicRow & {
     memberCount: number;
     isAppVisible: boolean;
@@ -36,12 +37,14 @@ export interface AdminPartnerClinicDetailPayload {
       cancelled: number;
       inProgress: number;
       averageConfirmationMinutes: number | null;
+      averageModificationMinutes: number | null;
       recent30Days: number;
     };
     instantBookings: {
       monthlySlotRegistrations: number;
       totalBookings: number;
       latestRegistrationAt: string | null;
+      hasAvailableFutureSlots: boolean;
       monthlyTrend: Array<{ month: string; count: number }>;
     };
     feedback: {
@@ -54,7 +57,29 @@ export interface AdminPartnerClinicDetailPayload {
       }>;
     };
   };
+  operations: {
+    assignedOperator: AdminPartnerClinicOperator | null;
+    operatorOptions: AdminPartnerClinicOperator[];
+    updatedAt: string | null;
+    events: AdminPartnerClinicOperationEvent[];
+  };
   hospitalInformation: DentalSalesHospitalInformation;
+}
+
+export interface AdminPartnerClinicOperator {
+  id: string;
+  name: string;
+}
+
+export interface AdminPartnerClinicOperationEvent {
+  id: string;
+  type: "operation_memo" | "support_history";
+  content: string;
+  occurredAt: string;
+  createdAt: string;
+  createdBy: AdminPartnerClinicOperator | { id: null; name: string };
+  resolvedAt: string | null;
+  resolvedBy: AdminPartnerClinicOperator | { id: null; name: string } | null;
 }
 
 interface PartnerClinicResponseMetrics {

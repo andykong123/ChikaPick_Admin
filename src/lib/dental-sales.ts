@@ -36,6 +36,17 @@ export interface DentalSalesVisit {
   note: string | null;
   createdByAdminUserId: string | null;
   createdAt: string;
+  attachments: DentalSalesDocument[];
+}
+
+export interface DentalSalesDocument {
+  id: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+  uploadedByAdminUserId: string | null;
+  url: string | null;
 }
 
 export interface DentalSalesPagination {
@@ -110,10 +121,7 @@ export interface DentalSalesDetailPayload {
     businessRegistrationNumber?: string | null;
     medicalInstitutionType?: string | null;
     isAppVisible?: boolean;
-    businessLicense?: {
-      fileName: string;
-      url?: string | null;
-    } | null;
+    businessLicense?: DentalSalesDocument | null;
     informationCompletion?: {
       percentage: number;
       updatedAt: string | null;

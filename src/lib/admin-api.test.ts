@@ -3,9 +3,12 @@ import { test } from "node:test";
 
 import {
   assignAdminDentalSalesperson,
+  assignAdminPartnerClinicOperator,
+  bulkUpdateAdminMembershipPartners,
   createAdminMembershipPartner,
   createAdminExternalConnector,
   createAdminDentalSalesVisit,
+  createAdminPartnerClinicOperationEvent,
   deleteAdminExternalConnector,
   deleteAdminMembershipPartner,
   fetchAdminAccountDirectory,
@@ -35,6 +38,7 @@ import {
   sendAdminPasswordReset,
   unlockAdminAccount,
   updateAdminMembershipPartner,
+  uploadAdminDentalSalesBusinessLicense,
   withdrawAdminAccount,
 } from "./admin-api.ts";
 import { emptyDentalSalesFilters } from "./dental-sales.ts";
@@ -207,6 +211,7 @@ test("membership partner registration sends the complete form as multipart data"
       name: "서울기공연구소",
       recommendedOrder: 1,
       richContent: "상세 본문",
+      richContentImages: [],
       serviceTags: ["CAD/CAM"],
       strengths: ["3D 스캐너 보유"],
     });
@@ -224,6 +229,7 @@ test("membership partner registration sends the complete form as multipart data"
   assert.equal(body.get("name"), "서울기공연구소");
   assert.equal(body.get("isPreferred"), "true");
   assert.deepEqual(JSON.parse(String(body.get("strengths"))), ["3D 스캐너 보유"]);
+  assert.deepEqual(JSON.parse(String(body.get("richContentImageTokens"))), []);
 });
 
 test("fetchAdminSecretFeedback requests the anonymous feedback directory", async () => {
@@ -805,7 +811,84 @@ test("createAdminDentalSalesVisit posts an immutable visit payload", async () =>
     "https://api.example.com/api/v1/admin/dental-sales/sales%2F1/visits",
   );
   assert.equal(calls[0]?.init?.method, "POST");
-  assert.deepEqual(JSON.parse(calls[0]?.init?.body as string), body);
+  const formData = calls[0]?.init?.body as FormData;
+  assert.equal(formData.get("visitedAt"), body.visitedAt);
+  assert.equal(formData.get("salespersonUserId"), body.salespersonUserId);
+  assert.equal(formData.get("detailStatus"), body.detailStatus);
+  assert.equal(formData.get("note"), body.note);
+  assert.deepEqual(formData.getAll("attachmentFiles"), []);
+});
+
+test("sales documents and partner operations use persisted multipart and JSON contracts", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(JSON.stringify({ ok: true, message: "saved" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+  const file = new File([new Uint8Array([0xff, 0xd8, 0xff])], "license.jpg", {
+    type: "image/jpeg",
+  });
+
+  try {
+    await uploadAdminDentalSalesBusinessLicense(
+      "access-token",
+      "profile/1",
+      file,
+    );
+    await assignAdminPartnerClinicOperator(
+      "access-token",
+      "clinic/1",
+      "admin-2",
+    );
+    await createAdminPartnerClinicOperationEvent(
+      "access-token",
+      "clinic/1",
+      {
+        type: "operation_memo",
+        content: "확인 메모",
+        occurredAt: "2026-07-19T03:00:00.000Z",
+      },
+    );
+    await bulkUpdateAdminMembershipPartners(
+      "access-token",
+      [
+        "60000000-0000-0000-0000-000000000001",
+        "60000000-0000-0000-0000-000000000002",
+      ],
+      "hide",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(
+    calls[0]?.input,
+    "https://api.example.com/api/v1/admin/dental-sales/profile%2F1/business-license",
+  );
+  assert.equal(
+    (calls[0]?.init?.body as FormData).get("businessLicenseFile"),
+    file,
+  );
+  assert.deepEqual(JSON.parse(calls[1]?.init?.body as string), {
+    assignedOperatorUserId: "admin-2",
+  });
+  assert.deepEqual(JSON.parse(calls[2]?.init?.body as string), {
+    type: "operation_memo",
+    content: "확인 메모",
+    occurredAt: "2026-07-19T03:00:00.000Z",
+  });
+  assert.deepEqual(JSON.parse(calls[3]?.init?.body as string), {
+    action: "hide",
+    partnerIds: [
+      "60000000-0000-0000-0000-000000000001",
+      "60000000-0000-0000-0000-000000000002",
+    ],
+  });
 });
 
 test("operational directory clients send only applied server filters", async () => {

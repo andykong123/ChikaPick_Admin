@@ -131,9 +131,7 @@ export interface AdminActionResult {
   message: string;
 }
 
-const apiBaseUrl = () =>
-  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL?.replace(/\/$/, "") ??
-  "http://localhost:3000";
+import { adminApiBaseUrl } from "./public-env.ts";
 
 export async function fetchAdminConsole(accessToken: string) {
   return adminFetch<AdminConsolePayload>("/api/v1/admin/console", accessToken);
@@ -447,6 +445,13 @@ export async function createAdminMembershipPartner(
   body.set("benefitItems", JSON.stringify(input.benefitItems));
   body.set("contentType", input.contentType);
   body.set("richContent", input.richContent);
+  body.set(
+    "richContentImageTokens",
+    JSON.stringify(input.richContentImages.map((image) => image.token)),
+  );
+  input.richContentImages.forEach((image) =>
+    body.append("richContentImages", image.file),
+  );
   body.set("attachmentLabel", input.attachmentLabel);
   if (input.cardImage) body.set("cardImage", input.cardImage);
   if (input.detailImage) body.set("detailImage", input.detailImage);
@@ -616,12 +621,33 @@ export async function createAdminDentalSalesVisit(
     salespersonUserId: string;
     detailStatus: DentalSalesVisitDetailStatus;
     note?: string;
+    attachments?: File[];
   },
 ) {
+  const formData = new FormData();
+  formData.set("visitedAt", body.visitedAt);
+  formData.set("salespersonUserId", body.salespersonUserId);
+  formData.set("detailStatus", body.detailStatus);
+  if (body.note) formData.set("note", body.note);
+  body.attachments?.forEach((file) => formData.append("attachmentFiles", file));
   return adminFetch<AdminActionResult>(
     `/api/v1/admin/dental-sales/${encodeURIComponent(profileId)}/visits`,
     accessToken,
-    { method: "POST", body: JSON.stringify(body) },
+    { method: "POST", body: formData },
+  );
+}
+
+export async function uploadAdminDentalSalesBusinessLicense(
+  accessToken: string,
+  profileId: string,
+  file: File,
+) {
+  const body = new FormData();
+  body.set("businessLicenseFile", file);
+  return adminFetch<AdminActionResult>(
+    `/api/v1/admin/dental-sales/${encodeURIComponent(profileId)}/business-license`,
+    accessToken,
+    { method: "POST", body },
   );
 }
 
@@ -653,19 +679,67 @@ export async function fetchAdminPartnerClinicDetail(
   );
 }
 
+export async function assignAdminPartnerClinicOperator(
+  accessToken: string,
+  clinicId: string,
+  assignedOperatorUserId: string | null,
+) {
+  return adminFetch<AdminActionResult>(
+    `/api/v1/admin/partner-clinics/${encodeURIComponent(clinicId)}/operations`,
+    accessToken,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ assignedOperatorUserId }),
+    },
+  );
+}
+
+export async function createAdminPartnerClinicOperationEvent(
+  accessToken: string,
+  clinicId: string,
+  body: {
+    type: "operation_memo" | "support_history";
+    content: string;
+    occurredAt: string;
+    resolvedAt?: string | null;
+    resolvedByAdminUserId?: string | null;
+  },
+) {
+  return adminFetch<AdminActionResult>(
+    `/api/v1/admin/partner-clinics/${encodeURIComponent(clinicId)}/operation-events`,
+    accessToken,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export async function bulkUpdateAdminMembershipPartners(
+  accessToken: string,
+  partnerIds: string[],
+  action: "show" | "hide" | "delete",
+) {
+  return adminFetch<AdminActionResult>(
+    "/api/v1/admin/memberships/bulk-action",
+    accessToken,
+    { method: "POST", body: JSON.stringify({ action, partnerIds }) },
+  );
+}
+
 export class AdminApiError extends Error {
   readonly status: number;
   readonly code: string | null;
+  readonly requestId: string | null;
 
   constructor(
     message: string,
     status: number,
     code: string | null,
+    requestId: string | null,
   ) {
     super(message);
     this.name = "AdminApiError";
     this.status = status;
     this.code = code;
+    this.requestId = requestId;
   }
 }
 
@@ -699,7 +773,7 @@ async function adminFetch<T>(
     Authorization: `Bearer ${accessToken}`,
     ...Object.fromEntries(new Headers(init.headers).entries()),
   };
-  const response = await fetch(`${apiBaseUrl()}${path}`, {
+  const response = await fetch(`${adminApiBaseUrl()}${path}`, {
     ...init,
     headers,
   });
@@ -720,7 +794,19 @@ async function adminFetch<T>(
       typeof payload.error === "string"
         ? payload.error
         : null;
-    throw new AdminApiError(message, response.status, code);
+    const requestId =
+      typeof payload === "object" &&
+      payload !== null &&
+      "requestId" in payload &&
+      typeof payload.requestId === "string"
+        ? payload.requestId
+        : null;
+    throw new AdminApiError(
+      requestId ? `${message} (요청 ID: ${requestId})` : message,
+      response.status,
+      code,
+      requestId,
+    );
   }
 
   return payload as T;
