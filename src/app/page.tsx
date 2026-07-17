@@ -41,7 +41,6 @@ import {
   updateLicenseVerification,
   type AdminConsolePayload,
   type AdminManualHospitalSubmissionsPayload,
-  type AdminMetric,
   type AdminAccountRole,
   type ManualHospitalSubmission,
 } from "@/lib/admin-api";
@@ -222,6 +221,8 @@ const primaryTabs = [
   { id: "audit-log", label: "감사 로그", icon: "/Type=Log.svg" },
 ] as const;
 
+type PrimaryAdminTab = (typeof primaryTabs)[number]["id"];
+
 const emptyConsole: AdminConsolePayload = {
   metrics: [
     { label: "수동 병원 심사 대기", value: 0, tone: "orange" },
@@ -251,7 +252,7 @@ export default function AdminHome() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const [activePrimaryTab, setActivePrimaryTab] = useState<
-    (typeof primaryTabs)[number]["id"] | null
+    PrimaryAdminTab | null
   >("dashboard");
   const [selectedDentalSalesProfileId, setSelectedDentalSalesProfileId] = useState<
     string | null
@@ -330,6 +331,30 @@ export default function AdminHome() {
     replaceAdminDetailHistory(window.history, window.location.href, null);
     applyDetailSelection(null);
   }, [applyDetailSelection]);
+
+  const navigateToPrimaryTab = useCallback(
+    (tab: PrimaryAdminTab) => {
+      clearAdminDetail();
+      setIsPartnerAccountSearchView(false);
+      setIsMembershipRegistrationView(false);
+      setActivePrimaryTab(tab);
+      if (tab === "admin-accounts" || tab === "external-connectors") {
+        setActiveTab("users");
+      }
+    },
+    [clearAdminDetail],
+  );
+
+  const navigateToLegacyTab = useCallback(
+    (tab: AdminTab) => {
+      clearAdminDetail();
+      setIsPartnerAccountSearchView(false);
+      setIsMembershipRegistrationView(false);
+      setActivePrimaryTab(null);
+      setActiveTab(tab);
+    },
+    [clearAdminDetail],
+  );
 
   const loadConsole = useCallback(
     async (currentSession: Session | null) => {
@@ -625,15 +650,7 @@ export default function AdminHome() {
                 key={tab.id}
                 className={activePrimaryTab === tab.id ? "admin-nav-active" : undefined}
                 aria-current={activePrimaryTab === tab.id ? "page" : undefined}
-                onClick={() => {
-                  clearAdminDetail();
-                  setIsPartnerAccountSearchView(false);
-                  setIsMembershipRegistrationView(false);
-                  setActivePrimaryTab(tab.id);
-                  if (tab.id === "admin-accounts" || tab.id === "external-connectors") {
-                    setActiveTab("users");
-                  }
-                }}
+                onClick={() => navigateToPrimaryTab(tab.id)}
               >
                 <span className="admin-nav-icon" style={maskIcon(tab.icon)} />
                 <span className="admin-nav-label">{tab.label}</span>
@@ -654,13 +671,7 @@ export default function AdminHome() {
                 aria-current={
                   activePrimaryTab === null && activeTab === tab.id ? "page" : undefined
                 }
-                onClick={() => {
-                  clearAdminDetail();
-                  setIsPartnerAccountSearchView(false);
-                  setIsMembershipRegistrationView(false);
-                  setActivePrimaryTab(null);
-                  setActiveTab(tab.id);
-                }}
+                onClick={() => navigateToLegacyTab(tab.id)}
               >
                 <span className="admin-nav-icon" style={maskIcon(tab.icon)} />
                 <span className="admin-nav-label">{tab.label}</span>
@@ -736,7 +747,9 @@ export default function AdminHome() {
             <div>
               <div className="admin-workspace-title-row">
                 <h1>
-                  {activePrimaryTab === "dental-sales"
+                  {activePrimaryTab === "dashboard"
+                    ? "운영 현황"
+                    : activePrimaryTab === "dental-sales"
                     ? "치과 영업 관리"
                     : activePrimaryTab === "partner-clinics"
                       ? "파트너 치과 관리"
@@ -765,7 +778,9 @@ export default function AdminHome() {
                 {activePrimaryTab === "dental-sales" ? <DentalSalesInfoTooltip /> : null}
               </div>
               {activePrimaryTab !== "partner-accounts" || isPartnerAccountSearchView ? <p>
-                {activePrimaryTab === "dental-sales"
+                {activePrimaryTab === "dashboard"
+                  ? "치카픽의 주요 운영 지표를 확인하고 각 관리 메뉴로 바로 이동할 수 있습니다."
+                  : activePrimaryTab === "dental-sales"
                   ? "전국 치과를 지역별로 조회하고 초대 코드를 확인 할 수 있으며 영업 현황을 관리합니다."
                   : activePrimaryTab === "partner-clinics"
                     ? "가입 완료한 파트너 치과의 운영 상태를 모니터링하고 필요한 지원을 빠르게 진행할 수 있습니다."
@@ -878,6 +893,11 @@ export default function AdminHome() {
             activePrimaryTab === "external-connectors"
               ? " admin-content--external-connectors"
               : ""
+          }${
+            activePrimaryTab === "dashboard" ||
+            (activePrimaryTab === null && activeTab === "overview")
+              ? " admin-content--overview"
+              : ""
           }${isDentalSalesDetailView ? " admin-content--sales-detail" : ""}${
             isPartnerClinicDetailView ? " admin-content--partner-detail" : ""
           }`}
@@ -983,8 +1003,20 @@ export default function AdminHome() {
                 )
               }
             />
+          ) : activePrimaryTab === "dashboard" ? (
+            <OverviewTab
+              data={consoleData}
+              isSuperAdmin={isSuperAdmin}
+              onNavigatePrimary={navigateToPrimaryTab}
+              onNavigateLegacy={navigateToLegacyTab}
+            />
           ) : activeTab === "overview" ? (
-            <OverviewTab data={consoleData} />
+            <OverviewTab
+              data={consoleData}
+              isSuperAdmin={isSuperAdmin}
+              onNavigatePrimary={navigateToPrimaryTab}
+              onNavigateLegacy={navigateToLegacyTab}
+            />
           ) : activeTab === "manual" ? (
             <ManualHospitalTab
               data={consoleData}
@@ -6212,39 +6244,254 @@ function formatAdminDetailDateTime(value: string) {
   return `${formatAdminDate(value)} ${hours}:${minutes}`;
 }
 
-function OverviewTab({ data }: { data: AdminConsolePayload }) {
+function OverviewTab({
+  data,
+  isSuperAdmin,
+  onNavigateLegacy,
+  onNavigatePrimary,
+}: {
+  data: AdminConsolePayload;
+  isSuperAdmin: boolean;
+  onNavigateLegacy: (tab: AdminTab) => void;
+  onNavigatePrimary: (tab: PrimaryAdminTab) => void;
+}) {
+  const pendingHospitalReviews = data.manualHospitalSubmissions.filter(
+    (item) => item.status === "pending_review",
+  ).length;
+  const pendingMemberships = data.clinicJoinRequests.filter(
+    (item) => item.status === "pending",
+  ).length;
+  const pendingLicenseReviews = pendingLicenseVerificationRequests(
+    data.licenseVerificationRequests,
+  ).length;
+  const activePartnerClinics = data.clinics.filter(
+    (clinic) => clinic.isChikapickPartner,
+  ).length;
+
+  const shortcutGroups: Array<{
+    title: string;
+    description: string;
+    items: Array<{
+      tab: PrimaryAdminTab;
+      label: string;
+      description: string;
+      icon: string;
+    }>;
+  }> = [
+    {
+      title: "치과 운영",
+      description: "영업부터 가입 심사와 파트너 운영까지 한 곳에서 관리합니다.",
+      items: [
+        {
+          tab: "dental-sales",
+          label: "치과 영업 관리",
+          description: "전국 치과 영업 현황과 담당자 배정을 관리합니다.",
+          icon: "/Type=Graph.svg",
+        },
+        {
+          tab: "partner-clinics",
+          label: "파트너 치과 관리",
+          description: "가입 완료 치과의 운영 지표와 활동을 확인합니다.",
+          icon: "/Type=Hospital.svg",
+        },
+        {
+          tab: "hospital-review",
+          label: "병원 가입 심사",
+          description: "직접 등록한 병원 정보와 증빙 서류를 검토합니다.",
+          icon: "/Type=Accept.svg",
+        },
+        {
+          tab: "license-review",
+          label: "치과의사 면허 인증",
+          description: "제출된 치과의사 면허증을 승인하거나 반려합니다.",
+          icon: "/Type=Accept.svg",
+        },
+      ],
+    },
+    {
+      title: "서비스 및 계정",
+      description: "사용자 계정과 서비스 콘텐츠를 조회하고 관리합니다.",
+      items: [
+        {
+          tab: "secret-feedback",
+          label: "시크릿 피드백",
+          description: "예약 후 제출된 익명 피드백을 확인합니다.",
+          icon: "/Type=Opinion.svg",
+        },
+        {
+          tab: "chikapick-accounts",
+          label: "치카픽 계정 조회",
+          description: "환자 계정과 가족 계정 정보를 조회합니다.",
+          icon: "/Type=Family.svg",
+        },
+        {
+          tab: "partner-accounts",
+          label: "파트너스 계정 조회",
+          description: "파트너스 가입 계정과 소속 정보를 조회합니다.",
+          icon: "/Type=Family.svg",
+        },
+        {
+          tab: "memberships",
+          label: "멤버십 관리",
+          description: "멤버십 제휴 업체와 노출 정보를 관리합니다.",
+          icon: "/Type=Ticket.svg",
+        },
+      ],
+    },
+    {
+      title: "관리자 운영",
+      description: "운영 담당자와 영업 관련 관리자 정보를 관리합니다.",
+      items: [
+        {
+          tab: "admin-accounts",
+          label: "어드민 계정 관리",
+          description: "어드민 계정의 초대, 권한, 잠금 상태를 관리합니다.",
+          icon: "/Type=Mypage.svg",
+        },
+        {
+          tab: "external-connectors",
+          label: "외부 연결자 관리",
+          description: "영업 배정에 사용할 외부 연결자를 관리합니다.",
+          icon: "/Type=Share.svg",
+        },
+        ...(isSuperAdmin
+          ? [
+              {
+                tab: "sales-performance" as const,
+                label: "영업 성과 관리",
+                description: "월별 계약 성과와 담당자별 실적을 확인합니다.",
+                icon: "/Type=Price.svg",
+              },
+            ]
+          : []),
+      ],
+    },
+  ];
+
   return (
-    <>
-      <section className="admin-metric-grid">
-        {data.metrics.map((metric) => (
-          <MetricCard metric={metric} key={metric.label} />
-        ))}
-      </section>
-      <section className="admin-two-column">
-        <Panel title="오늘 처리해야 할 항목">
-          <QueueList
-            items={[
-              ["병원 가입 심사", data.manualHospitalSubmissions.length],
-              ["소속 승인 요청", data.clinicJoinRequests.length],
-              [
-                "면허 미승인",
-                data.licenseVerificationRequests.filter((item) => !item.licenseVerified)
-                  .length,
-              ],
-            ]}
+    <div className="admin-overview">
+      <section className="admin-overview-section" aria-labelledby="overview-summary-title">
+        <div className="admin-overview-section-heading">
+          <div>
+            <h2 id="overview-summary-title">처리 현황</h2>
+            <p>현재 확인이 필요한 요청과 운영 중인 파트너 치과 현황입니다.</p>
+          </div>
+        </div>
+        <div className="admin-overview-summary-grid">
+          <OverviewSummaryCard
+            label="병원 가입 심사 대기"
+            value={pendingHospitalReviews}
+            tone="orange"
+            onClick={() => onNavigatePrimary("hospital-review")}
           />
-        </Panel>
-        <Panel title="운영 상태">
-          <QueueList
-            items={[
-              ["AI 설명 대기", data.operations.aiPendingCount],
-              ["진료시간 보강 대기", data.operations.hiraOperatingHoursPendingCount],
-              ["최근 작업 메모", data.operations.recentJobNote ?? "기록 없음"],
-            ]}
+          <OverviewSummaryCard
+            label="면허 인증 검토 대기"
+            value={pendingLicenseReviews}
+            tone="red"
+            onClick={() => onNavigatePrimary("license-review")}
           />
-        </Panel>
+          <OverviewSummaryCard
+            label="소속 승인 대기"
+            value={pendingMemberships}
+            tone="blue"
+            onClick={() => onNavigateLegacy("memberships")}
+          />
+          <OverviewSummaryCard
+            label="활성 파트너 치과"
+            value={activePartnerClinics}
+            tone="green"
+            onClick={() => onNavigatePrimary("partner-clinics")}
+          />
+        </div>
       </section>
-    </>
+
+      {shortcutGroups.map((group) => (
+        <section className="admin-overview-section" key={group.title}>
+          <div className="admin-overview-section-heading">
+            <div>
+              <h2>{group.title}</h2>
+              <p>{group.description}</p>
+            </div>
+          </div>
+          <div className="admin-overview-shortcut-grid">
+            {group.items.map((item) => (
+              <button
+                type="button"
+                className="admin-overview-shortcut"
+                key={item.tab}
+                onClick={() => onNavigatePrimary(item.tab)}
+              >
+                <span className="admin-overview-shortcut-icon" aria-hidden="true">
+                  <span style={maskIcon(item.icon)} />
+                </span>
+                <span className="admin-overview-shortcut-copy">
+                  <strong>{item.label}</strong>
+                  <span>{item.description}</span>
+                </span>
+                <span className="admin-overview-shortcut-arrow" aria-hidden="true">
+                  →
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      <section className="admin-overview-section" aria-labelledby="overview-operations-title">
+        <div className="admin-overview-section-heading admin-overview-section-heading--action">
+          <div>
+            <h2 id="overview-operations-title">백그라운드 운영 상태</h2>
+            <p>자동 처리 큐와 최근 작업 상태를 확인합니다.</p>
+          </div>
+          <button type="button" onClick={() => onNavigateLegacy("operations")}>
+            운영 도구 보기
+          </button>
+        </div>
+        <div className="admin-overview-operation-grid">
+          <div>
+            <span>AI 설명 생성 대기</span>
+            <strong>{data.operations.aiPendingCount.toLocaleString("ko-KR")}건</strong>
+          </div>
+          <div>
+            <span>진료시간 보강 대기</span>
+            <strong>
+              {data.operations.hiraOperatingHoursPendingCount.toLocaleString("ko-KR")}건
+            </strong>
+          </div>
+          <div className="admin-overview-operation-note">
+            <span>최근 작업 메모</span>
+            <strong>{data.operations.recentJobNote ?? "기록 없음"}</strong>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function OverviewSummaryCard({
+  label,
+  onClick,
+  tone,
+  value,
+}: {
+  label: string;
+  onClick: () => void;
+  tone: "blue" | "orange" | "green" | "red";
+  value: number;
+}) {
+  return (
+    <button
+      type="button"
+      className={`admin-overview-summary admin-overview-summary--${tone}`}
+      onClick={onClick}
+      aria-label={`${label} ${value.toLocaleString("ko-KR")}건 보기`}
+    >
+      <span>{label}</span>
+      <strong>{value.toLocaleString("ko-KR")}</strong>
+      <small>
+        바로가기 <span aria-hidden="true">→</span>
+      </small>
+    </button>
   );
 }
 
@@ -7390,15 +7637,6 @@ function OperationsTab({ data }: { data: AdminConsolePayload }) {
         <p className="admin-plain-text">{data.operations.recentJobNote ?? "최근 운영 메모가 없습니다."}</p>
       </Panel>
     </section>
-  );
-}
-
-function MetricCard({ metric }: { metric: AdminMetric }) {
-  return (
-    <article className={`admin-metric admin-metric--${metric.tone}`}>
-      <span>{metric.label}</span>
-      <strong>{metric.value.toLocaleString("ko-KR")}</strong>
-    </article>
   );
 }
 

@@ -2024,13 +2024,6 @@ textarea:focus-visible {
   padding: 24px 32px 48px;
 }
 
-.admin-metric-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.admin-metric,
 .admin-panel,
 .admin-record-card {
   border: 1px solid var(--border);
@@ -2039,41 +2032,239 @@ textarea:focus-visible {
   box-shadow: 0 8px 24px rgba(0, 11, 38, 0.04);
 }
 
-.admin-metric {
-  min-height: 116px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 22px;
+.admin-content--overview {
+  max-width: 1280px;
 }
 
-.admin-metric span {
-  color: var(--text-tertiary);
+.admin-overview {
+  display: grid;
+  gap: 20px;
+}
+
+.admin-overview-section {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(0, 11, 38, 0.04);
+  padding: 24px;
+}
+
+.admin-overview-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+
+.admin-overview-section-heading h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 26px;
+}
+
+.admin-overview-section-heading p {
+  margin: 3px 0 0;
+  color: var(--text-quaternary);
   font-size: 13px;
-  font-weight: 600;
   line-height: 18px;
 }
 
-.admin-metric strong {
-  font-size: 34px;
+.admin-overview-section-heading--action > button {
+  min-height: 36px;
+  flex: 0 0 auto;
+  border: 1px solid #b8bbc2;
+  border-radius: 8px;
+  background: #fff;
+  color: #3b4358;
+  cursor: pointer;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.admin-overview-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-overview-summary {
+  min-width: 0;
+  min-height: 132px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--chika-base-1);
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  padding: 18px;
+  text-align: left;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.admin-overview-summary:hover {
+  border-color: #8aa6e8;
+  box-shadow: 0 8px 20px rgba(2, 61, 199, 0.08);
+  transform: translateY(-1px);
+}
+
+.admin-overview-summary > span {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+.admin-overview-summary > strong {
+  margin-top: 10px;
+  color: var(--text-primary);
+  font-size: 32px;
   font-weight: 800;
-  line-height: 40px;
+  line-height: 38px;
 }
 
-.admin-metric--blue strong {
-  color: var(--chika-secondary-6);
+.admin-overview-summary > small {
+  margin-top: auto;
+  color: var(--text-quaternary);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
 }
 
-.admin-metric--orange strong {
+.admin-overview-summary--orange > strong {
   color: var(--chika-primary-5);
 }
 
-.admin-metric--green strong {
+.admin-overview-summary--red > strong {
+  color: var(--danger);
+}
+
+.admin-overview-summary--blue > strong {
+  color: var(--chika-secondary-6);
+}
+
+.admin-overview-summary--green > strong {
   color: #15803d;
 }
 
-.admin-metric--red strong {
-  color: var(--danger);
+.admin-overview-shortcut-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-overview-shortcut {
+  min-width: 0;
+  min-height: 88px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  text-align: left;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.admin-overview-shortcut:hover {
+  border-color: #8aa6e8;
+  background: #f7f9ff;
+}
+
+.admin-overview-shortcut-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--chika-secondary-0);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-overview-shortcut-icon > span {
+  width: 20px;
+  height: 20px;
+  display: block;
+  background-color: var(--chika-secondary-6);
+}
+
+.admin-overview-shortcut-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.admin-overview-shortcut-copy strong {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 20px;
+}
+
+.admin-overview-shortcut-copy > span {
+  color: var(--text-quaternary);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.admin-overview-shortcut-arrow {
+  color: #8a91a1;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.admin-overview-operation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 180px)) minmax(240px, 1fr);
+  gap: 10px;
+}
+
+.admin-overview-operation-grid > div {
+  min-width: 0;
+  min-height: 74px;
+  border-radius: 10px;
+  background: var(--chika-base-1);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 14px 16px;
+}
+
+.admin-overview-operation-grid span {
+  color: var(--text-quaternary);
+  font-size: 12px;
+  line-height: 17px;
+}
+
+.admin-overview-operation-grid strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 21px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-overview-operation-note strong {
+  font-size: 13px;
+}
+
+.admin-overview-summary:focus-visible,
+.admin-overview-shortcut:focus-visible,
+.admin-overview-section-heading--action > button:focus-visible {
+  outline: 2px solid var(--chika-secondary-6);
+  outline-offset: 2px;
 }
 
 .admin-two-column {
@@ -7825,7 +8016,7 @@ td span {
     min-width: 172px;
   }
 
-  .admin-metric-grid,
+  .admin-overview-summary-grid,
   .admin-card-grid,
   .admin-license-summary,
   .admin-license-request-grid {
@@ -8220,7 +8411,7 @@ td span {
     padding: 20px;
   }
 
-  .admin-metric-grid,
+  .admin-overview-summary-grid,
   .admin-two-column,
   .admin-card-grid,
   .admin-license-summary,
@@ -8230,5 +8421,32 @@ td span {
 
   .admin-panel {
     padding: 20px;
+  }
+
+  .admin-overview-section {
+    padding: 20px;
+  }
+
+  .admin-overview-section-heading--action {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-overview-shortcut-grid,
+  .admin-overview-operation-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-overview-shortcut {
+    grid-template-columns: 36px minmax(0, 1fr) 14px;
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .admin-overview-shortcut-icon {
+    width: 36px;
+    height: 36px;
   }
 }
