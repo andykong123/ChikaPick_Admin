@@ -14,22 +14,29 @@ import {
   deleteAdminMembershipPartner,
   deleteAdminExternalConnector,
   fetchAdminAccountDirectory,
+  fetchAdminAuditLog,
+  fetchAdminClinicMembershipRequests,
+  fetchAdminConsultationDirectory,
   fetchAdminConsole,
   fetchAdminDentalSales,
   fetchAdminDentalSalesDetail,
   fetchAdminExternalConnectors,
+  fetchAdminInviteDirectory,
   fetchAdminManualHospitalSubmissions,
   fetchAdminMembershipManagement,
   fetchAdminPartnerClinicDetail,
   fetchAdminPartnerClinics,
   fetchAdminPartnerAccountDetail,
+  fetchAdminReservationDirectory,
   fetchAdminSalesPerformance,
   fetchAdminSecretFeedback,
+  fetchAdminTerms,
   inviteAdminAccount,
   isAdminApiNotFound,
   lockAdminAccount,
   lookupAdminChikapickAccount,
   lookupAdminPartnerAccount,
+  publishAdminTermVersion,
   rejectManualHospitalSubmission,
   revokeInvite,
   sendAdminPasswordReset,
@@ -39,9 +46,9 @@ import {
   withdrawAdminAccount,
   updateClinicMembership,
   updateLicenseVerification,
+  type AdminAccountRole,
   type AdminConsolePayload,
   type AdminManualHospitalSubmissionsPayload,
-  type AdminAccountRole,
   type ManualHospitalSubmission,
 } from "@/lib/admin-api";
 import {
@@ -63,10 +70,37 @@ import {
   type AdminDetailHistorySelection,
 } from "@/lib/admin-detail-history";
 import {
-  adminAccountStatusLabel,
   reservationSourceLabel,
   statusLabel,
 } from "@/lib/admin-display";
+import {
+  adminAuditActionLabel,
+  adminAuditResultLabel,
+  adminConsultationCategoryLabel,
+  adminDirectoryDateTime,
+  adminDirectoryPersonLabel,
+  adminInviteStatusLabel,
+  adminMembershipRoleLabel,
+  adminTermAudienceLabel,
+  defaultAdminAuditLogFilters,
+  defaultAdminClinicMembershipRequestFilters,
+  defaultAdminConsultationDirectoryFilters,
+  defaultAdminInviteDirectoryFilters,
+  defaultAdminReservationDirectoryFilters,
+  type AdminAuditLogFilters,
+  type AdminAuditLogPayload,
+  type AdminClinicMembershipRequestFilters,
+  type AdminClinicMembershipRequestPayload,
+  type AdminConsultationDirectoryFilters,
+  type AdminConsultationDirectoryPayload,
+  type AdminDirectoryPagination,
+  type AdminInviteDirectoryFilters,
+  type AdminInviteDirectoryPayload,
+  type AdminManagedTermDocument,
+  type AdminReservationDirectoryFilters,
+  type AdminReservationDirectoryPayload,
+  type AdminTermsManagementPayload,
+} from "@/lib/admin-platform-operations";
 import { shouldExpireAdminIdleSession } from "@/lib/admin-idle";
 import {
   registerCurrentAdminBrowserSession,
@@ -175,44 +209,19 @@ import {
 import { signInWithAdminPassword } from "@/lib/password-auth";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
-type AdminTab =
-  | "overview"
-  | "manual"
-  | "memberships"
-  | "licenses"
-  | "clinics"
-  | "users"
-  | "invites"
-  | "workflows"
-  | "terms"
-  | "operations";
-
-const tabs: Array<{
-  id: AdminTab;
-  label: string;
-  icon: string;
-}> = [
-  { id: "overview", label: "운영 현황", icon: "/Type=Dashboard.svg" },
-  { id: "manual", label: "병원 가입 심사", icon: "/Type=Hospital.svg" },
-  { id: "memberships", label: "소속 신청 승인", icon: "/Type=Staff.svg" },
-  { id: "licenses", label: "면허 인증", icon: "/Type=Response.svg" },
-  { id: "clinics", label: "병원 관리", icon: "/Type=Hospital.svg" },
-  { id: "users", label: "사용자/권한", icon: "/Type=Staff.svg" },
-  { id: "invites", label: "초대코드", icon: "/Type=Settings.svg" },
-  { id: "workflows", label: "예약·소견", icon: "/Type=Response.svg" },
-  { id: "terms", label: "약관", icon: "/Type=Settings.svg" },
-  { id: "operations", label: "운영 도구", icon: "/Type=Dashboard.svg" },
-];
-
 const primaryTabs = [
   { id: "dashboard", label: "운영 현황", icon: "/Type=Dashboard.svg" },
   { id: "dental-sales", label: "치과 영업 관리", icon: "/Type=Graph.svg" },
   { id: "partner-clinics", label: "파트너 치과 관리", icon: "/Type=Hospital.svg" },
   { id: "hospital-review", label: "병원 가입 심사", icon: "/Type=Accept.svg" },
   { id: "license-review", label: "치과의사 면허 인증", icon: "/Type=Accept.svg" },
+  { id: "clinic-membership-requests", label: "소속 신청 관리", icon: "/Type=Staff.svg" },
+  { id: "reservations", label: "예약 운영 관리", icon: "/Type=Diary.svg" },
+  { id: "consultations", label: "전문의 소견 운영", icon: "/Type=Response.svg" },
   { id: "secret-feedback", label: "시크릿 피드백", icon: "/Type=Opinion.svg" },
   { id: "chikapick-accounts", label: "치카픽 계정 조회", icon: "/Type=Family.svg" },
   { id: "partner-accounts", label: "파트너스 계정 조회", icon: "/Type=Family.svg" },
+  { id: "partner-invites", label: "파트너 초대코드 관리", icon: "/Type=Settings.svg" },
   { id: "memberships", label: "멤버십 관리", icon: "/Type=Ticket.svg" },
   { id: "terms-management", label: "약관 관리", icon: "/Type=Diary.svg" },
   { id: "sales-performance", label: "영업 성과 관리", icon: "/Type=Price.svg" },
@@ -222,6 +231,39 @@ const primaryTabs = [
 ] as const;
 
 type PrimaryAdminTab = (typeof primaryTabs)[number]["id"];
+
+const primaryTabDescriptions: Record<PrimaryAdminTab, string> = {
+  dashboard: "치카픽의 주요 운영 지표를 확인하고 각 관리 메뉴로 바로 이동할 수 있습니다.",
+  "dental-sales":
+    "전국 치과를 지역별로 조회하고 초대 코드를 확인 할 수 있으며 영업 현황을 관리합니다.",
+  "partner-clinics":
+    "가입 완료한 파트너 치과의 운영 상태를 모니터링하고 필요한 지원을 빠르게 진행할 수 있습니다.",
+  "hospital-review": "직접 입력한 병원 정보와 사업자등록증 제출 건을 검토합니다.",
+  "license-review":
+    "제출된 치과의사 면허증의 식별 가능 여부와 성명, 면허번호, 보건복지부 발급 여부를 확인한 후 승인 또는 반려해 주세요.",
+  "clinic-membership-requests":
+    "치카픽 파트너스 사용자의 치과 소속 신청을 병원 구분 없이 검토하고 처리합니다.",
+  reservations:
+    "치카픽에서 접수된 일반 예약과 즉시 예약의 처리 상태를 전체 치과 기준으로 조회합니다.",
+  consultations:
+    "전문의 소견 요청과 답변 상태를 전체 치과 기준으로 조회합니다.",
+  "secret-feedback": "어드민 관리자에게만 전송되는 시크릿 피드백 입니다.",
+  "chikapick-accounts":
+    "치카픽 서비스에 가입한 환자 계정을 이메일로 조회하고 계정 상태를 확인합니다.",
+  "partner-accounts":
+    "치카픽 파트너스에 가입한 계정을 이메일로 조회하고 소속 정보를 확인합니다.",
+  "partner-invites":
+    "파트너 치과가 발급한 초대코드의 상태와 사용 이력을 조회하고 필요한 코드를 폐기합니다.",
+  memberships: "치카픽 멤버십 탭에 노출될 제휴 업체를 등록합니다.",
+  "terms-management":
+    "치카픽과 파트너스에 적용되는 약관 버전을 조회하고 새 버전을 게시합니다.",
+  "sales-performance": "월 기준으로 영업 성과를 확인할 수 있습니다.",
+  "admin-accounts":
+    "치카픽 어드민 계정을 생성하고 초대하며, 권한 및 계정 정보를 관리할 수 있습니다.",
+  "external-connectors":
+    "외부 연결자 정보를 등록하면 치과 및 영업 관련 담당자 정보에서 활용하게 됩니다.",
+  "audit-log": "어드민의 주요 변경 작업과 처리 결과를 시간순으로 확인합니다.",
+};
 
 const emptyConsole: AdminConsolePayload = {
   metrics: [
@@ -235,11 +277,6 @@ const emptyConsole: AdminConsolePayload = {
   licenseVerificationRequests: [],
   clinics: [],
   users: [],
-  externalConnectors: [],
-  invites: [],
-  reservations: [],
-  consultations: [],
-  terms: [],
   operations: {
     aiPendingCount: 0,
     hiraOperatingHoursPendingCount: 0,
@@ -250,10 +287,8 @@ const emptyConsole: AdminConsolePayload = {
 export default function AdminHome() {
   const [session, setSession] = useState<Session | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<AdminTab>("overview");
-  const [activePrimaryTab, setActivePrimaryTab] = useState<
-    PrimaryAdminTab | null
-  >("dashboard");
+  const [activePrimaryTab, setActivePrimaryTab] =
+    useState<PrimaryAdminTab>("dashboard");
   const [selectedDentalSalesProfileId, setSelectedDentalSalesProfileId] = useState<
     string | null
   >(null);
@@ -267,10 +302,6 @@ export default function AdminHome() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [message, setMessage] = useState("");
-  const [actionNote, setActionNote] = useState("");
-  const [inviteName, setInviteName] = useState("");
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<AdminAccountRole>("admin");
   const [adminAccountDialog, setAdminAccountDialog] = useState<"invite" | null>(null);
   const [isPartnerAccountSearchView, setIsPartnerAccountSearchView] = useState(false);
   const [isMembershipRegistrationView, setIsMembershipRegistrationView] =
@@ -338,20 +369,6 @@ export default function AdminHome() {
       setIsPartnerAccountSearchView(false);
       setIsMembershipRegistrationView(false);
       setActivePrimaryTab(tab);
-      if (tab === "admin-accounts" || tab === "external-connectors") {
-        setActiveTab("users");
-      }
-    },
-    [clearAdminDetail],
-  );
-
-  const navigateToLegacyTab = useCallback(
-    (tab: AdminTab) => {
-      clearAdminDetail();
-      setIsPartnerAccountSearchView(false);
-      setIsMembershipRegistrationView(false);
-      setActivePrimaryTab(null);
-      setActiveTab(tab);
     },
     [clearAdminDetail],
   );
@@ -510,7 +527,6 @@ export default function AdminHome() {
     try {
       await action(session.access_token);
       setMessage("처리되었습니다.");
-      setActionNote("");
       await loadConsole(session);
       return true;
     } catch (error) {
@@ -657,27 +673,6 @@ export default function AdminHome() {
               </button>
             ))}
           </div>
-          <div className="admin-navigation-legacy">
-            <p>기존 관리 메뉴</p>
-            {tabs.map((tab) => (
-              <button
-                type="button"
-                key={tab.id}
-                className={
-                  activePrimaryTab === null && activeTab === tab.id
-                    ? "admin-nav-active"
-                    : undefined
-                }
-                aria-current={
-                  activePrimaryTab === null && activeTab === tab.id ? "page" : undefined
-                }
-                onClick={() => navigateToLegacyTab(tab.id)}
-              >
-                <span className="admin-nav-icon" style={maskIcon(tab.icon)} />
-                <span className="admin-nav-label">{tab.label}</span>
-              </button>
-            ))}
-          </div>
         </nav>
       </aside>
 
@@ -747,62 +742,18 @@ export default function AdminHome() {
             <div>
               <div className="admin-workspace-title-row">
                 <h1>
-                  {activePrimaryTab === "dashboard"
-                    ? "운영 현황"
-                    : activePrimaryTab === "dental-sales"
-                    ? "치과 영업 관리"
-                    : activePrimaryTab === "partner-clinics"
-                      ? "파트너 치과 관리"
-                    : activePrimaryTab === "sales-performance"
-                      ? "영업 성과 관리"
-                    : activePrimaryTab === "hospital-review"
-                      ? "병원 가입 심사"
-                    : activePrimaryTab === "license-review"
-                      ? "치과 의사 면허 인증"
-                    : activePrimaryTab === "secret-feedback"
-                      ? "시크릿 피드백"
-                    : activePrimaryTab === "chikapick-accounts"
-                      ? "치카픽 계정 조회"
-                    : activePrimaryTab === "partner-accounts"
-                      ? isPartnerAccountSearchView
-                        ? "치카픽 파트너스 계정 조회"
-                        : "파트너스 계정 관리"
+                  {activePrimaryTab === "partner-accounts"
+                    ? isPartnerAccountSearchView
+                      ? "치카픽 파트너스 계정 조회"
+                      : "파트너스 계정 관리"
                     : activePrimaryTab === "memberships"
                       ? "치카픽 멤버십 관리"
-                    : activePrimaryTab === "admin-accounts"
-                      ? "어드민 계정 관리"
-                    : activePrimaryTab === "external-connectors"
-                      ? "외부 연결자 관리"
-                    : tabs.find((tab) => tab.id === activeTab)?.label}
+                      : primaryTabs.find((tab) => tab.id === activePrimaryTab)?.label}
                 </h1>
                 {activePrimaryTab === "dental-sales" ? <DentalSalesInfoTooltip /> : null}
               </div>
               {activePrimaryTab !== "partner-accounts" || isPartnerAccountSearchView ? <p>
-                {activePrimaryTab === "dashboard"
-                  ? "치카픽의 주요 운영 지표를 확인하고 각 관리 메뉴로 바로 이동할 수 있습니다."
-                  : activePrimaryTab === "dental-sales"
-                  ? "전국 치과를 지역별로 조회하고 초대 코드를 확인 할 수 있으며 영업 현황을 관리합니다."
-                  : activePrimaryTab === "partner-clinics"
-                    ? "가입 완료한 파트너 치과의 운영 상태를 모니터링하고 필요한 지원을 빠르게 진행할 수 있습니다."
-                  : activePrimaryTab === "sales-performance"
-                    ? "월 기준으로 영업 성과를 확인할 수 있습니다."
-                  : activePrimaryTab === "hospital-review"
-                    ? "직접 입력한 병원 정보와 사업자등록증 제출 건을 검토합니다."
-                  : activePrimaryTab === "license-review"
-                    ? "제출된 치과의사 면허증의 식별 가능 여부와 성명, 면허번호, 보건복지부 발급 여부를 확인한 후 승인 또는 반려해 주세요."
-                  : activePrimaryTab === "secret-feedback"
-                    ? "어드민 관리자에게만 전송되는 시크릿 피드백 입니다."
-                  : activePrimaryTab === "chikapick-accounts"
-                    ? "치카픽 서비스에 가입한 환자 계정을 이메일로 조회하고 계정 상태를 확인합니다."
-                  : activePrimaryTab === "partner-accounts"
-                    ? "치카픽 파트너스에 가입한 계정을 이메일로 조회하고 소속 정보를 확인합니다."
-                  : activePrimaryTab === "memberships"
-                    ? "치카픽 멤버십 탭에 노출될 제휴 업체를 등록합니다."
-                  : activePrimaryTab === "admin-accounts"
-                    ? "치카픽 어드민 계정을 생성하고 초대하며, 권한 및 계정 정보를 관리할 수 있습니다."
-                  : activePrimaryTab === "external-connectors"
-                    ? "외부 연결자 정보를 등록하면 치과 및 영업 관련 담당자 정보에서 활용하게 됩니다."
-                  : "실제 운영 데이터는 ChikaPick_API 관리자 엔드포인트에서 불러옵니다."}
+                {primaryTabDescriptions[activePrimaryTab]}
               </p> : null}
             </div>
             {activePrimaryTab === "partner-accounts" && !isPartnerAccountSearchView ? (
@@ -813,17 +764,7 @@ export default function AdminHome() {
               >
                 단일 계정 정보 상세 조회하기
               </button>
-            ) : activePrimaryTab !== "dental-sales" &&
-            activePrimaryTab !== "partner-clinics" &&
-            activePrimaryTab !== "sales-performance" &&
-            activePrimaryTab !== "hospital-review" &&
-            activePrimaryTab !== "license-review" &&
-            activePrimaryTab !== "secret-feedback" &&
-            activePrimaryTab !== "chikapick-accounts" &&
-            activePrimaryTab !== "partner-accounts" &&
-            activePrimaryTab !== "memberships" &&
-            activePrimaryTab !== "admin-accounts" &&
-            activePrimaryTab !== "external-connectors" ? (
+            ) : activePrimaryTab === "dashboard" ? (
               <div className="admin-topbar-actions">
                 <button type="button" onClick={() => loadConsole(session)}>
                   {isLoadingConsole ? "새로고침 중" : "새로고침"}
@@ -894,10 +835,7 @@ export default function AdminHome() {
               ? " admin-content--external-connectors"
               : ""
           }${
-            activePrimaryTab === "dashboard" ||
-            (activePrimaryTab === null && activeTab === "overview")
-              ? " admin-content--overview"
-              : ""
+            activePrimaryTab === "dashboard" ? " admin-content--overview" : ""
           }${isDentalSalesDetailView ? " admin-content--sales-detail" : ""}${
             isPartnerClinicDetailView ? " admin-content--partner-detail" : ""
           }`}
@@ -1003,105 +941,44 @@ export default function AdminHome() {
                 )
               }
             />
+          ) : activePrimaryTab === "clinic-membership-requests" ? (
+            <ClinicMembershipRequestsTab
+              accessToken={session?.access_token ?? ""}
+              onDecision={(clinicId, userId, status) =>
+                runAction((token) =>
+                  updateClinicMembership(token, clinicId, userId, status),
+                )
+              }
+            />
+          ) : activePrimaryTab === "reservations" ? (
+            <AdminReservationsTab accessToken={session?.access_token ?? ""} />
+          ) : activePrimaryTab === "consultations" ? (
+            <AdminConsultationsTab accessToken={session?.access_token ?? ""} />
+          ) : activePrimaryTab === "partner-invites" ? (
+            <PartnerInviteDirectoryTab
+              accessToken={session?.access_token ?? ""}
+              onRevoke={(inviteId) =>
+                runAction((token) => revokeInvite(token, inviteId))
+              }
+            />
+          ) : activePrimaryTab === "terms-management" ? (
+            <TermsManagementTab
+              accessToken={session?.access_token ?? ""}
+              onPublish={(documentId, body) =>
+                runAction((token) =>
+                  publishAdminTermVersion(token, documentId, body),
+                )
+              }
+            />
+          ) : activePrimaryTab === "audit-log" ? (
+            <AdminAuditLogTab accessToken={session?.access_token ?? ""} />
           ) : activePrimaryTab === "dashboard" ? (
             <OverviewTab
               data={consoleData}
               isSuperAdmin={isSuperAdmin}
               onNavigatePrimary={navigateToPrimaryTab}
-              onNavigateLegacy={navigateToLegacyTab}
             />
-          ) : activeTab === "overview" ? (
-            <OverviewTab
-              data={consoleData}
-              isSuperAdmin={isSuperAdmin}
-              onNavigatePrimary={navigateToPrimaryTab}
-              onNavigateLegacy={navigateToLegacyTab}
-            />
-          ) : activeTab === "manual" ? (
-            <ManualHospitalTab
-              data={consoleData}
-              note={actionNote}
-              onNoteChange={setActionNote}
-              onApprove={(id) =>
-                runAction((token) => approveManualHospitalSubmission(token, id, actionNote))
-              }
-              onReject={(id) =>
-                runAction((token) => rejectManualHospitalSubmission(token, id, actionNote))
-              }
-            />
-          ) : activeTab === "memberships" ? (
-            <MembershipTab
-              data={consoleData}
-              onApprove={(clinicId, userId) =>
-                runAction((token) =>
-                  updateClinicMembership(token, clinicId, userId, "active"),
-                )
-              }
-              onReject={(clinicId, userId) =>
-                runAction((token) =>
-                  updateClinicMembership(token, clinicId, userId, "revoked"),
-                )
-              }
-            />
-          ) : activeTab === "licenses" ? (
-            <LicenseTab
-              data={consoleData}
-              note={actionNote}
-              onNoteChange={setActionNote}
-              onDecision={(userId, approved) =>
-                runAction((token) =>
-                  updateLicenseVerification(token, userId, approved, actionNote),
-                )
-              }
-            />
-          ) : activeTab === "clinics" ? (
-            <ClinicsTab data={consoleData} />
-          ) : activeTab === "users" ? (
-            <UsersTab
-              data={consoleData}
-              inviteEmail={inviteEmail}
-              inviteName={inviteName}
-              inviteRole={inviteRole}
-              onInviteEmailChange={setInviteEmail}
-              onInviteNameChange={setInviteName}
-              onInviteRoleChange={setInviteRole}
-              onInvite={() =>
-                runAction((token) =>
-                  inviteAdminAccount(token, {
-                    email: inviteEmail,
-                    fullName: inviteName,
-                    role: inviteRole,
-                    redirectTo: adminResetRedirectUrl(),
-                  }),
-                ).then((ok) => {
-                  if (ok) {
-                    setInviteEmail("");
-                    setInviteName("");
-                    setInviteRole("admin");
-                  }
-                })
-              }
-              onPasswordReset={(userId) =>
-                runAction((token) =>
-                  sendAdminPasswordReset(token, userId, adminResetRedirectUrl()),
-                )
-              }
-              onUnlock={(userId) =>
-                runAction((token) => unlockAdminAccount(token, userId))
-              }
-            />
-          ) : activeTab === "invites" ? (
-            <InvitesTab
-              data={consoleData}
-              onRevoke={(inviteId) => runAction((token) => revokeInvite(token, inviteId))}
-            />
-          ) : activeTab === "workflows" ? (
-            <WorkflowsTab data={consoleData} />
-          ) : activeTab === "terms" ? (
-            <TermsTab data={consoleData} />
-          ) : (
-            <OperationsTab data={consoleData} />
-          )}
+          ) : null}
         </div>
       </section>
     </main>
@@ -6244,15 +6121,1079 @@ function formatAdminDetailDateTime(value: string) {
   return `${formatAdminDate(value)} ${hours}:${minutes}`;
 }
 
+function OperationalPagination({
+  onPageChange,
+  pagination,
+}: {
+  onPageChange: (page: number) => void;
+  pagination: AdminDirectoryPagination;
+}) {
+  const pageNumbers = dentalSalesPageNumbers(
+    pagination.page,
+    pagination.totalPages,
+  );
+  return (
+    <nav className="admin-sales-pagination" aria-label="목록 페이지">
+      <button
+        type="button"
+        disabled={pagination.page <= 1}
+        onClick={() => onPageChange(pagination.page - 1)}
+        aria-label="이전 페이지"
+      >
+        ‹
+      </button>
+      {pageNumbers.map((page) => (
+        <button
+          type="button"
+          key={page}
+          className={page === pagination.page ? "admin-sales-page-active" : undefined}
+          aria-current={page === pagination.page ? "page" : undefined}
+          onClick={() => onPageChange(page)}
+        >
+          {page}
+        </button>
+      ))}
+      <button
+        type="button"
+        disabled={pagination.page >= pagination.totalPages}
+        onClick={() => onPageChange(pagination.page + 1)}
+        aria-label="다음 페이지"
+      >
+        ›
+      </button>
+    </nav>
+  );
+}
+
+function AdminReservationsTab({ accessToken }: { accessToken: string }) {
+  const [draftFilters, setDraftFilters] =
+    useState<AdminReservationDirectoryFilters>(
+      defaultAdminReservationDirectoryFilters,
+    );
+  const [filters, setFilters] = useState<AdminReservationDirectoryFilters>(
+    defaultAdminReservationDirectoryFilters,
+  );
+  const [currentPage, setCurrentPage] = useState(1);
+  const [data, setData] = useState<AdminReservationDirectoryPayload | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadReservations = useCallback(async () => {
+    if (!accessToken) return;
+    setIsLoading(true);
+    setError("");
+    try {
+      setData(
+        await fetchAdminReservationDirectory(accessToken, filters, currentPage),
+      );
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "예약 목록을 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, currentPage, filters]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => void loadReservations(), 0);
+    return () => window.clearTimeout(timeout);
+  }, [loadReservations]);
+
+  function applyFilters(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCurrentPage(1);
+    setFilters({ ...draftFilters, query: draftFilters.query.trim() });
+  }
+
+  return (
+    <section className="admin-operational-page">
+      <form className="admin-operational-filters" onSubmit={applyFilters}>
+        <label className="admin-operational-search">
+          <span>병원명 또는 환자명</span>
+          <input
+            type="search"
+            value={draftFilters.query}
+            placeholder="검색어를 입력해 주세요."
+            onChange={(event) =>
+              setDraftFilters((current) => ({
+                ...current,
+                query: event.target.value,
+              }))
+            }
+          />
+        </label>
+        <label>
+          <span>예약 유형</span>
+          <select
+            value={draftFilters.bookingSource}
+            onChange={(event) =>
+              setDraftFilters((current) => ({
+                ...current,
+                bookingSource: event.target.value,
+              }))
+            }
+          >
+            <option value="all">전체</option>
+            <option value="standard">일반 예약</option>
+            <option value="instant">즉시 예약</option>
+          </select>
+        </label>
+        <label>
+          <span>상태</span>
+          <select
+            value={draftFilters.status}
+            onChange={(event) =>
+              setDraftFilters((current) => ({
+                ...current,
+                status: event.target.value,
+              }))
+            }
+          >
+            <option value="all">전체</option>
+            <option value="pending">접수</option>
+            <option value="time_proposed">시간 제안</option>
+            <option value="alternative_proposed">대안 제안</option>
+            <option value="proposed">제안</option>
+            <option value="reschedule_proposed">일정 재제안</option>
+            <option value="confirmed">확정</option>
+            <option value="completed">완료</option>
+            <option value="cancelled">취소</option>
+          </select>
+        </label>
+        <button type="submit">조회</button>
+      </form>
+
+      <section className="admin-operational-table-card">
+        <div className="admin-operational-table-heading">
+          <strong>전체 예약</strong>
+          <span>
+            {data?.pagination.totalItems.toLocaleString("ko-KR") ?? "0"}건
+          </span>
+        </div>
+        {error ? <p className="admin-operational-error">{error}</p> : null}
+        <div className="admin-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>치과</th>
+                <th>환자</th>
+                <th>유형</th>
+                <th>상태</th>
+                <th>예약 희망 일시</th>
+                <th>접수 일시</th>
+                <th>요청 정보</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data?.items.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.clinic.name ?? "—"}</td>
+                  <td>{item.patientName ?? "—"}</td>
+                  <td>{reservationSourceLabel(item.bookingSource)}</td>
+                  <td><StatusChip status={item.status} /></td>
+                  <td>{adminDirectoryDateTime(item.scheduledAt)}</td>
+                  <td>{adminDirectoryDateTime(item.createdAt)}</td>
+                  <td>
+                    {item.additionalRequest ||
+                    item.recentTreatmentNote ||
+                    item.cancelReason ? (
+                      <details className="admin-operational-details">
+                        <summary>내용 보기</summary>
+                        {item.additionalRequest ? (
+                          <p><strong>추가 요청</strong>{item.additionalRequest}</p>
+                        ) : null}
+                        {item.recentTreatmentNote ? (
+                          <p><strong>최근 치료</strong>{item.recentTreatmentNote}</p>
+                        ) : null}
+                        {item.cancelReason ? (
+                          <p><strong>취소 사유</strong>{item.cancelReason}</p>
+                        ) : null}
+                      </details>
+                    ) : "—"}
+                  </td>
+                </tr>
+              ))}
+              {!isLoading && (data?.items.length ?? 0) === 0 ? (
+                <EmptyRow colSpan={7} label="조건에 맞는 예약이 없습니다." />
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        {isLoading ? <p className="admin-operational-loading">예약을 불러오는 중입니다.</p> : null}
+        {data ? (
+          <OperationalPagination
+            pagination={data.pagination}
+            onPageChange={setCurrentPage}
+          />
+        ) : null}
+      </section>
+    </section>
+  );
+}
+
+function AdminConsultationsTab({ accessToken }: { accessToken: string }) {
+  const [draftFilters, setDraftFilters] =
+    useState<AdminConsultationDirectoryFilters>(
+      defaultAdminConsultationDirectoryFilters,
+    );
+  const [filters, setFilters] = useState<AdminConsultationDirectoryFilters>(
+    defaultAdminConsultationDirectoryFilters,
+  );
+  const [currentPage, setCurrentPage] = useState(1);
+  const [data, setData] = useState<AdminConsultationDirectoryPayload | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadConsultations = useCallback(async () => {
+    if (!accessToken) return;
+    setIsLoading(true);
+    setError("");
+    try {
+      setData(
+        await fetchAdminConsultationDirectory(accessToken, filters, currentPage),
+      );
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "전문의 소견 목록을 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, currentPage, filters]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => void loadConsultations(), 0);
+    return () => window.clearTimeout(timeout);
+  }, [loadConsultations]);
+
+  function applyFilters(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCurrentPage(1);
+    setFilters({ ...draftFilters, query: draftFilters.query.trim() });
+  }
+
+  return (
+    <section className="admin-operational-page">
+      <form className="admin-operational-filters" onSubmit={applyFilters}>
+        <label className="admin-operational-search">
+          <span>병원명, 환자명 또는 제목</span>
+          <input
+            type="search"
+            value={draftFilters.query}
+            placeholder="검색어를 입력해 주세요."
+            onChange={(event) =>
+              setDraftFilters((current) => ({
+                ...current,
+                query: event.target.value,
+              }))
+            }
+          />
+        </label>
+        <label>
+          <span>상태</span>
+          <select
+            value={draftFilters.status}
+            onChange={(event) =>
+              setDraftFilters((current) => ({
+                ...current,
+                status: event.target.value,
+              }))
+            }
+          >
+            <option value="all">전체</option>
+            <option value="pending">답변 대기</option>
+            <option value="completed">답변 완료</option>
+          </select>
+        </label>
+        <button type="submit">조회</button>
+      </form>
+
+      <section className="admin-operational-table-card">
+        <div className="admin-operational-table-heading">
+          <strong>전문의 소견 요청</strong>
+          <span>
+            {data?.pagination.totalItems.toLocaleString("ko-KR") ?? "0"}건
+          </span>
+        </div>
+        {error ? <p className="admin-operational-error">{error}</p> : null}
+        <div className="admin-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>치과</th>
+                <th>환자</th>
+                <th>제목</th>
+                <th>분류</th>
+                <th>상태</th>
+                <th>요청 일시</th>
+                <th>답변</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data?.items.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.clinic.name ?? "—"}</td>
+                  <td>{item.patientName ?? "—"}</td>
+                  <td>{item.title}</td>
+                  <td>{adminConsultationCategoryLabel(item.categoryCode)}</td>
+                  <td><StatusChip status={item.status} /></td>
+                  <td>{adminDirectoryDateTime(item.createdAt)}</td>
+                  <td>
+                    {item.responsePreview ? (
+                      <details className="admin-operational-details">
+                        <summary>{adminDirectoryDateTime(item.respondedAt)}</summary>
+                        <p>{item.responsePreview}</p>
+                      </details>
+                    ) : "—"}
+                  </td>
+                </tr>
+              ))}
+              {!isLoading && (data?.items.length ?? 0) === 0 ? (
+                <EmptyRow colSpan={7} label="조건에 맞는 전문의 소견 요청이 없습니다." />
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        {isLoading ? (
+          <p className="admin-operational-loading">전문의 소견을 불러오는 중입니다.</p>
+        ) : null}
+        {data ? (
+          <OperationalPagination
+            pagination={data.pagination}
+            onPageChange={setCurrentPage}
+          />
+        ) : null}
+      </section>
+    </section>
+  );
+}
+
+function PartnerInviteDirectoryTab({
+  accessToken,
+  onRevoke,
+}: {
+  accessToken: string;
+  onRevoke: (inviteId: string) => Promise<boolean>;
+}) {
+  const [draftFilters, setDraftFilters] = useState<AdminInviteDirectoryFilters>(
+    defaultAdminInviteDirectoryFilters,
+  );
+  const [filters, setFilters] = useState<AdminInviteDirectoryFilters>(
+    defaultAdminInviteDirectoryFilters,
+  );
+  const [currentPage, setCurrentPage] = useState(1);
+  const [data, setData] = useState<AdminInviteDirectoryPayload | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [busyInviteId, setBusyInviteId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  const loadInvites = useCallback(async () => {
+    if (!accessToken) return;
+    setIsLoading(true);
+    setError("");
+    try {
+      setData(await fetchAdminInviteDirectory(accessToken, filters, currentPage));
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "파트너 초대코드를 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, currentPage, filters]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => void loadInvites(), 0);
+    return () => window.clearTimeout(timeout);
+  }, [loadInvites]);
+
+  function applyFilters(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCurrentPage(1);
+    setFilters({ ...draftFilters, query: draftFilters.query.trim() });
+  }
+
+  async function handleRevoke(inviteId: string) {
+    if (!window.confirm("이 초대코드를 폐기할까요? 폐기 후에는 사용할 수 없습니다.")) {
+      return;
+    }
+    setBusyInviteId(inviteId);
+    const succeeded = await onRevoke(inviteId);
+    setBusyInviteId(null);
+    if (succeeded) await loadInvites();
+  }
+
+  return (
+    <section className="admin-operational-page">
+      <form className="admin-operational-filters" onSubmit={applyFilters}>
+        <label className="admin-operational-search">
+          <span>치과명</span>
+          <input
+            type="search"
+            value={draftFilters.query}
+            placeholder="치과명을 입력해 주세요."
+            onChange={(event) =>
+              setDraftFilters((current) => ({
+                ...current,
+                query: event.target.value,
+              }))
+            }
+          />
+        </label>
+        <label>
+          <span>초대 역할</span>
+          <select
+            value={draftFilters.role}
+            onChange={(event) =>
+              setDraftFilters((current) => ({ ...current, role: event.target.value }))
+            }
+          >
+            <option value="all">전체</option>
+            <option value="owner">대표자</option>
+            <option value="doctor">치과의사</option>
+            <option value="manager">매니저</option>
+            <option value="staff">스태프</option>
+          </select>
+        </label>
+        <label>
+          <span>상태</span>
+          <select
+            value={draftFilters.status}
+            onChange={(event) =>
+              setDraftFilters((current) => ({
+                ...current,
+                status: event.target.value,
+              }))
+            }
+          >
+            <option value="all">전체</option>
+            <option value="pending_owner_claim">대표자 인증 대기</option>
+            <option value="active">사용 가능</option>
+            <option value="redeemed">사용 완료</option>
+            <option value="revoked">폐기</option>
+          </select>
+        </label>
+        <button type="submit">조회</button>
+      </form>
+
+      <section className="admin-operational-table-card">
+        <div className="admin-operational-table-heading">
+          <strong>파트너 초대코드</strong>
+          <span>
+            {data?.pagination.totalItems.toLocaleString("ko-KR") ?? "0"}건
+          </span>
+        </div>
+        <p className="admin-operational-guidance">
+          보안을 위해 초대코드 원문은 표시하지 않습니다.
+        </p>
+        {error ? <p className="admin-operational-error">{error}</p> : null}
+        <div className="admin-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>치과</th>
+                <th>역할</th>
+                <th>발급자</th>
+                <th>상태</th>
+                <th>발급 일시</th>
+                <th>만료 일시</th>
+                <th>사용 일시</th>
+                <th>처리</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data?.items.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.clinic.name ?? "—"}</td>
+                  <td>{adminMembershipRoleLabel(item.role)}</td>
+                  <td>{adminDirectoryPersonLabel(item.issuer)}</td>
+                  <td><span className="admin-operational-status">{adminInviteStatusLabel(item.status)}</span></td>
+                  <td>{adminDirectoryDateTime(item.issuedAt ?? item.createdAt)}</td>
+                  <td>{adminDirectoryDateTime(item.expiresAt)}</td>
+                  <td>{adminDirectoryDateTime(item.redeemedAt)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="admin-small-button"
+                      disabled={item.status !== "active" || busyInviteId === item.id}
+                      onClick={() => void handleRevoke(item.id)}
+                    >
+                      {busyInviteId === item.id ? "처리 중" : "폐기"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {!isLoading && (data?.items.length ?? 0) === 0 ? (
+                <EmptyRow colSpan={8} label="조건에 맞는 초대코드가 없습니다." />
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        {isLoading ? <p className="admin-operational-loading">초대코드를 불러오는 중입니다.</p> : null}
+        {data ? (
+          <OperationalPagination
+            pagination={data.pagination}
+            onPageChange={setCurrentPage}
+          />
+        ) : null}
+      </section>
+    </section>
+  );
+}
+
+function ClinicMembershipRequestsTab({
+  accessToken,
+  onDecision,
+}: {
+  accessToken: string;
+  onDecision: (
+    clinicId: string,
+    userId: string,
+    status: "active" | "revoked",
+  ) => Promise<boolean>;
+}) {
+  const [draftFilters, setDraftFilters] =
+    useState<AdminClinicMembershipRequestFilters>(
+      defaultAdminClinicMembershipRequestFilters,
+    );
+  const [filters, setFilters] = useState<AdminClinicMembershipRequestFilters>(
+    defaultAdminClinicMembershipRequestFilters,
+  );
+  const [currentPage, setCurrentPage] = useState(1);
+  const [data, setData] =
+    useState<AdminClinicMembershipRequestPayload | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [busyRequestKey, setBusyRequestKey] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  const loadRequests = useCallback(async () => {
+    if (!accessToken) return;
+    setIsLoading(true);
+    setError("");
+    try {
+      setData(
+        await fetchAdminClinicMembershipRequests(
+          accessToken,
+          filters,
+          currentPage,
+        ),
+      );
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "소속 신청 목록을 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, currentPage, filters]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => void loadRequests(), 0);
+    return () => window.clearTimeout(timeout);
+  }, [loadRequests]);
+
+  function applyFilters(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCurrentPage(1);
+    setFilters({ ...draftFilters, query: draftFilters.query.trim() });
+  }
+
+  async function handleDecision(
+    clinicId: string,
+    userId: string,
+    status: "active" | "revoked",
+  ) {
+    const label = status === "active" ? "승인" : "반려";
+    if (!window.confirm(`이 소속 신청을 ${label}할까요?`)) return;
+    const key = `${clinicId}:${userId}`;
+    setBusyRequestKey(key);
+    const succeeded = await onDecision(clinicId, userId, status);
+    setBusyRequestKey(null);
+    if (succeeded) await loadRequests();
+  }
+
+  return (
+    <section className="admin-operational-page">
+      <form className="admin-operational-filters" onSubmit={applyFilters}>
+        <label className="admin-operational-search">
+          <span>치과명, 이름 또는 이메일</span>
+          <input
+            type="search"
+            value={draftFilters.query}
+            placeholder="검색어를 입력해 주세요."
+            onChange={(event) =>
+              setDraftFilters((current) => ({
+                ...current,
+                query: event.target.value,
+              }))
+            }
+          />
+        </label>
+        <label>
+          <span>신청 역할</span>
+          <select
+            value={draftFilters.role}
+            onChange={(event) =>
+              setDraftFilters((current) => ({ ...current, role: event.target.value }))
+            }
+          >
+            <option value="all">전체</option>
+            <option value="owner">대표자</option>
+            <option value="doctor">치과의사</option>
+            <option value="manager">매니저</option>
+            <option value="staff">스태프</option>
+          </select>
+        </label>
+        <button type="submit">조회</button>
+      </form>
+
+      <section className="admin-operational-table-card">
+        <div className="admin-operational-table-heading">
+          <strong>승인 대기 신청</strong>
+          <span>
+            {data?.pagination.totalItems.toLocaleString("ko-KR") ?? "0"}건
+          </span>
+        </div>
+        {error ? <p className="admin-operational-error">{error}</p> : null}
+        <div className="admin-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>치과</th>
+                <th>신청자</th>
+                <th>이메일</th>
+                <th>역할</th>
+                <th>신청 일시</th>
+                <th>처리</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data?.items.map((item) => {
+                const clinicId = item.clinic.id;
+                const userId = item.user.id;
+                const key = `${clinicId}:${userId}`;
+                const isBusy = busyRequestKey === key;
+                return (
+                  <tr key={key}>
+                    <td>{item.clinic.name ?? "—"}</td>
+                    <td>{item.user.fullName ?? "—"}</td>
+                    <td>{item.user.email ?? "—"}</td>
+                    <td>{adminMembershipRoleLabel(item.role)}</td>
+                    <td>{adminDirectoryDateTime(item.requestedAt)}</td>
+                    <td>
+                      <div className="admin-operational-actions">
+                        <button
+                          type="button"
+                          className="admin-small-button"
+                          disabled={!clinicId || !userId || isBusy}
+                          onClick={() =>
+                            clinicId && userId
+                              ? void handleDecision(clinicId, userId, "active")
+                              : undefined
+                          }
+                        >
+                          승인
+                        </button>
+                        <button
+                          type="button"
+                          className="admin-small-button admin-small-button--danger"
+                          disabled={!clinicId || !userId || isBusy}
+                          onClick={() =>
+                            clinicId && userId
+                              ? void handleDecision(clinicId, userId, "revoked")
+                              : undefined
+                          }
+                        >
+                          반려
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!isLoading && (data?.items.length ?? 0) === 0 ? (
+                <EmptyRow colSpan={6} label="승인 대기 중인 소속 신청이 없습니다." />
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        {isLoading ? <p className="admin-operational-loading">소속 신청을 불러오는 중입니다.</p> : null}
+        {data ? (
+          <OperationalPagination
+            pagination={data.pagination}
+            onPageChange={setCurrentPage}
+          />
+        ) : null}
+      </section>
+    </section>
+  );
+}
+
+function TermsManagementTab({
+  accessToken,
+  onPublish,
+}: {
+  accessToken: string;
+  onPublish: (
+    documentId: string,
+    body: { contentUrl: string; changeSummary: string },
+  ) => Promise<boolean>;
+}) {
+  const [data, setData] = useState<AdminTermsManagementPayload | null>(null);
+  const [selectedDocument, setSelectedDocument] =
+    useState<AdminManagedTermDocument | null>(null);
+  const [contentUrl, setContentUrl] = useState("");
+  const [changeSummary, setChangeSummary] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [error, setError] = useState("");
+
+  const loadTerms = useCallback(async () => {
+    if (!accessToken) return;
+    setIsLoading(true);
+    setError("");
+    try {
+      setData(await fetchAdminTerms(accessToken));
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "약관 문서를 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => void loadTerms(), 0);
+    return () => window.clearTimeout(timeout);
+  }, [loadTerms]);
+
+  function openPublish(document: AdminManagedTermDocument) {
+    setSelectedDocument(document);
+    setContentUrl(document.activeVersion?.contentUrl ?? "");
+    setChangeSummary("");
+  }
+
+  async function handlePublish(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedDocument || !contentUrl.trim()) return;
+    if (
+      !window.confirm(
+        "새 버전을 즉시 활성화할까요? 기존 버전은 이력으로 보존됩니다.",
+      )
+    ) {
+      return;
+    }
+    setIsPublishing(true);
+    const succeeded = await onPublish(selectedDocument.id, {
+      contentUrl: contentUrl.trim(),
+      changeSummary: changeSummary.trim(),
+    });
+    setIsPublishing(false);
+    if (succeeded) {
+      setSelectedDocument(null);
+      await loadTerms();
+    }
+  }
+
+  return (
+    <section className="admin-terms-management">
+      <div className="admin-terms-guidance">
+        <strong>버전 게시 원칙</strong>
+        <p>
+          게시된 약관 버전은 수정하거나 삭제하지 않습니다. 새 버전을 게시하면
+          해당 문서의 기존 활성 버전은 자동으로 비활성화되고 이력에 남습니다.
+        </p>
+      </div>
+      {error ? <p className="admin-operational-error">{error}</p> : null}
+      {isLoading ? <p className="admin-operational-loading">약관을 불러오는 중입니다.</p> : null}
+      <div className="admin-terms-grid">
+        {data?.items.map((document) => (
+          <article className="admin-term-card" key={document.id}>
+            <div className="admin-term-card-heading">
+              <div>
+                <span>{document.code}</span>
+                <h2>{document.title}</h2>
+              </div>
+              <span className="admin-operational-status">
+                {document.isRequired ? "필수" : "선택"}
+              </span>
+            </div>
+            <dl className="admin-term-summary">
+              <div><dt>적용 서비스</dt><dd>{adminTermAudienceLabel(document.appliesTo)}</dd></div>
+              <div><dt>언어</dt><dd>{document.locale}</dd></div>
+              <div><dt>활성 버전</dt><dd>{document.activeVersion ? `v${document.activeVersion.version}` : "—"}</dd></div>
+              <div><dt>시행 일시</dt><dd>{adminDirectoryDateTime(document.activeVersion?.effectiveAt ?? null)}</dd></div>
+            </dl>
+            {document.activeVersion ? (
+              <a
+                className="admin-term-content-link"
+                href={document.activeVersion.contentUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                현재 약관 열기
+              </a>
+            ) : null}
+            <details className="admin-term-history">
+              <summary>버전 이력 {document.versions.length}개</summary>
+              {document.versions.length ? (
+                <ol>
+                  {document.versions.map((version) => (
+                    <li key={version.id}>
+                      <div>
+                        <strong>v{version.version}</strong>
+                        {version.isActive ? <span>활성</span> : null}
+                      </div>
+                      <p>{version.changeSummary ?? "변경 요약 없음"}</p>
+                      <small>{adminDirectoryDateTime(version.effectiveAt)}</small>
+                    </li>
+                  ))}
+                </ol>
+              ) : <p>게시 이력이 없습니다.</p>}
+            </details>
+            {data.canManage ? (
+              <button
+                type="button"
+                className="admin-term-publish-trigger"
+                onClick={() => openPublish(document)}
+              >
+                새 버전 게시
+              </button>
+            ) : null}
+          </article>
+        ))}
+      </div>
+      {!isLoading && (data?.items.length ?? 0) === 0 ? (
+        <div className="admin-operational-empty">등록된 약관 문서가 없습니다.</div>
+      ) : null}
+
+      {selectedDocument ? (
+        <div
+          className="admin-dialog-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isPublishing) {
+              setSelectedDocument(null);
+            }
+          }}
+        >
+          <section
+            className="admin-dialog admin-term-publish-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="term-publish-title"
+          >
+            <div className="admin-dialog-heading">
+              <div>
+                <h2 id="term-publish-title">새 약관 버전 게시</h2>
+                <p>{selectedDocument.title}</p>
+              </div>
+              <button
+                type="button"
+                aria-label="닫기"
+                disabled={isPublishing}
+                onClick={() => setSelectedDocument(null)}
+              >
+                ×
+              </button>
+            </div>
+            <form className="admin-term-publish-form" onSubmit={handlePublish}>
+              <label>
+                <span>약관 콘텐츠 URL</span>
+                <input
+                  required
+                  type="text"
+                  value={contentUrl}
+                  placeholder="https://... 또는 /terms/..."
+                  onChange={(event) => setContentUrl(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>변경 요약</span>
+                <textarea
+                  maxLength={500}
+                  value={changeSummary}
+                  placeholder="사용자에게 적용되는 주요 변경 사항을 입력해 주세요."
+                  onChange={(event) => setChangeSummary(event.target.value)}
+                />
+                <small>{changeSummary.length}/500</small>
+              </label>
+              <div className="admin-dialog-actions">
+                <button
+                  type="button"
+                  disabled={isPublishing}
+                  onClick={() => setSelectedDocument(null)}
+                >
+                  취소
+                </button>
+                <button type="submit" disabled={isPublishing || !contentUrl.trim()}>
+                  {isPublishing ? "게시 중" : "즉시 게시"}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function AdminAuditLogTab({ accessToken }: { accessToken: string }) {
+  const [draftFilters, setDraftFilters] =
+    useState<AdminAuditLogFilters>(defaultAdminAuditLogFilters);
+  const [filters, setFilters] =
+    useState<AdminAuditLogFilters>(defaultAdminAuditLogFilters);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [data, setData] = useState<AdminAuditLogPayload | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadAuditLog = useCallback(async () => {
+    if (!accessToken) return;
+    setIsLoading(true);
+    setError("");
+    try {
+      setData(await fetchAdminAuditLog(accessToken, filters, currentPage));
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "감사 로그를 불러오지 못했습니다.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, currentPage, filters]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => void loadAuditLog(), 0);
+    return () => window.clearTimeout(timeout);
+  }, [loadAuditLog]);
+
+  function applyFilters(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCurrentPage(1);
+    setFilters({ ...draftFilters, action: draftFilters.action.trim() });
+  }
+
+  return (
+    <section className="admin-operational-page">
+      <form className="admin-operational-filters" onSubmit={applyFilters}>
+        <label className="admin-operational-search">
+          <span>작업 코드</span>
+          <input
+            type="search"
+            value={draftFilters.action}
+            placeholder="예: terms.version.publish"
+            onChange={(event) =>
+              setDraftFilters((current) => ({
+                ...current,
+                action: event.target.value,
+              }))
+            }
+          />
+        </label>
+        <label>
+          <span>결과</span>
+          <select
+            value={draftFilters.result}
+            onChange={(event) =>
+              setDraftFilters((current) => ({
+                ...current,
+                result: event.target.value,
+              }))
+            }
+          >
+            <option value="all">전체</option>
+            <option value="success">성공</option>
+            <option value="failure">실패</option>
+          </select>
+        </label>
+        <button type="submit">조회</button>
+      </form>
+
+      <section className="admin-operational-table-card">
+        <div className="admin-operational-table-heading">
+          <strong>감사 이벤트</strong>
+          <span>
+            {data?.pagination.totalItems.toLocaleString("ko-KR") ?? "0"}건
+          </span>
+        </div>
+        {error ? <p className="admin-operational-error">{error}</p> : null}
+        <div className="admin-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>일시</th>
+                <th>작업</th>
+                <th>실행자</th>
+                <th>대상</th>
+                <th>결과</th>
+                <th>세부 정보</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data?.items.map((item) => (
+                <tr key={item.id}>
+                  <td>{adminDirectoryDateTime(item.createdAt)}</td>
+                  <td>
+                    <strong>{adminAuditActionLabel(item.action)}</strong>
+                    <small className="admin-operational-code">{item.action}</small>
+                  </td>
+                  <td>{adminDirectoryPersonLabel(item.actor)}</td>
+                  <td>{adminDirectoryPersonLabel(item.target)}</td>
+                  <td>
+                    <span className={`admin-operational-result admin-operational-result--${item.result}`}>
+                      {adminAuditResultLabel(item.result)}
+                    </span>
+                  </td>
+                  <td>
+                    {Object.keys(item.metadata).length ? (
+                      <details className="admin-operational-details">
+                        <summary>내용 보기</summary>
+                        <pre>{JSON.stringify(item.metadata, null, 2)}</pre>
+                      </details>
+                    ) : "—"}
+                  </td>
+                </tr>
+              ))}
+              {!isLoading && (data?.items.length ?? 0) === 0 ? (
+                <EmptyRow colSpan={6} label="조건에 맞는 감사 이벤트가 없습니다." />
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        {isLoading ? <p className="admin-operational-loading">감사 로그를 불러오는 중입니다.</p> : null}
+        {data ? (
+          <OperationalPagination
+            pagination={data.pagination}
+            onPageChange={setCurrentPage}
+          />
+        ) : null}
+      </section>
+    </section>
+  );
+}
+
 function OverviewTab({
   data,
   isSuperAdmin,
-  onNavigateLegacy,
   onNavigatePrimary,
 }: {
   data: AdminConsolePayload;
   isSuperAdmin: boolean;
-  onNavigateLegacy: (tab: AdminTab) => void;
   onNavigatePrimary: (tab: PrimaryAdminTab) => void;
 }) {
   const pendingHospitalReviews = data.manualHospitalSubmissions.filter(
@@ -6306,6 +7247,24 @@ function OverviewTab({
           description: "제출된 치과의사 면허증을 승인하거나 반려합니다.",
           icon: "/Type=Accept.svg",
         },
+        {
+          tab: "clinic-membership-requests",
+          label: "소속 신청 관리",
+          description: "파트너스 사용자의 치과 소속 신청을 처리합니다.",
+          icon: "/Type=Staff.svg",
+        },
+        {
+          tab: "reservations",
+          label: "예약 운영 관리",
+          description: "전체 예약의 접수 유형과 처리 상태를 조회합니다.",
+          icon: "/Type=Diary.svg",
+        },
+        {
+          tab: "consultations",
+          label: "전문의 소견 운영",
+          description: "전문의 소견 요청과 답변 상태를 조회합니다.",
+          icon: "/Type=Response.svg",
+        },
       ],
     },
     {
@@ -6331,10 +7290,22 @@ function OverviewTab({
           icon: "/Type=Family.svg",
         },
         {
+          tab: "partner-invites",
+          label: "파트너 초대코드 관리",
+          description: "치과별 초대코드 상태와 사용 이력을 관리합니다.",
+          icon: "/Type=Settings.svg",
+        },
+        {
           tab: "memberships",
           label: "멤버십 관리",
           description: "멤버십 제휴 업체와 노출 정보를 관리합니다.",
           icon: "/Type=Ticket.svg",
+        },
+        {
+          tab: "terms-management",
+          label: "약관 관리",
+          description: "서비스별 약관 버전과 게시 이력을 관리합니다.",
+          icon: "/Type=Diary.svg",
         },
       ],
     },
@@ -6353,6 +7324,12 @@ function OverviewTab({
           label: "외부 연결자 관리",
           description: "영업 배정에 사용할 외부 연결자를 관리합니다.",
           icon: "/Type=Share.svg",
+        },
+        {
+          tab: "audit-log",
+          label: "감사 로그",
+          description: "어드민 변경 작업과 처리 결과를 조회합니다.",
+          icon: "/Type=Log.svg",
         },
         ...(isSuperAdmin
           ? [
@@ -6394,7 +7371,7 @@ function OverviewTab({
             label="소속 승인 대기"
             value={pendingMemberships}
             tone="blue"
-            onClick={() => onNavigateLegacy("memberships")}
+            onClick={() => onNavigatePrimary("clinic-membership-requests")}
           />
           <OverviewSummaryCard
             label="활성 파트너 치과"
@@ -6438,14 +7415,11 @@ function OverviewTab({
       ))}
 
       <section className="admin-overview-section" aria-labelledby="overview-operations-title">
-        <div className="admin-overview-section-heading admin-overview-section-heading--action">
+        <div className="admin-overview-section-heading">
           <div>
             <h2 id="overview-operations-title">백그라운드 운영 상태</h2>
             <p>자동 처리 큐와 최근 작업 상태를 확인합니다.</p>
           </div>
-          <button type="button" onClick={() => onNavigateLegacy("operations")}>
-            운영 도구 보기
-          </button>
         </div>
         <div className="admin-overview-operation-grid">
           <div>
@@ -6783,147 +7757,6 @@ function ManualHospitalReviewTab({
   );
 }
 
-function ManualHospitalTab({
-  data,
-  note,
-  onApprove,
-  onNoteChange,
-  onReject,
-}: {
-  data: AdminConsolePayload;
-  note: string;
-  onApprove: (id: string) => void;
-  onNoteChange: (value: string) => void;
-  onReject: (id: string) => void;
-}) {
-  return (
-    <Panel title="수동 병원 가입 심사">
-      <textarea
-        className="admin-note"
-        placeholder="심사 메모를 입력하세요."
-        value={note}
-        onChange={(event) => onNoteChange(event.target.value)}
-      />
-      <div className="admin-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>병원</th>
-              <th>사업자</th>
-              <th>대표자</th>
-              <th>연락처</th>
-              <th>사업자등록증</th>
-              <th>상태</th>
-              <th>처리</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.manualHospitalSubmissions.map((item) => (
-              <tr key={item.id}>
-                <td>
-                  <strong>{item.hospitalName}</strong>
-                  <span>{item.address}</span>
-                </td>
-                <td>{item.businessName}</td>
-                <td>{item.ownerName}</td>
-                <td>{item.representativePhone}</td>
-                <td>
-                  {item.businessLicenseUrl ? (
-                    <a
-                      className="admin-file-link"
-                      href={item.businessLicenseUrl}
-                      rel="noreferrer"
-                      target="_blank"
-                    >
-                      {item.businessLicenseFileName} 열기
-                    </a>
-                  ) : (
-                    item.businessLicenseFileName
-                  )}
-                </td>
-                <td>
-                  <StatusChip status={item.status} />
-                </td>
-                <td>
-                  <ActionGroup>
-                    <button type="button" onClick={() => onApprove(item.id)}>
-                      승인
-                    </button>
-                    <button type="button" onClick={() => onReject(item.id)}>
-                      반려
-                    </button>
-                  </ActionGroup>
-                </td>
-              </tr>
-            ))}
-            {data.manualHospitalSubmissions.length === 0 ? (
-              <EmptyRow colSpan={7} label="심사 대기 중인 수동 병원 가입이 없습니다." />
-            ) : null}
-          </tbody>
-        </table>
-      </div>
-    </Panel>
-  );
-}
-
-function MembershipTab({
-  data,
-  onApprove,
-  onReject,
-}: {
-  data: AdminConsolePayload;
-  onApprove: (clinicId: string, userId: string) => void;
-  onReject: (clinicId: string, userId: string) => void;
-}) {
-  return (
-    <Panel title="소속 신청 승인">
-      <div className="admin-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>병원</th>
-              <th>신청자</th>
-              <th>역할</th>
-              <th>상태</th>
-              <th>신청일</th>
-              <th>처리</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.clinicJoinRequests.map((item) => (
-              <tr key={`${item.clinicId}-${item.userId}`}>
-                <td>{item.clinicName}</td>
-                <td>
-                  <strong>{item.userName ?? "이름 없음"}</strong>
-                  <span>{item.userEmail ?? item.userId}</span>
-                </td>
-                <td>{roleLabel(item.role)}</td>
-                <td>
-                  <StatusChip status={item.status} />
-                </td>
-                <td>{formatDate(item.requestedAt)}</td>
-                <td>
-                  <ActionGroup>
-                    <button type="button" onClick={() => onApprove(item.clinicId, item.userId)}>
-                      승인
-                    </button>
-                    <button type="button" onClick={() => onReject(item.clinicId, item.userId)}>
-                      반려
-                    </button>
-                  </ActionGroup>
-                </td>
-              </tr>
-            ))}
-            {data.clinicJoinRequests.length === 0 ? (
-              <EmptyRow colSpan={6} label="대기 중인 소속 신청이 없습니다." />
-            ) : null}
-          </tbody>
-        </table>
-      </div>
-    </Panel>
-  );
-}
-
 function LicenseReviewTab({
   data,
   isLoading,
@@ -7246,459 +8079,6 @@ function LicenseReviewTab({
   );
 }
 
-function LicenseTab({
-  data,
-  note,
-  onDecision,
-  onNoteChange,
-}: {
-  data: AdminConsolePayload;
-  note: string;
-  onDecision: (userId: string, approved: boolean) => void;
-  onNoteChange: (value: string) => void;
-}) {
-  return (
-    <Panel title="치과의사 면허 인증">
-      <textarea
-        className="admin-note"
-        placeholder="인증 처리 메모를 입력하세요."
-        value={note}
-        onChange={(event) => onNoteChange(event.target.value)}
-      />
-      <div className="admin-card-grid">
-        {data.licenseVerificationRequests.map((item) => (
-          <article className="admin-record-card" key={item.userId}>
-            <div>
-              <h3>{item.displayName ?? "이름 없음"}</h3>
-              <p>{item.email ?? item.userId}</p>
-            </div>
-            <dl>
-              <div>
-                <dt>직책</dt>
-                <dd>{item.jobTitle ?? "-"}</dd>
-              </div>
-              <div>
-                <dt>상태</dt>
-                <dd>{item.licenseVerified ? "승인완료" : "미승인"}</dd>
-              </div>
-              {item.latestSubmission ? (
-                <>
-                  <div>
-                    <dt>제출 상태</dt>
-                    <dd>{statusLabel(item.latestSubmission.status)}</dd>
-                  </div>
-                  <div>
-                    <dt>제출일</dt>
-                    <dd>{formatDate(item.latestSubmission.submittedAt)}</dd>
-                  </div>
-                  <div>
-                    <dt>면허 파일</dt>
-                    <dd>
-                      {item.latestSubmission.signedUrl ? (
-                        <a
-                          className="admin-file-link"
-                          href={item.latestSubmission.signedUrl}
-                          rel="noreferrer"
-                          target="_blank"
-                        >
-                          {item.latestSubmission.fileName} 열기
-                        </a>
-                      ) : (
-                        <span className="admin-file-unavailable">
-                          {item.latestSubmission.fileName} 링크 없음
-                        </span>
-                      )}
-                    </dd>
-                  </div>
-                </>
-              ) : (
-                <div>
-                  <dt>면허 파일</dt>
-                  <dd>-</dd>
-                </div>
-              )}
-            </dl>
-            <ActionGroup>
-              <button type="button" onClick={() => onDecision(item.userId, true)}>
-                승인
-              </button>
-              <button type="button" onClick={() => onDecision(item.userId, false)}>
-                반려
-              </button>
-            </ActionGroup>
-          </article>
-        ))}
-        {data.licenseVerificationRequests.length === 0 ? (
-          <EmptyState label="면허 인증 대상이 없습니다." />
-        ) : null}
-      </div>
-    </Panel>
-  );
-}
-
-function ClinicsTab({ data }: { data: AdminConsolePayload }) {
-  return (
-    <Panel title="파트너 병원 관리">
-      <div className="admin-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>병원</th>
-              <th>연락처</th>
-              <th>파트너</th>
-              <th>오너</th>
-              <th>직원</th>
-              <th>등록일</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.clinics.map((clinic) => (
-              <tr key={clinic.id}>
-                <td>
-                  <strong>{clinic.name}</strong>
-                  <span>{clinic.address ?? "주소 없음"}</span>
-                </td>
-                <td>{clinic.phone ?? "-"}</td>
-                <td>{clinic.isChikapickPartner ? "예" : "아니오"}</td>
-                <td>{clinic.ownerCount}</td>
-                <td>{clinic.memberCount}</td>
-                <td>{formatDate(clinic.createdAt)}</td>
-              </tr>
-            ))}
-            {data.clinics.length === 0 ? (
-              <EmptyRow colSpan={6} label="등록된 병원 데이터가 없습니다." />
-            ) : null}
-          </tbody>
-        </table>
-      </div>
-    </Panel>
-  );
-}
-
-function UsersTab({
-  data,
-  inviteEmail,
-  inviteName,
-  inviteRole,
-  onInvite,
-  onInviteEmailChange,
-  onInviteNameChange,
-  onInviteRoleChange,
-  onPasswordReset,
-  onUnlock,
-}: {
-  data: AdminConsolePayload;
-  inviteEmail: string;
-  inviteName: string;
-  inviteRole: AdminAccountRole;
-  onInvite: () => void;
-  onInviteEmailChange: (value: string) => void;
-  onInviteNameChange: (value: string) => void;
-  onInviteRoleChange: (value: AdminAccountRole) => void;
-  onPasswordReset: (userId: string) => void;
-  onUnlock: (userId: string) => void;
-}) {
-  return (
-    <Panel title="어드민 계정 관리">
-      <form
-        className="admin-inline-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onInvite();
-        }}
-      >
-        <label>
-          <span>이름</span>
-          <input
-            value={inviteName}
-            onChange={(event) => onInviteNameChange(event.target.value)}
-          />
-        </label>
-        <label>
-          <span>이메일</span>
-          <input
-            inputMode="email"
-            type="email"
-            value={inviteEmail}
-            onChange={(event) => onInviteEmailChange(event.target.value)}
-          />
-        </label>
-        <label>
-          <span>역할</span>
-          <select
-            value={inviteRole}
-            onChange={(event) =>
-              onInviteRoleChange(event.target.value as AdminAccountRole)
-            }
-          >
-            <option value="admin">admin</option>
-            <option value="super_admin">super admin</option>
-            <option value="sales">영업 계정</option>
-          </select>
-        </label>
-        <button type="submit">초대 메일 발송</button>
-      </form>
-      <div className="admin-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>사용자</th>
-              <th>역할</th>
-              <th>계정 상태</th>
-              <th>소속</th>
-              <th>관리자 처리</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.users.map((user) => {
-              const lockedAt = user.adminSecurity?.lockedAt ?? null;
-              const failedLoginCount = user.adminSecurity?.failedLoginCount ?? 0;
-              const accountStatus = lockedAt ? "locked" : (user.accountStatus ?? "active");
-              const isAdmin =
-                user.roles.includes("admin") ||
-                user.roles.includes("super_admin") ||
-                user.isSuperAdmin === true;
-
-              return (
-                <tr key={user.id}>
-                  <td>
-                    <strong>{user.fullName ?? "이름 없음"}</strong>
-                    <span>{user.email ?? user.id}</span>
-                  </td>
-                  <td>
-                    {user.roles.join(", ") || "-"}
-                    {user.isSuperAdmin ? (
-                      <span className="admin-inline-chip">super admin</span>
-                    ) : null}
-                    {user.adminAccountType === "sales" ? (
-                      <span className="admin-inline-chip">영업 계정</span>
-                    ) : null}
-                  </td>
-                  <td>
-                    <StatusChip status={accountStatus} />
-                    <span>
-                      {adminAccountStatusLabel({
-                        accountStatus: user.accountStatus,
-                        lockedAt,
-                      })}
-                      {failedLoginCount > 0 ? ` · 실패 ${failedLoginCount}회` : ""}
-                      {lockedAt ? ` · ${formatDate(lockedAt)}` : ""}
-                    </span>
-                  </td>
-                  <td>
-                    {user.memberships.map((membership) => (
-                      <span className="admin-inline-chip" key={membership.clinicId}>
-                        {membership.clinicName ?? membership.clinicId} ·{" "}
-                        {roleLabel(membership.role)}
-                      </span>
-                    ))}
-                  </td>
-                  <td>
-                    {isAdmin ? (
-                      <ActionGroup>
-                        <button type="button" onClick={() => onPasswordReset(user.id)}>
-                          비밀번호 메일
-                        </button>
-                        <button
-                          type="button"
-                          disabled={!lockedAt}
-                          onClick={() => onUnlock(user.id)}
-                        >
-                          잠금 해제
-                        </button>
-                      </ActionGroup>
-                    ) : (
-                      "-"
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-            {data.users.length === 0 ? (
-              <EmptyRow colSpan={5} label="사용자 데이터가 없습니다." />
-            ) : null}
-          </tbody>
-        </table>
-      </div>
-
-    </Panel>
-  );
-}
-
-function InvitesTab({
-  data,
-  onRevoke,
-}: {
-  data: AdminConsolePayload;
-  onRevoke: (inviteId: string) => void;
-}) {
-  return (
-    <Panel title="초대코드 관리">
-      <div className="admin-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>병원</th>
-              <th>초대 역할</th>
-              <th>상태</th>
-              <th>발급일</th>
-              <th>만료일</th>
-              <th>처리</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.invites.map((invite) => (
-              <tr key={invite.id}>
-                <td>{invite.clinicName ?? "-"}</td>
-                <td>{roleLabel(invite.invitedRole)}</td>
-                <td>
-                  <StatusChip status={invite.status} />
-                </td>
-                <td>{formatDate(invite.issuedAt)}</td>
-                <td>{formatDate(invite.expiresAt)}</td>
-                <td>
-                  <button
-                    className="admin-small-button"
-                    type="button"
-                    disabled={invite.status !== "active"}
-                    onClick={() => onRevoke(invite.id)}
-                  >
-                    폐기
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {data.invites.length === 0 ? (
-              <EmptyRow colSpan={6} label="초대코드 이력이 없습니다." />
-            ) : null}
-          </tbody>
-        </table>
-      </div>
-    </Panel>
-  );
-}
-
-function WorkflowsTab({ data }: { data: AdminConsolePayload }) {
-  return (
-    <section className="admin-two-column">
-      <Panel title="예약 운영 조회">
-        <CompactRows
-          rows={data.reservations.map((item) => [
-            item.clinicName ?? "병원 없음",
-            `${item.patientName ?? "환자"} · ${reservationSourceLabel(
-              item.bookingSource,
-            )} · ${statusLabel(item.status)}`,
-            formatDate(item.scheduledAt ?? item.createdAt),
-          ])}
-          emptyLabel="예약 데이터가 없습니다."
-        />
-      </Panel>
-      <Panel title="전문의 소견 운영 조회">
-        <CompactRows
-          rows={data.consultations.map((item) => [
-            item.clinicName ?? "병원 없음",
-            `${item.title} · ${statusLabel(item.status)}`,
-            formatDate(item.createdAt),
-          ])}
-          emptyLabel="전문의 소견 데이터가 없습니다."
-        />
-      </Panel>
-    </section>
-  );
-}
-
-function TermsTab({ data }: { data: AdminConsolePayload }) {
-  return (
-    <Panel title="약관 문서 및 버전">
-      <CompactRows
-        rows={data.terms.map((term) => [
-          term.title,
-          `${term.code} · v${term.activeVersion ?? "-"}`,
-          term.isRequired ? "필수" : "선택",
-        ])}
-        emptyLabel="약관 데이터가 없습니다."
-      />
-    </Panel>
-  );
-}
-
-function OperationsTab({ data }: { data: AdminConsolePayload }) {
-  return (
-    <section className="admin-two-column">
-      <Panel title="AI/큐 상태">
-        <QueueList
-          items={[
-            ["전문의 소견 AI 설명 대기", data.operations.aiPendingCount],
-            ["HIRA 진료시간 보강 대기", data.operations.hiraOperatingHoursPendingCount],
-          ]}
-        />
-      </Panel>
-      <Panel title="운영 메모">
-        <p className="admin-plain-text">{data.operations.recentJobNote ?? "최근 운영 메모가 없습니다."}</p>
-      </Panel>
-    </section>
-  );
-}
-
-function Panel({
-  children,
-  title,
-}: {
-  children: React.ReactNode;
-  title: string;
-}) {
-  return (
-    <section className="admin-panel">
-      <div className="admin-panel-heading">
-        <h2>{title}</h2>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function QueueList({
-  items,
-}: {
-  items: Array<[string, number | string]>;
-}) {
-  return (
-    <div className="admin-queue-list">
-      {items.map(([label, value]) => (
-        <div key={label}>
-          <span>{label}</span>
-          <strong>{typeof value === "number" ? value.toLocaleString("ko-KR") : value}</strong>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function CompactRows({
-  emptyLabel,
-  rows,
-}: {
-  emptyLabel: string;
-  rows: string[][];
-}) {
-  if (rows.length === 0) return <EmptyState label={emptyLabel} />;
-  return (
-    <div className="admin-compact-rows">
-      {rows.map((row) => (
-        <article key={row.join("-")}>
-          <strong>{row[0]}</strong>
-          <span>{row[1]}</span>
-          <em>{row[2]}</em>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-function ActionGroup({ children }: { children: React.ReactNode }) {
-  return <div className="admin-action-group">{children}</div>;
-}
-
 function StatusChip({ status }: { status: string }) {
   return <span className={`admin-status admin-status--${status}`}>{statusLabel(status)}</span>;
 }
@@ -7711,31 +8091,6 @@ function EmptyRow({ colSpan, label }: { colSpan: number; label: string }) {
       </td>
     </tr>
   );
-}
-
-function EmptyState({ label }: { label: string }) {
-  return <p className="admin-empty-state">{label}</p>;
-}
-
-function roleLabel(role: string) {
-  const labels: Record<string, string> = {
-    owner: "대표자",
-    doctor: "치과의사",
-    manager: "관리자",
-    staff: "스태프",
-  };
-  return labels[role] ?? role;
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "-";
-  return new Intl.DateTimeFormat("ko-KR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
 }
 
 function maskIcon(icon: string): React.CSSProperties {

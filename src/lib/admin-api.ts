@@ -110,58 +110,10 @@ export interface AdminUser {
   }>;
 }
 
-export interface AdminInvite {
-  id: string;
-  clinicName: string | null;
-  invitedRole: MembershipRole;
-  status: string;
-  expiresAt: string | null;
-  issuedAt: string | null;
-  redeemedAt: string | null;
-}
-
-export interface AdminReservation {
-  id: string;
-  clinicName: string | null;
-  patientName: string | null;
-  status: string;
-  bookingSource?: string;
-  instantSlotId?: string | null;
-  scheduledAt: string | null;
-  createdAt: string;
-}
-
-export interface AdminConsultation {
-  id: string;
-  clinicName: string | null;
-  patientName: string | null;
-  title: string;
-  status: string;
-  createdAt: string;
-  respondedAt: string | null;
-}
-
-export interface AdminTermDocument {
-  id: string;
-  code: string;
-  title: string;
-  appliesTo: string | null;
-  isRequired: boolean;
-  activeVersion: number | null;
-  updatedAt: string;
-}
-
 export interface AdminOperations {
   aiPendingCount: number;
   hiraOperatingHoursPendingCount: number;
   recentJobNote: string | null;
-}
-
-export interface AdminExternalConnector {
-  id: string;
-  name: string;
-  affiliation: string | null;
-  createdAt: string;
 }
 
 export interface AdminConsolePayload {
@@ -171,11 +123,6 @@ export interface AdminConsolePayload {
   licenseVerificationRequests: LicenseVerificationRequest[];
   clinics: AdminClinic[];
   users: AdminUser[];
-  externalConnectors: AdminExternalConnector[];
-  invites: AdminInvite[];
-  reservations: AdminReservation[];
-  consultations: AdminConsultation[];
-  terms: AdminTermDocument[];
   operations: AdminOperations;
 }
 
@@ -263,6 +210,87 @@ export async function revokeInvite(accessToken: string, inviteId: string) {
     `/api/v1/admin/invites/${inviteId}/revoke`,
     accessToken,
     { method: "POST" },
+  );
+}
+
+export async function fetchAdminTerms(accessToken: string) {
+  return adminFetch<AdminTermsManagementPayload>("/api/v1/admin/terms", accessToken);
+}
+
+export async function publishAdminTermVersion(
+  accessToken: string,
+  documentId: string,
+  body: { contentUrl: string; changeSummary: string },
+) {
+  return adminFetch<AdminActionResult & { version?: unknown }>(
+    `/api/v1/admin/terms/${encodeURIComponent(documentId)}/versions`,
+    accessToken,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}
+
+export async function fetchAdminReservationDirectory(
+  accessToken: string,
+  filters: AdminReservationDirectoryFilters,
+  page: number,
+  pageSize = 10,
+) {
+  const params = directoryParams(filters, page, pageSize);
+  return adminFetch<AdminReservationDirectoryPayload>(
+    `/api/v1/admin/reservations?${params.toString()}`,
+    accessToken,
+  );
+}
+
+export async function fetchAdminConsultationDirectory(
+  accessToken: string,
+  filters: AdminConsultationDirectoryFilters,
+  page: number,
+  pageSize = 10,
+) {
+  const params = directoryParams(filters, page, pageSize);
+  return adminFetch<AdminConsultationDirectoryPayload>(
+    `/api/v1/admin/consultations?${params.toString()}`,
+    accessToken,
+  );
+}
+
+export async function fetchAdminInviteDirectory(
+  accessToken: string,
+  filters: AdminInviteDirectoryFilters,
+  page: number,
+  pageSize = 10,
+) {
+  const params = directoryParams(filters, page, pageSize);
+  return adminFetch<AdminInviteDirectoryPayload>(
+    `/api/v1/admin/invites?${params.toString()}`,
+    accessToken,
+  );
+}
+
+export async function fetchAdminClinicMembershipRequests(
+  accessToken: string,
+  filters: AdminClinicMembershipRequestFilters,
+  page: number,
+  pageSize = 10,
+) {
+  const params = directoryParams(filters, page, pageSize);
+  return adminFetch<AdminClinicMembershipRequestPayload>(
+    `/api/v1/admin/clinic-memberships?${params.toString()}`,
+    accessToken,
+  );
+}
+
+export async function fetchAdminAuditLog(
+  accessToken: string,
+  filters: AdminAuditLogFilters,
+  page: number,
+  pageSize = 20,
+) {
+  const params = directoryParams(filters, page, pageSize);
+  return adminFetch<AdminAuditLogPayload>(
+    `/api/v1/admin/audit-log?${params.toString()}`,
+    accessToken,
   );
 }
 
@@ -645,6 +673,22 @@ export function isAdminApiNotFound(error: unknown) {
   return error instanceof AdminApiError && error.status === 404;
 }
 
+function directoryParams(
+  filters: object,
+  page: number,
+  pageSize: number,
+) {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  for (const [key, value] of Object.entries(filters as Record<string, string>)) {
+    const clean = value.trim();
+    if (clean && clean !== "all") params.set(key, clean);
+  }
+  return params;
+}
+
 async function adminFetch<T>(
   path: string,
   accessToken: string,
@@ -713,3 +757,16 @@ import type {
   AdminMembershipManagementPayload,
   MembershipCategory,
 } from "./membership-management";
+import type {
+  AdminAuditLogFilters,
+  AdminAuditLogPayload,
+  AdminClinicMembershipRequestFilters,
+  AdminClinicMembershipRequestPayload,
+  AdminConsultationDirectoryFilters,
+  AdminConsultationDirectoryPayload,
+  AdminInviteDirectoryFilters,
+  AdminInviteDirectoryPayload,
+  AdminReservationDirectoryFilters,
+  AdminReservationDirectoryPayload,
+  AdminTermsManagementPayload,
+} from "./admin-platform-operations";

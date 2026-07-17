@@ -114,6 +114,7 @@ Before pushing, always run `npm run test`, `npm run lint`, and `npm run build`.
 - `src/lib/browser-session.ts` - Admin browser session registration and heartbeat against ChikaPick API.
 - `src/lib/session-device.ts` - Browser device/session payload helpers.
 - `src/lib/admin-api.ts` - Typed Admin API client wrappers for `ChikaPick_API`.
+- `src/lib/admin-platform-operations.ts` - Shared types, filters, Korean labels, and Korea-time presentation for Admin reservations, consultations, clinic-membership requests, partner invites, terms, and audit events.
 - `src/lib/external-connectors.ts` - External-connector directory types and Korea-date presentation helper.
 - `src/lib/secret-feedback.ts` - Anonymous reservation-feedback types plus Client-aligned rating/tag labels, assets, and Korea-date presentation.
 - `src/lib/chikapick-accounts.ts` - Patient account lookup payload plus provider/status/country labels and Korea-time presentation.
@@ -129,7 +130,7 @@ Path alias `@/*` maps to `./src/*`.
 
 ## Admin API Contracts
 
-The console fetches one aggregate payload from `GET /api/v1/admin/console`, then renders all tabs from that payload. Mutations call specific admin endpoints and reload the aggregate payload on success. Reservation rows include `bookingSource` and `instantSlotId` so Admin can distinguish 즉시 예약 from 일반 예약. User rows include `isSuperAdmin`, `adminAccountType`, and `adminSecurity` so Admin can display super-admin state, distinguish general Admin and sales accounts, and show failed login count and locked accounts before enabling unlock actions. The aggregate also includes non-login external connectors added through account management.
+The dashboard fetches a compact aggregate payload from `GET /api/v1/admin/console` for review counters, clinic/user summaries, and background-operation counts. Large operational directories use their own server-filtered and paginated endpoints; do not add reservation, consultation, invite, terms-history, external-connector, or audit-log arrays back to the aggregate. Mutations call specific admin endpoints and reload the authoritative destination. User rows include `isSuperAdmin`, `adminAccountType`, and `adminSecurity` so Admin can display super-admin state, distinguish general Admin and sales accounts, and show failed login count and locked accounts before enabling unlock actions.
 
 Dental-sales detail payloads include `canEditAssignment`, which is derived server-side from the current Admin account. Use that flag to expose the 담당자 정보 edit control; the assignment mutation is also enforced as super-admin-only by the API. Salesperson options come from active Admin accounts whose `adminAccountType` is `sales`, external-connector options come from the non-login external-connector records added in account management, and the assignment mutation persists both selections. The detail also includes `hospitalInformation`, a read-only live Partners payload for the linked clinic that powers the 100% completion review popup.
 
@@ -141,9 +142,16 @@ Current Admin API calls:
 - `GET /api/v1/admin/manual-hospital-submissions`
 - `POST /api/v1/admin/manual-hospital-submissions/:submissionId/approve`
 - `POST /api/v1/admin/manual-hospital-submissions/:submissionId/reject`
+- `GET /api/v1/admin/clinic-memberships`
 - `PATCH /api/v1/admin/clinic-memberships/:clinicId/:userId`
 - `PATCH /api/v1/admin/license-verifications/:userId`
+- `GET /api/v1/admin/invites`
 - `POST /api/v1/admin/invites/:inviteId/revoke`
+- `GET /api/v1/admin/reservations`
+- `GET /api/v1/admin/consultations`
+- `GET /api/v1/admin/terms`
+- `POST /api/v1/admin/terms/:documentId/versions`
+- `GET /api/v1/admin/audit-log`
 - `POST /api/v1/admin/auth/login`
 - `GET /api/v1/admin/accounts`
 - `POST /api/v1/admin/accounts/invite`
@@ -179,24 +187,24 @@ Do not expose plaintext invite codes in Admin. The invite tab should inspect inv
 
 ## Current Admin Surfaces
 
-- 운영 현황: live operational landing dashboard shared by the primary and legacy `운영 현황` navigation items. Status-aware cards count only pending hospital reviews, pending clinic memberships, pending dentist-license submissions, and active partner clinics; each card routes to the authoritative management surface. Grouped shortcuts expose the completed clinic, account/service, and administrator workflows, with Super Admin-only sales performance hidden from other admins. Background queue counts and the latest job note continue to come from the aggregate Admin console payload.
+- 운영 현황: live operational landing dashboard and the only dashboard navigation item. Status-aware cards count pending hospital reviews, pending clinic memberships, pending dentist-license submissions, and active partner clinics; each card routes to the authoritative management surface. Grouped shortcuts expose every current clinic, account/service, and administrator workflow, with Super Admin-only sales performance hidden from other admins. Background queue counts and the latest job note continue to come from the compact Admin console payload. The former `기존 관리 메뉴` and its duplicate components are removed.
 - 치과 영업 관리: live nationwide HIRA clinic sales directory from `ChikaPick_API`, with server-owned filters/pagination, regional owner-code copying, status/detail display, an accessible hover/focus status glossary beside the page title, and a responsive full-page detail view. The detail view provides a super-admin-only inline editor whose salesperson list comes from active sales accounts and whose external-connector list comes from the non-login contacts added in 어드민 계정 관리; both assignments are persisted by the API. At 100% hospital-information completion, `등록 정보 검토하기` opens an accessible, responsive, read-only popup ported from the Partners hospital-information page and backed by that clinic's live five-section completion payload. Visit creation/history remains immutable and timestamped. The visit-registration modal stores the custom title inside the existing immutable note contract; selected visit attachments and the business-registration upload control currently perform browser-side JPG/PNG/PDF and 10MB validation only because no Admin upload endpoint exists yet. `NOT_VISITED`, `VISITING`, and `SIGNED` are backend lifecycle states; signed rows show `INFORMATION_MISSING` until all five Partners hospital-information sections are complete, then `ACTIVE`.
 - 영업 성과 관리: Super Admin-only monthly `SIGNED` clinic report. The navigation item is hidden from other admins and the API independently returns 403. Month inclusion uses either tracked status timestamp in Korea time, the displayed date is the later timestamp, filters come from active sales accounts and external connectors, and unassigned parties render as `-`. The three summary cards count salesperson-only, external-only, and both-assigned rows after filtering; detail status defaults to `ACTIVE` (`사용중`).
 - 파트너 치과 관리: live partner-only clinic directory with server-owned free-text search and 10-row pagination. Rows show representative name, active doctor/staff counts, latest active Partners-device heartbeat, and the clinic registration timestamp. `상세보기` opens a responsive full-page operational dashboard backed by live aggregate metrics; `Type=Hospital.svg` is used in the summary card, and the existing accessible read-only hospital-information review remains available from the completion card. Browser Back/Forward restores the default list/detail state, matching 치과 영업 관리 detail navigation. Editing remains in Partners.
 - 병원 가입 심사: all manual owner hospital submissions with server-owned 10-row pagination, request-account/date/status display, short-lived private business-license links, inline approval, and rejection through a required-reason dialog. Pending, approved, rejected, and cancelled rows remain visible as review history.
-- 소속 신청 승인: pending doctor/staff clinic memberships, approve/reject.
+- 소속 신청 관리: global, server-paginated pending clinic-membership queue with role and private server-side clinic/user search. Admin can approve or reject requests across every clinic; each mutation reloads the authoritative queue and is audited.
 - 치과의사 면허 인증: live actively affiliated owner/doctor counts split into verified, pending, and not-requested states. Pending submissions show the dentist, clinic, title, Korea-time request timestamp, and a short-lived private file link. Approval displays the Figma success dialog only after the API mutation succeeds; rejection requires a trimmed reason in an accessible dialog and sends it through the existing audit-note contract.
-- 병원 관리: inspect ChikaPick partner clinics, owner counts, active member counts, and registration dates.
-- 사용자/권한 관리: inspect users, roles, memberships, account status, super-admin state, and admin lock state.
 - 치카픽 계정 조회: exact-email patient account lookup backed by `ChikaPick_API`. Results are masked by the server by default and show login provider, identity/contact/country fields, patient account status, creation/last-access/withdrawal timestamps, and family-account registration/member names. `마스킹 해제` makes an explicit audited API request; do not expose already-unmasked PII in browser state before that request succeeds.
 - 파트너스 계정 조회: server-paginated Partners account directory backed by `ChikaPick_API`, with private server-side name/email/phone/clinic search, current clinic and representative/dentist/staff classification, Partners-device last activity, and UUID-based row detail. `단일 계정 정보 상세 조회하기` opens the Figma full-page exact-email search state with masked email/name/phone, patient country/family registration, Partners clinic/classification, account/activity timestamps, and a dedicated no-result state. `마스킹 해제` requires a separate audited API request; directory and UUID-detail responses continue to omit raw phone data.
 - 어드민 계정 관리: server-paginated Admin-only directory with role chips, name/email/ID search, Korea-time last-login/joined dates, invitation/active/locked status, and row actions. Super admins can use the Figma-aligned account-creation modal to invite admin, super-admin, and sales accounts with the required email and role fields; the API's initial display name is derived from the email local part. The Figma row dropdown sends password-reset emails, locks/unlocks accounts, or withdraws Admin access. Lock and withdrawal require confirmation and refresh the server-owned directory; withdrawal revokes Admin sessions without deleting unrelated patient/partner profiles.
 - 외부 연결자 관리: Figma-aligned, server-paginated active contact directory with name, affiliation, Korea registration date, responsive table, and super-admin-only registration/deletion. Registration requires both name and affiliation. Deletion is confirmed in the browser and soft-deactivates the API row so it disappears from future 치과 영업 관리 assignment choices without erasing historical references.
 - 치카픽 멤버십 관리: live server-paginated partner directory with category/search/sort filters, inline editing, soft deletion, and visibility toggles. `업체 등록` opens the Figma-aligned full-page two-column form for card/detail content, member benefits, inquiry routing, asset uploads, tags, reorderable list items, and extended-content metadata; the requested `Type=Grip.svg` and `Type=Delete.svg` assets are used on reorderable rows. The inquiry column shows the API-owned pending request count and requester snapshots; all partner mutations reload the authoritative list and are audited by `ChikaPick_API`.
 - 시크릿 피드백: Admin-only submitted reservation-feedback metrics and server-paginated list. `상세보기` opens an anonymous right-side drawer ported from the Client survey and reuses its tracked Piki rating, Safe, and Close assets without exposing patient identity.
-- 초대코드 관리: inspect invite status and revoke unused invites without exposing plaintext invite codes.
-- 예약/전문의 소견 운영 조회: admin-wide operational oversight, including 즉시 예약 vs 일반 예약 source labels.
-- 약관/운영 도구: terms version overview and operational queue/job status.
+- 파트너 초대코드 관리: server-paginated clinic/status/role directory with issuer and lifecycle timestamps. Admin may revoke active codes, but the UI and API never expose plaintext invite codes.
+- 예약 운영 관리: server-paginated global reservation oversight with clinic/patient search, lifecycle and booking-source filters, 즉시 예약 vs 일반 예약 labels, request context, and cancellation reasons.
+- 전문의 소견 운영: server-paginated global consultation oversight with clinic/patient/title search, lifecycle filtering, category, request/response timestamps, and a bounded response preview.
+- 약관 관리: Admin-readable immutable version history for every terms document. Only Super Admin can publish a new URL-backed version; publishing atomically increments and activates it, retains prior versions, prevents published content edits/deletion, and writes an audit event.
+- 감사 로그: server-paginated Admin audit-event directory with action/result filters, actor/target presentation, and structured metadata details.
 
 ## Environment Variables
 

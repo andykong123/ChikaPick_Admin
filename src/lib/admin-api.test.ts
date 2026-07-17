@@ -9,21 +9,28 @@ import {
   deleteAdminExternalConnector,
   deleteAdminMembershipPartner,
   fetchAdminAccountDirectory,
+  fetchAdminAuditLog,
+  fetchAdminClinicMembershipRequests,
+  fetchAdminConsultationDirectory,
   fetchAdminDentalSales,
   fetchAdminDentalSalesDetail,
   fetchAdminExternalConnectors,
+  fetchAdminInviteDirectory,
   fetchAdminManualHospitalSubmissions,
   fetchAdminMembershipManagement,
   fetchAdminPartnerClinicDetail,
   fetchAdminPartnerAccountDetail,
   fetchAdminPartnerClinics,
+  fetchAdminReservationDirectory,
   fetchAdminSalesPerformance,
   fetchAdminSecretFeedback,
+  fetchAdminTerms,
   inviteAdminAccount,
   isAdminApiNotFound,
   lockAdminAccount,
   lookupAdminChikapickAccount,
   lookupAdminPartnerAccount,
+  publishAdminTermVersion,
   searchAdminPartnerAccounts,
   sendAdminPasswordReset,
   unlockAdminAccount,
@@ -799,4 +806,108 @@ test("createAdminDentalSalesVisit posts an immutable visit payload", async () =>
   );
   assert.equal(calls[0]?.init?.method, "POST");
   assert.deepEqual(JSON.parse(calls[0]?.init?.body as string), body);
+});
+
+test("operational directory clients send only applied server filters", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(
+      JSON.stringify({
+        items: [],
+        pagination: { page: 2, pageSize: 10, totalItems: 0, totalPages: 1 },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+
+  try {
+    await fetchAdminReservationDirectory(
+      "access-token",
+      { query: "  서울 치과  ", status: "confirmed", bookingSource: "all" },
+      2,
+    );
+    await fetchAdminConsultationDirectory(
+      "access-token",
+      { query: "", status: "pending" },
+      1,
+    );
+    await fetchAdminInviteDirectory(
+      "access-token",
+      { query: "강남", status: "active", role: "doctor" },
+      3,
+    );
+    await fetchAdminClinicMembershipRequests(
+      "access-token",
+      { query: "홍길동", role: "staff" },
+      4,
+    );
+    await fetchAdminAuditLog(
+      "access-token",
+      { action: " terms.version ", result: "success" },
+      5,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const reservationUrl = new URL(calls[0]?.input.toString() ?? "");
+  assert.equal(reservationUrl.pathname, "/api/v1/admin/reservations");
+  assert.equal(reservationUrl.searchParams.get("page"), "2");
+  assert.equal(reservationUrl.searchParams.get("query"), "서울 치과");
+  assert.equal(reservationUrl.searchParams.get("status"), "confirmed");
+  assert.equal(reservationUrl.searchParams.has("bookingSource"), false);
+
+  assert.equal(
+    calls[1]?.input,
+    "https://api.example.com/api/v1/admin/consultations?page=1&pageSize=10&status=pending",
+  );
+  assert.equal(
+    calls[2]?.input,
+    "https://api.example.com/api/v1/admin/invites?page=3&pageSize=10&query=%EA%B0%95%EB%82%A8&status=active&role=doctor",
+  );
+  assert.equal(
+    calls[3]?.input,
+    "https://api.example.com/api/v1/admin/clinic-memberships?page=4&pageSize=10&query=%ED%99%8D%EA%B8%B8%EB%8F%99&role=staff",
+  );
+  assert.equal(
+    calls[4]?.input,
+    "https://api.example.com/api/v1/admin/audit-log?page=5&pageSize=20&action=terms.version&result=success",
+  );
+});
+
+test("terms management loads history and publishes a new immutable version", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(JSON.stringify({ items: [], canManage: true, ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    await fetchAdminTerms("access-token");
+    await publishAdminTermVersion("access-token", "document/id", {
+      contentUrl: "https://example.com/terms/v2",
+      changeSummary: "예약 취소 조항 변경",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(calls[0]?.input, "https://api.example.com/api/v1/admin/terms");
+  assert.equal(
+    calls[1]?.input,
+    "https://api.example.com/api/v1/admin/terms/document%2Fid/versions",
+  );
+  assert.equal(calls[1]?.init?.method, "POST");
+  assert.deepEqual(JSON.parse(calls[1]?.init?.body as string), {
+    contentUrl: "https://example.com/terms/v2",
+    changeSummary: "예약 취소 조항 변경",
+  });
 });
