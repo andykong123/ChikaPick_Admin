@@ -2259,6 +2259,12 @@ textarea:focus-visible {
   height: 20px;
   display: block;
   background-color: var(--chika-secondary-6);
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
 }
 
 .admin-overview-shortcut-copy {

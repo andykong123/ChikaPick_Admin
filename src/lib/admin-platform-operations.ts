@@ -220,9 +220,21 @@ export function adminConsultationCategoryLabel(categoryCode: string | null) {
   if (!categoryCode) return "미분류";
   return (
     {
+      tooth_pain: "치아 통증",
+      dental_trauma: "치아 파절 / 외상",
+      cavity: "충치 치료",
+      cavity_treatment: "충치 치료",
+      sensitive_teeth: "시린 치아",
+      scaling_gum_treatment: "스케일링 / 잇몸 치료",
+      wisdom_tooth_extraction: "사랑니 발치",
+      root_canal: "신경 치료",
+      prosthodontic: "보철 치료",
+      tmj: "턱관절",
+      pediatric_dentistry: "소아 치과",
+      oral_checkup: "구강 검진",
       treatment_plan: "치료 계획",
       implant: "임플란트",
-      orthodontics: "교정",
+      orthodontics: "치아 교정",
       prosthetics: "보철",
       general: "일반 진료",
     }[categoryCode] ?? categoryCode

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   adminAuditActionLabel,
+  adminConsultationCategoryLabel,
   adminDirectoryDateTime,
   adminInviteStatusLabel,
   adminMembershipRoleLabel,
@@ -22,4 +23,42 @@ test("platform operation timestamps render in Korea time and handle missing valu
   assert.match(adminDirectoryDateTime("2026-07-17T00:00:00.000Z"), /9:00/);
   assert.equal(adminDirectoryDateTime(null), "—");
   assert.equal(adminDirectoryDateTime("not-a-date"), "—");
+});
+
+test("consultation category labels localize every canonical Partners category", () => {
+  assert.deepEqual(
+    [
+      "tooth_pain",
+      "dental_trauma",
+      "cavity",
+      "cavity_treatment",
+      "sensitive_teeth",
+      "scaling_gum_treatment",
+      "wisdom_tooth_extraction",
+      "root_canal",
+      "prosthodontic",
+      "implant",
+      "orthodontics",
+      "tmj",
+      "pediatric_dentistry",
+      "oral_checkup",
+    ].map(adminConsultationCategoryLabel),
+    [
+      "치아 통증",
+      "치아 파절 / 외상",
+      "충치 치료",
+      "충치 치료",
+      "시린 치아",
+      "스케일링 / 잇몸 치료",
+      "사랑니 발치",
+      "신경 치료",
+      "보철 치료",
+      "임플란트",
+      "치아 교정",
+      "턱관절",
+      "소아 치과",
+      "구강 검진",
+    ],
+  );
+  assert.equal(adminConsultationCategoryLabel(null), "미분류");
 });
