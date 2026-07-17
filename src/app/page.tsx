@@ -236,6 +236,28 @@ const primaryTabs = [
 ] as const;
 
 type PrimaryAdminTab = (typeof primaryTabs)[number]["id"];
+type AdminContentLayout = "fluid" | "compact" | "form";
+
+const primaryTabContentLayouts: Record<PrimaryAdminTab, AdminContentLayout> = {
+  dashboard: "fluid",
+  "dental-sales": "fluid",
+  "partner-clinics": "fluid",
+  "hospital-review": "fluid",
+  "license-review": "fluid",
+  "clinic-membership-requests": "fluid",
+  reservations: "fluid",
+  consultations: "fluid",
+  "secret-feedback": "compact",
+  "chikapick-accounts": "fluid",
+  "partner-accounts": "fluid",
+  "partner-invites": "fluid",
+  memberships: "fluid",
+  "terms-management": "fluid",
+  "sales-performance": "fluid",
+  "admin-accounts": "fluid",
+  "external-connectors": "fluid",
+  "audit-log": "fluid",
+};
 
 const primaryTabDescriptions: Record<PrimaryAdminTab, string> = {
   dashboard: "치카픽의 주요 운영 지표를 확인하고 각 관리 메뉴로 바로 이동할 수 있습니다.",
@@ -328,6 +350,9 @@ export default function AdminHome() {
   const visiblePrimaryTabs = primaryTabs.filter(
     (tab) => tab.id !== "sales-performance" || isSuperAdmin,
   );
+  const adminContentLayout: AdminContentLayout = isMembershipRegistrationView
+    ? "form"
+    : primaryTabContentLayouts[activePrimaryTab];
 
   const applyDetailSelection = useCallback(
     (selection: AdminDetailHistorySelection | null) => {
@@ -802,7 +827,7 @@ export default function AdminHome() {
         ) : null}
 
         <div
-          className={`admin-content${
+          className={`admin-content admin-content--layout-${adminContentLayout}${
             activePrimaryTab === "dental-sales" ? " admin-content--sales" : ""
           }${
             activePrimaryTab === "partner-clinics"

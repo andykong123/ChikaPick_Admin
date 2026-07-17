@@ -40,7 +40,6 @@
 }
 
 .admin-content--memberships {
-  max-width: none;
   gap: 0;
   padding: 32px 32px 48px;
 }
@@ -655,7 +654,6 @@
 }
 
 .admin-membership-registration {
-  width: min(100%, 1136px);
   min-width: 0;
   margin: 0;
   color: #000b26;
@@ -2081,11 +2079,32 @@ textarea:focus-visible {
 
 .admin-content {
   width: 100%;
-  max-width: 1220px;
+  max-width: none;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 20px;
   padding: 24px 32px 48px;
+}
+
+.admin-content--layout-fluid > * {
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-content--layout-compact,
+.admin-content--layout-form {
+  --admin-content-inner-max: 100%;
+}
+
+.admin-content--layout-compact > *,
+.admin-content--layout-form > * {
+  width: min(100%, var(--admin-content-inner-max));
+  min-width: 0;
+}
+
+.admin-content--layout-form {
+  --admin-content-inner-max: 1136px;
 }
 
 .admin-panel,
@@ -2094,10 +2113,6 @@ textarea:focus-visible {
   border-radius: 16px;
   background: var(--surface);
   box-shadow: 0 8px 24px rgba(0, 11, 38, 0.04);
-}
-
-.admin-content--overview {
-  max-width: 1280px;
 }
 
 .admin-overview {
@@ -2648,37 +2663,32 @@ td span {
 }
 
 .admin-content--sales {
-  max-width: none;
   gap: 25px;
   padding-top: 25px;
 }
 
 .admin-content--sales-performance {
-  max-width: none;
   gap: 20px;
   padding-top: 25px;
 }
 
 .admin-content--hospital-review {
-  max-width: none;
   gap: 20px;
   padding-top: 25px;
 }
 
 .admin-content--admin-accounts {
-  max-width: none;
   gap: 24px;
   padding-top: 32px;
 }
 
 .admin-content--external-connectors {
-  max-width: none;
   gap: 0;
   padding-top: 32px;
 }
 
 .admin-content--secret-feedback {
-  max-width: none;
+  --admin-content-inner-max: 583px;
   gap: 0;
   padding-top: 24px;
 }
@@ -2698,7 +2708,6 @@ td span {
 }
 
 .admin-content--chikapick-accounts {
-  max-width: none;
   gap: 0;
   padding: 25px 40px 48px;
 }
@@ -2731,7 +2740,6 @@ td span {
 }
 
 .admin-content--partner-accounts {
-  max-width: none;
   gap: 0;
   padding: 32px 32px 48px;
 }
@@ -3550,7 +3558,6 @@ td span {
 }
 
 .admin-secret-feedback {
-  width: min(100%, 583px);
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -5080,19 +5087,16 @@ td span {
 }
 
 .admin-content--sales-detail {
-  max-width: none;
   padding-top: 24px;
   background: #f5f6f8;
 }
 
 .admin-content--partner-clinics {
-  max-width: none;
   gap: 25px;
   padding-top: 25px;
 }
 
 .admin-content--license-review {
-  max-width: none;
   gap: 20px;
   padding-top: 24px;
 }
@@ -5669,7 +5673,6 @@ td span {
 }
 
 .admin-content--partner-detail {
-  max-width: none;
   gap: 24px;
   padding: 24px 44px 48px;
   background: var(--surface);
