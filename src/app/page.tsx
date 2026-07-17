@@ -740,6 +740,10 @@ export default function AdminHome() {
                 ? " admin-workspace-heading--chikapick-accounts"
                 : ""
             }${
+              activePrimaryTab === "secret-feedback"
+                ? " admin-workspace-heading--secret-feedback"
+                : ""
+            }${
               activePrimaryTab === "partner-accounts"
                 ? " admin-workspace-heading--partner-accounts"
                 : ""

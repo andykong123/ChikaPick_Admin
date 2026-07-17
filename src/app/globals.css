@@ -2683,6 +2683,15 @@ td span {
   padding-top: 24px;
 }
 
+.admin-workspace-heading--secret-feedback h1 {
+  font-weight: 700;
+  letter-spacing: -0.48px;
+}
+
+.admin-workspace-heading--secret-feedback p {
+  color: var(--text-secondary);
+}
+
 .admin-workspace-heading--chikapick-accounts {
   padding-right: 40px;
   padding-left: 40px;
@@ -3544,20 +3553,20 @@ td span {
   width: min(100%, 583px);
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 24px;
   font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
 }
 
 .admin-secret-feedback-metrics {
   width: 100%;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr)) 145px;
   gap: 16px;
 }
 
 .admin-secret-feedback-metrics article {
   min-width: 0;
-  min-height: 72px;
+  height: 90px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -3565,7 +3574,7 @@ td span {
   border: 1px solid #b8bbc2;
   border-radius: 12px;
   background: var(--surface);
-  padding: 16px;
+  padding: 15px;
 }
 
 .admin-secret-feedback-metrics span {
@@ -3613,7 +3622,7 @@ td span {
 
 .admin-secret-feedback-table th:first-child {
   width: 130px;
-  border-top-left-radius: 6px;
+  border-radius: 6px 0 0 6px;
 }
 
 .admin-secret-feedback-table th:nth-child(2) {
@@ -3625,16 +3634,16 @@ td span {
 }
 
 .admin-secret-feedback-table th:last-child {
-  border-top-right-radius: 6px;
+  border-radius: 0 6px 6px 0;
   text-align: center;
 }
 
 .admin-secret-feedback-table td {
-  height: 37px;
+  height: 41px;
   overflow: hidden;
   border-bottom: 1px solid #ececec;
   color: #000b26;
-  padding: 8px 12px;
+  padding: 10px 12px;
   font-size: 13px;
   font-weight: 400;
   line-height: normal;
@@ -3674,13 +3683,16 @@ td span {
 .admin-secret-feedback-table td:last-child button {
   width: 100%;
   min-width: 72px;
-  height: 20px;
+  height: 21px;
   border: 0;
   border-radius: 4px;
   background: #e6ecf9;
   color: #023dc7;
   cursor: pointer;
-  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
   font-family: "Inter", "Pretendard", ui-sans-serif, system-ui, sans-serif;
   font-size: 11px;
   font-weight: 600;
