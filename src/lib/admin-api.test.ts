@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  approveManualHospitalSubmission,
   assignAdminDentalSalesperson,
   assignAdminPartnerClinicOperator,
   bulkUpdateAdminMembershipPartners,
@@ -578,6 +579,37 @@ test("fetchAdminManualHospitalSubmissions requests the Figma review page", async
     (calls[0]?.init?.headers as Record<string, string>).Authorization,
     "Bearer access-token",
   );
+});
+
+test("approveManualHospitalSubmission preserves the one-time invite response", async () => {
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async () =>
+    Response.json({
+      ok: true,
+      message: "병원 가입 요청을 승인했습니다.",
+      clinicId: "clinic-1",
+      invite: {
+        code: "CP-TEST-1234",
+        role: "staff",
+        expiresAt: "2026-08-20T00:00:00.000Z",
+      },
+    });
+
+  try {
+    const result = await approveManualHospitalSubmission(
+      "access-token",
+      "submission-1",
+      "",
+    );
+    assert.deepEqual(result.invite, {
+      code: "CP-TEST-1234",
+      role: "staff",
+      expiresAt: "2026-08-20T00:00:00.000Z",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("fetchAdminDentalSales sends server-side filters and pagination", async () => {

@@ -53,6 +53,7 @@ import {
   type AdminAccountRole,
   type AdminConsolePayload,
   type AdminManualHospitalSubmissionsPayload,
+  type ManualHospitalApprovalResult,
   type ManualHospitalSubmission,
 } from "@/lib/admin-api";
 import {
@@ -570,6 +571,22 @@ export default function AdminHome() {
     }
   }
 
+  async function runResultAction<T>(
+    action: (accessToken: string) => Promise<T>,
+  ): Promise<T | null> {
+    if (!session?.access_token) return null;
+    setMessage("");
+    try {
+      const result = await action(session.access_token);
+      setMessage("처리되었습니다.");
+      await loadConsole(session);
+      return result;
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "처리에 실패했습니다.");
+      return null;
+    }
+  }
+
   function adminResetRedirectUrl() {
     return typeof window === "undefined" ? undefined : window.location.origin;
   }
@@ -908,7 +925,9 @@ export default function AdminHome() {
             <ManualHospitalReviewTab
               accessToken={session?.access_token ?? ""}
               onApprove={(id) =>
-                runAction((token) => approveManualHospitalSubmission(token, id, ""))
+                runResultAction((token) =>
+                  approveManualHospitalSubmission(token, id, ""),
+                )
               }
               onReject={(id, note) =>
                 runAction((token) => rejectManualHospitalSubmission(token, id, note))
@@ -8080,7 +8099,7 @@ function ManualHospitalReviewTab({
   onReject,
 }: {
   accessToken: string;
-  onApprove: (id: string) => Promise<boolean>;
+  onApprove: (id: string) => Promise<ManualHospitalApprovalResult | null>;
   onReject: (id: string, note: string) => Promise<boolean>;
 }) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -8094,6 +8113,9 @@ function ManualHospitalReviewTab({
     useState<ManualHospitalSubmission | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [rejectionError, setRejectionError] = useState("");
+  const [approvalResult, setApprovalResult] =
+    useState<ManualHospitalApprovalResult | null>(null);
+  const [copyMessage, setCopyMessage] = useState("");
 
   const loadSubmissions = useCallback(async () => {
     if (!accessToken) return;
@@ -8126,9 +8148,23 @@ function ManualHospitalReviewTab({
   async function handleApprove(item: ManualHospitalSubmission) {
     if (!window.confirm(`${item.hospitalName} 가입 요청을 승인하시겠습니까?`)) return;
     setActionSubmissionId(item.id);
-    const succeeded = await onApprove(item.id);
-    if (succeeded) await loadSubmissions();
+    const result = await onApprove(item.id);
+    if (result) {
+      setApprovalResult(result);
+      setCopyMessage("");
+      await loadSubmissions();
+    }
     setActionSubmissionId(null);
+  }
+
+  async function copyApprovalInvite() {
+    if (!approvalResult) return;
+    try {
+      await navigator.clipboard.writeText(approvalResult.invite.code);
+      setCopyMessage("초대코드를 복사했습니다.");
+    } catch {
+      setCopyMessage("복사하지 못했습니다. 코드를 직접 선택해 복사해 주세요.");
+    }
   }
 
   function openRejection(item: ManualHospitalSubmission) {
@@ -8357,6 +8393,56 @@ function ManualHospitalReviewTab({
                 </button>
               </div>
             </form>
+          </section>
+        </div>
+      ) : null}
+
+      {approvalResult ? (
+        <div className="admin-hospital-review-dialog-layer">
+          <div className="admin-hospital-review-dialog-backdrop" />
+          <section
+            className="admin-hospital-review-dialog admin-hospital-invite-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-hospital-invite-dialog-title"
+          >
+            <h2 id="admin-hospital-invite-dialog-title">
+              직원 초대코드가 발급되었습니다
+            </h2>
+            <p>
+              이 코드는 지금 한 번만 확인할 수 있습니다. 직원에게 안전하게
+              전달해 주세요.
+            </p>
+            <div className="admin-hospital-invite-code" aria-label="직원 초대코드">
+              {approvalResult.invite.code}
+            </div>
+            <p>
+              만료일:{" "}
+              {new Intl.DateTimeFormat("ko-KR", {
+                dateStyle: "long",
+                timeStyle: "short",
+                timeZone: "Asia/Seoul",
+              }).format(new Date(approvalResult.invite.expiresAt))}
+            </p>
+            {copyMessage ? <p role="status">{copyMessage}</p> : null}
+            <div className="admin-hospital-invite-actions">
+              <button type="button" onClick={() => void copyApprovalInvite()}>
+                초대코드 복사
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setApprovalResult(null);
+                  setCopyMessage("");
+                }}
+              >
+                확인하고 닫기
+              </button>
+            </div>
+            <small>
+              코드를 잃어버린 경우 병원 대표자가 파트너스 직원 관리에서 새
+              코드를 발급할 수 있습니다.
+            </small>
           </section>
         </div>
       ) : null}

@@ -4977,6 +4977,52 @@ td span {
   line-height: 19px;
 }
 
+.admin-hospital-invite-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-hospital-invite-code {
+  border: 1px solid var(--chika-primary-5);
+  border-radius: 10px;
+  background: var(--chika-primary-1);
+  color: var(--chika-primary-5);
+  padding: 16px;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  user-select: all;
+}
+
+.admin-hospital-invite-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-hospital-invite-actions button {
+  min-height: 40px;
+  border: 1px solid var(--chika-primary-5);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--chika-primary-5);
+  padding: 0 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-hospital-invite-actions button:last-child {
+  background: var(--chika-primary-5);
+  color: #fff;
+}
+
+.admin-hospital-invite-dialog small {
+  color: var(--text-tertiary);
+  line-height: 1.5;
+}
+
 .admin-hospital-review-dialog form,
 .admin-hospital-review-dialog label {
   display: flex;

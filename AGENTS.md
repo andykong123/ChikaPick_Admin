@@ -188,7 +188,7 @@ Current Admin API calls:
 
 The backend verifies admin authorization through `user_roles.role = 'admin'` and rejects locked admin accounts through `admin_account_security.locked_at`. Logging in with a non-admin Supabase account can authenticate successfully in Supabase but admin session registration and admin API calls should be rejected by the API.
 
-Do not expose plaintext invite codes in Admin. The invite tab should inspect invite status and allow revocation of unused invites only.
+Outside the one-time hospital-approval result modal, do not expose plaintext invite codes in Admin. The invite tab should inspect invite status and allow revocation of unused invites only.
 
 ## Current Admin Surfaces
 
@@ -210,6 +210,8 @@ Do not expose plaintext invite codes in Admin. The invite tab should inspect inv
 - 전문의 소견 운영: server-paginated global consultation oversight with clinic/patient/title search, lifecycle filtering, category, request/response timestamps, and a bounded response preview.
 - 약관 관리: Admin-readable immutable version history for every terms document. Only Super Admin can publish a new URL-backed version; publishing atomically increments and activates it, retains prior versions, prevents published content edits/deletion, and writes an audit event.
 - 감사 로그: server-paginated Admin audit-event directory with action/result filters, actor/target presentation, and structured metadata details.
+
+병원 가입 승인 성공 시 API가 한 번만 반환하는 직원 초대코드와 만료일을 즉시 복사 모달에 표시합니다. Admin은 평문 코드를 저장하거나 목록에서 재조회하지 않으며, 분실 시 병원 대표자가 Partners `직원 관리`에서 새 코드를 발급합니다.
 
 ## Environment Variables
 

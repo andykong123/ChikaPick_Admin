@@ -131,6 +131,15 @@ export interface AdminActionResult {
   message: string;
 }
 
+export interface ManualHospitalApprovalResult extends AdminActionResult {
+  clinicId: string;
+  invite: {
+    code: string;
+    role: "staff";
+    expiresAt: string;
+  };
+}
+
 import { adminApiBaseUrl } from "./public-env.ts";
 
 export async function fetchAdminConsole(accessToken: string) {
@@ -157,7 +166,7 @@ export async function approveManualHospitalSubmission(
   submissionId: string,
   note: string,
 ) {
-  return adminFetch<AdminActionResult>(
+  return adminFetch<ManualHospitalApprovalResult>(
     `/api/v1/admin/manual-hospital-submissions/${submissionId}/approve`,
     accessToken,
     { method: "POST", body: JSON.stringify({ note }) },
