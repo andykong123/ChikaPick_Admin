@@ -110,6 +110,7 @@ import {
 import { shouldExpireAdminIdleSession } from "@/lib/admin-idle";
 import {
   registerCurrentAdminBrowserSession,
+  signOutCurrentAdminSession,
   startAdminSessionHeartbeat,
 } from "@/lib/browser-session";
 import {
@@ -475,7 +476,7 @@ export default function AdminHome() {
     return startAdminSessionHeartbeat({
       supabase,
       onSessionInvalidated: async () => {
-        await supabase.auth.signOut();
+        await signOutCurrentAdminSession(supabase);
         lastAutoLoadedAccessTokenRef.current = null;
         setSession(null);
         setConsoleData(emptyConsole);
@@ -507,7 +508,7 @@ export default function AdminHome() {
           now: Date.now(),
         })
       ) {
-        void supabase.auth.signOut().then(() => {
+        void signOutCurrentAdminSession(supabase).then(() => {
           lastAutoLoadedAccessTokenRef.current = null;
           setSession(null);
           setConsoleData(emptyConsole);
@@ -553,7 +554,7 @@ export default function AdminHome() {
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
+    await signOutCurrentAdminSession(supabase);
     lastAutoLoadedAccessTokenRef.current = null;
     setSession(null);
   }

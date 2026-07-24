@@ -5,11 +5,16 @@ import {
   getOrCreateBrowserDeviceId,
   isSessionClearingError,
   sessionIdFromAccessToken,
-} from "./session-device";
+} from "./session-device.ts";
 import { adminApiBaseUrl } from "./public-env.ts";
 
 const heartbeatIntervalMs = 5 * 60 * 1000;
 let registeredSessionId: string | null = null;
+
+export function signOutCurrentAdminSession(supabase: SupabaseClient) {
+  registeredSessionId = null;
+  return supabase.auth.signOut({ scope: "local" });
+}
 
 export async function registerCurrentAdminBrowserSession(
   supabase: SupabaseClient,
