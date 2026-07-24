@@ -41,6 +41,7 @@ import {
   lookupAdminPartnerAccount,
   publishAdminTermVersion,
   rejectManualHospitalSubmission,
+  revealInviteCode,
   revokeInvite,
   sendAdminPasswordReset,
   searchAdminPartnerAccounts,
@@ -7106,6 +7107,15 @@ function PartnerInviteDirectoryTab({
   const [data, setData] = useState<AdminInviteDirectoryPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [busyInviteId, setBusyInviteId] = useState<string | null>(null);
+  const [inviteCodeDialog, setInviteCodeDialog] = useState<{
+    inviteId: string;
+    clinicName: string;
+    code: string | null;
+    expiresAt: string | null;
+    error: string;
+    isLoading: boolean;
+  } | null>(null);
+  const [copyMessage, setCopyMessage] = useState("");
   const [error, setError] = useState("");
 
   const loadInvites = useCallback(async () => {
@@ -7144,6 +7154,59 @@ function PartnerInviteDirectoryTab({
     const succeeded = await onRevoke(inviteId);
     setBusyInviteId(null);
     if (succeeded) await loadInvites();
+  }
+
+  async function openInviteCode(inviteId: string, clinicName: string) {
+    setCopyMessage("");
+    setInviteCodeDialog({
+      inviteId,
+      clinicName,
+      code: null,
+      expiresAt: null,
+      error: "",
+      isLoading: true,
+    });
+    try {
+      const result = await revealInviteCode(accessToken, inviteId);
+      setInviteCodeDialog((current) =>
+        current?.inviteId === inviteId
+          ? {
+              inviteId,
+              clinicName: result.clinic.name ?? clinicName,
+              code: result.code,
+              expiresAt: result.expiresAt,
+              error: "",
+              isLoading: false,
+            }
+          : current,
+      );
+    } catch (revealError) {
+      setInviteCodeDialog((current) =>
+        current?.inviteId === inviteId
+          ? {
+              inviteId,
+              clinicName,
+              code: null,
+              expiresAt: null,
+              error:
+                revealError instanceof Error
+                  ? revealError.message
+                  : "초대코드를 확인하지 못했습니다.",
+              isLoading: false,
+            }
+          : current,
+      );
+    }
+  }
+
+  async function copyInviteCode() {
+    if (!inviteCodeDialog?.code) return;
+    try {
+      await navigator.clipboard.writeText(inviteCodeDialog.code);
+      setCopyMessage("초대코드를 복사했습니다.");
+    } catch {
+      setCopyMessage("복사하지 못했습니다. 코드를 직접 선택해 주세요.");
+    }
   }
 
   return (
@@ -7207,7 +7270,7 @@ function PartnerInviteDirectoryTab({
           </span>
         </div>
         <p className="admin-operational-guidance">
-          보안을 위해 초대코드 원문은 표시하지 않습니다.
+          치과명을 누르면 초대코드를 확인하고 복사할 수 있습니다.
         </p>
         {error ? <p className="admin-operational-error">{error}</p> : null}
         <div className="admin-table-wrap">
@@ -7227,7 +7290,21 @@ function PartnerInviteDirectoryTab({
             <tbody>
               {data?.items.map((item) => (
                 <tr key={item.id}>
-                  <td>{item.clinic.name ?? "—"}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="admin-invite-clinic-button"
+                      aria-haspopup="dialog"
+                      onClick={() =>
+                        void openInviteCode(
+                          item.id,
+                          item.clinic.name ?? "치과 정보 없음",
+                        )
+                      }
+                    >
+                      {item.clinic.name ?? "—"}
+                    </button>
+                  </td>
                   <td>{adminMembershipRoleLabel(item.role)}</td>
                   <td>{adminDirectoryPersonLabel(item.issuer)}</td>
                   <td><span className="admin-operational-status">{adminInviteStatusLabel(item.status)}</span></td>
@@ -7260,6 +7337,61 @@ function PartnerInviteDirectoryTab({
           />
         ) : null}
       </section>
+      {inviteCodeDialog ? (
+        <div className="admin-hospital-review-dialog-layer">
+          <button
+            type="button"
+            className="admin-hospital-review-dialog-backdrop"
+            aria-label="초대코드 팝업 닫기"
+            onClick={() => setInviteCodeDialog(null)}
+          />
+          <section
+            className="admin-hospital-review-dialog admin-hospital-invite-dialog admin-partner-invite-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-partner-invite-dialog-title"
+          >
+            <h2 id="admin-partner-invite-dialog-title">
+              {inviteCodeDialog.clinicName}
+            </h2>
+            <p>파트너 초대코드</p>
+            {inviteCodeDialog.isLoading ? (
+              <div className="admin-partner-invite-dialog-message" role="status">
+                초대코드를 불러오는 중입니다.
+              </div>
+            ) : inviteCodeDialog.code ? (
+              <div
+                className="admin-hospital-invite-code"
+                aria-label="파트너 초대코드"
+              >
+                {inviteCodeDialog.code}
+              </div>
+            ) : (
+              <div className="admin-partner-invite-dialog-message" role="alert">
+                {inviteCodeDialog.error}
+              </div>
+            )}
+            {inviteCodeDialog.expiresAt ? (
+              <p>
+                만료일: {adminDirectoryDateTime(inviteCodeDialog.expiresAt)}
+              </p>
+            ) : null}
+            {copyMessage ? <p role="status">{copyMessage}</p> : null}
+            <div className="admin-hospital-invite-actions">
+              <button
+                type="button"
+                disabled={!inviteCodeDialog.code}
+                onClick={() => void copyInviteCode()}
+              >
+                복사
+              </button>
+              <button type="button" onClick={() => setInviteCodeDialog(null)}>
+                확인
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }

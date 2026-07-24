@@ -35,6 +35,7 @@ import {
   lookupAdminChikapickAccount,
   lookupAdminPartnerAccount,
   publishAdminTermVersion,
+  revealInviteCode,
   searchAdminPartnerAccounts,
   sendAdminPasswordReset,
   unlockAdminAccount,
@@ -991,6 +992,39 @@ test("operational directory clients send only applied server filters", async () 
     calls[4]?.input,
     "https://api.example.com/api/v1/admin/audit-log?page=5&pageSize=20&action=terms.version&result=success",
   );
+});
+
+test("invite code reveal posts to the encoded Admin invite endpoint", async () => {
+  const calls: Array<{ input: string | URL | Request; init?: RequestInit }> = [];
+  const originalFetch = globalThis.fetch;
+  process.env.NEXT_PUBLIC_CHIKAPICK_API_BASE_URL = "https://api.example.com";
+  globalThis.fetch = async (input, init) => {
+    calls.push({ input, init });
+    return new Response(
+      JSON.stringify({
+        code: "CP-TEST-1234",
+        clinic: { id: "clinic-1", name: "치카치과" },
+        expiresAt: null,
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  };
+
+  try {
+    const result = await revealInviteCode("access-token", "invite/id");
+    assert.equal(result.code, "CP-TEST-1234");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  assert.equal(
+    calls[0]?.input,
+    "https://api.example.com/api/v1/admin/invites/invite%2Fid/reveal",
+  );
+  assert.equal(calls[0]?.init?.method, "POST");
 });
 
 test("terms management loads history and publishes a new immutable version", async () => {

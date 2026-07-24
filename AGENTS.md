@@ -149,6 +149,7 @@ Current Admin API calls:
 - `PATCH /api/v1/admin/clinic-memberships/:clinicId/:userId`
 - `PATCH /api/v1/admin/license-verifications/:userId`
 - `GET /api/v1/admin/invites`
+- `POST /api/v1/admin/invites/:inviteId/reveal`
 - `POST /api/v1/admin/invites/:inviteId/revoke`
 - `GET /api/v1/admin/reservations`
 - `GET /api/v1/admin/consultations`
@@ -190,7 +191,7 @@ Current Admin API calls:
 
 The backend verifies admin authorization through `user_roles.role = 'admin'` and rejects locked admin accounts through `admin_account_security.locked_at`. Logging in with a non-admin Supabase account can authenticate successfully in Supabase but admin session registration and admin API calls should be rejected by the API.
 
-Outside the one-time hospital-approval result modal, do not expose plaintext invite codes in Admin. The invite tab should inspect invite status and allow revocation of unused invites only.
+Partner invite codes are revealed only through the authenticated, audited `POST /api/v1/admin/invites/:inviteId/reveal` action. Do not include plaintext codes in the paginated directory response or browser state before an explicit clinic-name click. Legacy hash-only rows cannot be recovered and must show the API's unavailable message.
 
 ## Current Admin Surfaces
 
@@ -207,7 +208,7 @@ Outside the one-time hospital-approval result modal, do not expose plaintext inv
 - 외부 연결자 관리: Figma-aligned, server-paginated active contact directory with name, affiliation, Korea registration date, responsive table, and super-admin-only registration/deletion. Registration requires both name and affiliation. Deletion is confirmed in the browser and soft-deactivates the API row so it disappears from future 치과 영업 관리 assignment choices without erasing historical references.
 - 치카픽 멤버십 관리: live server-paginated partner directory with category/search/sort filters, inline editing, soft deletion, visibility toggles, and audited transactional bulk show/hide/delete actions. `업체 등록` opens the Figma-aligned full-page two-column form for card/detail content, member benefits, inquiry routing, drag-and-drop asset uploads, tags, reorderable list items, and extended-content metadata; the requested `Type=Grip.svg` and `Type=Delete.svg` assets are used on reorderable rows. The compact editor toolbar inserts supported emphasis, list, link, and inline-image Markdown; inline images are signature-validated by the API, uploaded with the partner assets, and replaced with public asset URLs before persistence. The inquiry column shows the API-owned pending request count and requester snapshots; all partner mutations reload the authoritative list and are audited by `ChikaPick_API`.
 - 시크릿 피드백: Admin-only submitted reservation-feedback metrics and server-paginated list. `상세보기` opens an anonymous right-side drawer ported from the Client survey and reuses its tracked Piki rating, Safe, and Close assets without exposing patient identity.
-- 파트너 초대코드 관리: server-paginated clinic/status/role directory with issuer and lifecycle timestamps. Admin may revoke active codes, but the UI and API never expose plaintext invite codes.
+- 파트너 초대코드 관리: server-paginated clinic/status/role directory with issuer and lifecycle timestamps. Issuer presentation prefers partner/Admin profile display names and labels issuer-less rows as system-issued. Clicking a clinic name explicitly requests the audited Admin-only reveal action and opens a copy/confirm modal; newly issued codes are decryptable from API-owned ciphertext, while legacy hash-only rows show an unavailable message. Admin may revoke active codes.
 - 예약 운영 관리: server-paginated global reservation oversight with clinic/patient search, lifecycle and booking-source filters, 즉시 예약 vs 일반 예약 labels, request context, and cancellation reasons.
 - 전문의 소견 운영: server-paginated global consultation oversight with clinic/patient/title search, lifecycle filtering, category, request/response timestamps, and a bounded response preview.
 - 약관 관리: Admin-readable immutable version history for every terms document. Only Super Admin can publish a new URL-backed version; publishing atomically increments and activates it, retains prior versions, prevents published content edits/deletion, and writes an audit event.

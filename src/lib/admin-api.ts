@@ -131,6 +131,15 @@ export interface AdminActionResult {
   message: string;
 }
 
+export interface AdminInviteCodeReveal {
+  code: string;
+  clinic: {
+    id: string | null;
+    name: string | null;
+  };
+  expiresAt: string | null;
+}
+
 export interface ManualHospitalApprovalResult extends AdminActionResult {
   clinicId: string;
   invite: {
@@ -215,6 +224,14 @@ export async function updateLicenseVerification(
 export async function revokeInvite(accessToken: string, inviteId: string) {
   return adminFetch<AdminActionResult>(
     `/api/v1/admin/invites/${inviteId}/revoke`,
+    accessToken,
+    { method: "POST" },
+  );
+}
+
+export async function revealInviteCode(accessToken: string, inviteId: string) {
+  return adminFetch<AdminInviteCodeReveal>(
+    `/api/v1/admin/invites/${encodeURIComponent(inviteId)}/reveal`,
     accessToken,
     { method: "POST" },
   );

@@ -5023,6 +5023,42 @@ td span {
   line-height: 1.5;
 }
 
+.admin-invite-clinic-button {
+  border: 0;
+  background: transparent;
+  color: var(--chika-primary-5);
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.admin-invite-clinic-button:hover,
+.admin-invite-clinic-button:focus-visible {
+  color: var(--chika-primary-6);
+}
+
+.admin-partner-invite-dialog-message {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--chika-base-1);
+  color: var(--text-tertiary);
+  padding: 16px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.admin-partner-invite-dialog .admin-hospital-invite-actions button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
 .admin-hospital-review-dialog form,
 .admin-hospital-review-dialog label {
   display: flex;
